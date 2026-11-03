@@ -1,0 +1,53 @@
+name: APK derle
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 17 }
+      - name: Bağımlılıklar
+        run: npm install
+      - name: three.js'i oyunun içine al (çevrimdışı çalışsın)
+        run: |
+          mkdir -p www/lib
+          cp node_modules/three/build/three.module.js www/lib/three.module.js
+          cp -r node_modules/three/examples/jsm www/lib/jsm
+          sed -i 's#https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js#./lib/three.module.js#; s#https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/#./lib/jsm/#' www/index.html
+          grep -n '"three"' www/index.html
+      - name: Android projesi
+        run: |
+          npx cap add android
+          npx cap sync android
+      - name: Yatay ekran + tam ekran
+        run: |
+          M=android/app/src/main/AndroidManifest.xml
+          sed -i 's#<activity#<activity android:screenOrientation="sensorLandscape"#' $M
+          J=$(find android/app/src/main/java -name MainActivity.java)
+          cat > $J <<'JAVA'
+          package com.kizilvadi.game;
+          import android.os.Bundle;
+          import android.view.View;
+          import android.view.WindowManager;
+          import com.getcapacitor.BridgeActivity;
+          public class MainActivity extends BridgeActivity {
+            @Override public void onCreate(Bundle b) { super.onCreate(b);
+              getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON); hide(); }
+            @Override public void onWindowFocusChanged(boolean f) { super.onWindowFocusChanged(f); if (f) hide(); }
+            private void hide() { getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_LAYOUT_STABLE | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION); }
+          }
+          JAVA
+          sed -i 's/^          //' $J
+      - name: APK derle
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kizil-vadi-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
