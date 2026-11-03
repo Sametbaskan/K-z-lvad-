@@ -268,7 +268,7 @@ body{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-c
   <div id="banner"></div>
 
   <div id="me" class="panel">
-    <div class="nm"><span id="meName">Savaşçı</span><small id="meLv">Sv. 1</small></div>
+    <div class="nm"><span id="meName">Savaşçı</span><small id="meLv">Sv. 1</small></div><div id="fpsInfo" style="font:600 9px var(--body);color:#9fb;opacity:.7"></div>
     <div id="buffs"></div>
   </div>
 
@@ -512,11 +512,13 @@ function hAt(x,z){ return MAP.id==='forest'?hForest(x,z):hVillage(x,z); }
 
 /* ============================== sahne ============================== */
 const canvas = $('view');
-const renderer = new THREE.WebGLRenderer({canvas, antialias:true, powerPreference:'high-performance'});
 const coarse = matchMedia('(pointer:coarse)').matches;
-renderer.setPixelRatio(Math.min(devicePixelRatio||1, coarse?1.5:2));
+const renderer = new THREE.WebGLRenderer({canvas, antialias:!coarse, powerPreference:'high-performance'});
+/* dinamik çözünürlük: telefon düşük fps verirse çözünürlük otomatik düşer, rahatlayınca yükselir */
+const PRMAX=coarse?1.25:Math.min(devicePixelRatio||1,2), PRMIN=coarse?.55:.8; let PR=coarse?Math.min(1,devicePixelRatio||1):PRMAX;
+renderer.setPixelRatio(PR);
 renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05; renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = coarse?THREE.PCFShadowMap:THREE.PCFSoftShadowMap;
 const scene = new THREE.Scene();
 { // gökyüzü
   const c = document.createElement('canvas'); c.width=2; c.height=256; const g=c.getContext('2d');
@@ -2281,8 +2283,16 @@ function updateCamera(dt){
   sun.position.set(P.pos.x+30,P.pos.y+48,P.pos.z+18); sun.target.position.copy(P.pos);
 }
 
+let adN=0, adSum=0, adWorst=0, adFps=0;
+function adaptRes(ms){ if(ms>250||ms<=0) return; adSum+=ms; adN++; if(ms>adWorst) adWorst=ms;
+  if(adN>=40){ const avg=adSum/adN; adFps=Math.round(1000/avg); let np=PR;
+    if(avg>24) np=Math.max(PRMIN,PR*(avg>34?.78:.88)); else if(avg<15.5&&PR<PRMAX) np=Math.min(PRMAX,PR*1.1);
+    if(Math.abs(np-PR)>.02){ PR=np; renderer.setPixelRatio(PR); resize(); }
+    const f=document.getElementById('fpsInfo'); if(f) f.textContent=`${adFps} fps · ${Math.round(PR*100)}%`;
+    adN=0; adSum=0; adWorst=0; } }
 function frame(now){
   requestAnimationFrame(frame);
+  if(started&&!window.__freeze) adaptRes(now-last);
   let dt=Math.min(.05,(now-last)/1000); last=now; if(window.__freeze) dt=0; time+=dt;
   if(started){
     for(let i=0;i<cds.length;i++) if(cds[i]>0) cds[i]=Math.max(0,cds[i]-dt);
