@@ -1944,9 +1944,36 @@ const swirlTex=(()=>{ const c=document.createElement('canvas'); c.width=c.height
   const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; return t; })();
 function signTex(text,fg,bg){ const c=document.createElement('canvas'); c.width=512; c.height=128; const g=c.getContext('2d'); g.fillStyle=bg; g.fillRect(0,0,512,128); g.strokeStyle=fg; g.lineWidth=6; g.strokeRect(6,6,500,116);
   g.fillStyle=fg; g.font='700 56px Georgia,serif'; g.textAlign='center'; g.textBaseline='middle'; g.fillText(text,256,68); const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; return t; }
-world.portals=[];
+world.portals=[]; let ARCH=null;
+const ARCH_S=32, ARCH_W=2.9, ARCH_H=5.9;
+const BH_VS='varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}';
+const BH_FS=`varying vec2 vUv;uniform float t;
+void main(){
+  vec2 p=(vUv-.5)*2.; vec2 q=vec2(p.x*${(ARCH_W/2).toFixed(2)},(p.y-.12)*${(ARCH_H/2).toFixed(2)}); float r=length(q); float a=atan(q.y,q.x);
+  float sv=.34; float m;
+  if(p.y<sv) m=1.-smoothstep(.8,1.,abs(p.x)); else { float e=p.x*p.x+pow((p.y-sv)/(1.-sv),2.); m=1.-smoothstep(.62,1.,e); }
+  m*=smoothstep(-1.,-.93,p.y);
+  float sp=a*2.+log(r+.05)*5.-t*1.3; float c1=.5+.5*sin(sp); float c2=.5+.5*sin(a*3.-r*7.+t*.9+sin(r*3.+t*.5)*1.5);
+  float cloud=.55*c1+.45*c2;
+  vec3 pur=vec3(.55,.1,1.), grn=vec3(.1,1.,.5); vec3 col=mix(pur,grn,.5+.5*sin(a*2.+t*.7+r*3.));
+  float core=smoothstep(.42,.66,r); float ring=exp(-pow((r-.8)*3.6,2.));
+  vec3 rgb=col*(cloud*1.05+ring*1.25)*core+vec3(.7,.4,1.)*ring*ring*.18*core;
+  float al=m*max(.98*(1.-core),clamp(.3+cloud*.55+ring,0.,1.));
+  gl_FragColor=vec4(rgb,al);
+}`;
 function buildGate(def,ry,label,glow,signFg){
   const g=new THREE.Group(); g.position.set(def.x,hAt(def.x,def.z),def.z); g.rotation.y=ry;
+  if(ARCH){
+    const am=ARCH.clone(true); am.scale.setScalar(ARCH_S); am.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.receiveShadow=true; o.frustumCulled=true; } }); g.add(am);
+    const u={t:{value:Math.random()*10}};
+    const pm=new THREE.Mesh(new THREE.PlaneGeometry(ARCH_W,ARCH_H),new THREE.ShaderMaterial({vertexShader:BH_VS,fragmentShader:BH_FS,uniforms:u,transparent:true,depthWrite:false,side:THREE.DoubleSide,fog:false}));
+    pm.position.set(.06,3.05,0); g.add(pm);
+    const gl=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,color:0x9a4cff,transparent:true,opacity:.4,depthWrite:false,blending:THREE.AdditiveBlending,fog:false})); gl.position.set(.06,3.2,.1); gl.scale.set(7.5,9,1); g.add(gl);
+    const stx=signTex(label,signFg,'#1a1220'); for(const f of [1,-1]){ const sg=new THREE.Mesh(new THREE.PlaneGeometry(4,1),new THREE.MeshBasicMaterial({map:stx})); sg.position.set(0,8.2,.1*f); if(f<0) sg.rotation.y=Math.PI; g.add(sg); }
+    scene.add(g); world.portals.push({m:pm,gl,u});
+    for(const sx of [-1,1]) addObstacle(def.x+sx*2.15*Math.cos(ry), def.z-sx*2.15*Math.sin(ry), .8);
+    return g;
+  }
   const red=new THREE.MeshLambertMaterial({color:0x8e1f16}), dark=new THREE.MeshLambertMaterial({color:0x2a1b14}), gold=new THREE.MeshLambertMaterial({color:0xc9a24a,emissive:0x3a2a08}), stone=new THREE.MeshLambertMaterial({color:0x8a857a});
   const add=(geo,m,x,y,z)=>{ const me=new THREE.Mesh(geo,m); me.position.set(x,y,z); me.castShadow=true; g.add(me); return me; };
   for(const sx of [-1,1]){ add(new THREE.BoxGeometry(.6,4.6,.6),red,sx*2.15,2.3,0); add(new THREE.BoxGeometry(1.1,.5,1.1),stone,sx*2.15,.25,0); add(new THREE.SphereGeometry(.3,8,6),gold,sx*2.15,4.75,0); }
@@ -2302,7 +2329,7 @@ function frame(now){
     updateMobs(dt); updateDrops(dt); updateProjectiles(dt); updateFx(dt); updateSkills(dt);
     updateMapPrompt();
     }
-    for(const pt of world.portals){ pt.m.rotation.z+=dt*.8; pt.m.material.opacity=.6+.15*Math.sin(time*3); pt.gl.material.opacity=.45+.12*Math.sin(time*2.3); }
+    for(const pt of world.portals){ if(pt.u){ pt.u.t.value+=dt; pt.gl.material.opacity=.36+.08*Math.sin(time*2.1); continue; } pt.m.rotation.z+=dt*.8; pt.m.material.opacity=.6+.15*Math.sin(time*3); pt.gl.material.opacity=.45+.12*Math.sin(time*2.3); }
     if(dest.visible){ dest.userData.t+=dt; dest.scale.setScalar(1+Math.sin(dest.userData.t*8)*.12); if(!P.dest) dest.visible=false; }
     if(world.flag) world.flag.rotation.y=Math.sin(time*2)*.12;
     world.windU.value=time;
@@ -2338,6 +2365,7 @@ async function boot(){
     const hero=buildHero(THREE,JSON.parse(tj),glb,RIDER_OPTS);
     setupPlayer(hero,b); try{ const th=await get('models/horse.glb.b64.txt',()=>{}); const hg=await new Promise((ok,no)=>new GLTFLoader().parse(dec(th),'',ok,no)); setupMount(hg); }catch(e){ console.error('[At] Warhorse Lite yüklenemedi, binek devre dışı:',e); MOUNT.ready=false; }
     if(tm){ try{ const mb=atob(tm.trim()); const mu=new Uint8Array(mb.length); for(let i=0;i<mb.length;i++) mu[i]=mb.charCodeAt(i); prepMaw(L.parse(mu.buffer,''),b); }catch(e){ console.warn('Maw yüklenemedi, eski ork kullanılacak',e); MAW=null; } }
+    try{ const ta=await get('models/archway.b64.txt',()=>{}); const ag=await new Promise((ok,no)=>new GLTFLoader().parse(dec(ta),'',ok,no)); ARCH=ag.scene; }catch(e){ console.error('[Geçit] kemer modeli yüklenemedi, eski kapı kullanılacak:',e); }
     try{ const tp=await get('models/plants.b64.txt',()=>{}); prepPlants(L.parse(dec(tp),'')); }catch(e){ console.error('[Bitki] Bitki paketi (plants kit FBX) yüklenemedi, eski ağaçlar kullanılacak:',e); }
     initMapUI(); initVillageMap(); try{ warmFx(); }catch(e){ console.warn('[Efekt] ısınma atlandı',e); } bar.style.width='100%';
     myTag=document.createElement('div'); myTag.className='tag'; myTag.style.color='#fff'; $('pops').appendChild(myTag);
