@@ -515,7 +515,7 @@ const canvas = $('view');
 const coarse = matchMedia('(pointer:coarse)').matches;
 const renderer = new THREE.WebGLRenderer({canvas, antialias:!coarse, powerPreference:'high-performance'});
 /* dinamik çözünürlük: telefon düşük fps verirse çözünürlük otomatik düşer, rahatlayınca yükselir */
-const PRMAX=coarse?1.25:Math.min(devicePixelRatio||1,2), PRMIN=coarse?.55:.8; let PR=coarse?Math.min(1,devicePixelRatio||1):PRMAX;
+const PRMAX=coarse?Math.min(1.5,devicePixelRatio||1):Math.min(devicePixelRatio||1,2), PRMIN=coarse?1:.8; let PR=PRMAX;   // net görüntü: çözünürlük 1.0'ın altına inmez
 renderer.setPixelRatio(PR);
 renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05; renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = coarse?THREE.PCFShadowMap:THREE.PCFSoftShadowMap;
@@ -1358,7 +1358,7 @@ function buildPlantWorld(kind){
     const inside=Math.abs(x)<HALFc-.5&&Math.abs(z)<HALFc-.5; placed.push([x,z]); put(x,z,rr(.9,1.9),inside&&!FV); extra++;
   }
   PLANT_STATS.extraTrees=extra;
-  const treeR=coarse?72:95;
+  const treeR=coarse?64:95;
   for(const n of treeNames) addPlantSet(n,treeLists[n],treeR,true);
   // 2) çalılar (orman kenarları, yol kenarları), çitler, otlar, çiçekler
   const free=(x,z,pad)=>!plantOnRoad(x,z,3.4)&&!plantBlocked(x,z,pad);
@@ -1368,7 +1368,7 @@ function buildPlantWorld(kind){
   while(nb<(FV?(coarse?50:80):(coarse?110:170))&&tries++<5000){ const a=rnd()*Math.PI*2, d=clearR+5+Math.sqrt(rnd())*(HALFc+10-clearR-5), x=Math.cos(a)*d, z=Math.sin(a)*d;
     if(!free(x,z,1)||!nearTree(x,z)) continue; const big=rnd()<.07, n=big?'Bush-05':bushNames[(rnd()*6)|0];
     bushL[n].push({x,y:hAt(x,z)-.03,z,r:rnd()*6.283,s:rr(.8,1.35)*(big?1:1)}); nb++; if(big&&Math.abs(x)<HALFc&&Math.abs(z)<HALFc){ addObstacle(x,z,1.3); PLANT_STATS.collidable++; } }
-  PLANT_STATS.bushes=nb; for(const n of bushNames) addPlantSet(n,bushL[n],coarse?45:62,false);
+  PLANT_STATS.bushes=nb; for(const n of bushNames) addPlantSet(n,bushL[n],coarse?38:62,false);
   // çitler: köy dış halkasında, yol ağızlarından uzakta kısa çit parçaları
   const hed=[]; for(let i=0;FV&&i<30;i++){ const a=i/30*6.283+.05, d=clearR+3.2, x=Math.cos(a)*d, z=Math.sin(a)*d; if(plantOnRoad(x,z,6.5)||plantBlocked(x,z,.8)) continue; hed.push({x,y:hAt(x,z)-.02,z,r:-a+Math.PI/2,s:1}); addObstacle(x,z,1.0); PLANT_STATS.collidable++; }
   PLANT_STATS.hedges=hed.length; addPlantSet('Hedge-01',hed,70,false);
@@ -1397,9 +1397,9 @@ function buildPlantWorld(kind){
   let nc=0; tries=0; const nGround=Math.round((coarse?280:520)*GQ*(FV?.5:1));
   while(nc<nGround&&tries++<20000){ const a=rnd()*Math.PI*2, d=clearR+4+Math.sqrt(rnd())*(HALFc+6-clearR-4), x=Math.cos(a)*d, z=Math.sin(a)*d;
     if(plantOnRoad(x,z,2.4)&&rnd()<.9) continue; const dn=grassDensity(x,z); if(rnd()>dn*.9||!gfree(x,z,.1)) continue; const patch=Math.sin(x*.19+1)*Math.sin(z*.17-2)>.35; addGround(x,z,patch?.7:.12); nc++; }
-  for(const n of gn) addPlantSet(n,gl[n],coarse?34:46,false);
+  for(const n of gn) addPlantSet(n,gl[n],coarse?28:46,false);
   let ngr=nc; for(const n of cn){ ngr+=0; } for(const n of cn) ngr+=cl[n].length-0; PLANT_STATS.ground=cn.reduce((t,n)=>t+cl[n].length,0);
-  for(const n of cn) addPlantSet(n,cl[n],coarse?24:34,false);
+  for(const n of cn) addPlantSet(n,cl[n],coarse?20:34,false);
   // eski koni ağaçları kaldır
   if(world.oldForest) for(const m of world.oldForest){ scene.remove(m); m.geometry.dispose(); }
   window.__plants=PLANT_STATS; updatePlants(0,true);
@@ -1546,6 +1546,7 @@ function spawnMob(type,lvl,x,z,temp=false){
   const m={type,T,b,group,hit,lvl,hp:mobHP(type,lvl),maxHp:mobHP(type,lvl),home:new THREE.Vector3(x,0,z),yaw:R()*6.28,state:'wander',st:R()*3,wdest:null,cdT:0,phase:R()*6,dead:false,respT:0,tag,temp,flash:0,fade:0,mats:[],spawned:0,id:mobs.length};
   group.position.set(x,hAt(x,z),z); group.rotation.y=m.yaw; hit.userData.mob=m;
   b.g.traverse(o=>{ if(o.isMesh&&o.material&&o.material.emissive&&!o.material.transparent) m.mats.push(o.material); });
+  if(coarse) b.g.traverse(o=>{ if(o.isMesh) o.castShadow=false; });   // mobil: canavarlar gölge geçişine girmez
   mobs.push(m); mobHits.push(hit); return m;
 }
 function mobDmg(m){ return Math.max(1,Math.round((4*Math.pow(m.lvl,1.2)+3)*m.T.atk*rr(.85,1.15)*(m.curseT>0?(m.curseMul||.7):1))); }
@@ -2178,11 +2179,13 @@ function updatePlayer(dt){
 function faceNPC(n){ P.yawGoal=Math.atan2(n.pos.x-P.pos.x,n.pos.z-P.pos.z); P.yaw=P.yawGoal; }
 function openShop(){ closeWins(); $('shop').classList.remove('hidden'); refreshWins(); say('Tüccar Han: Hoş geldin savaşçı!','c-sys'); }
 
+const _mfv=new THREE.Vector3(); let _mfx=0,_mfz=1;
 function updateMobs(dt){
-  const pp=P.pos;
+  const pp=P.pos; camera.getWorldDirection(_mfv); _mfx=_mfv.x; _mfz=_mfv.z;
   for(const m of mobs){
     const g=m.group, T=m.T, b=m.b; const dPlayer=Math.hypot(g.position.x-pp.x,g.position.z-pp.z);
     g.visible = dPlayer<95; m.tag.style.display = 'none';
+    { const bh=dPlayer>9&&((g.position.x-camera.position.x)*_mfx+(g.position.z-camera.position.z)*_mfz)<-.15*Math.hypot(g.position.x-camera.position.x,g.position.z-camera.position.z); b.g.visible=dPlayer<(coarse?62:95)&&!bh; }
     if(!g.visible) continue;
     if(m.flash>0){ m.flash-=dt; }
     if(m.type==='stone'){
@@ -2233,10 +2236,10 @@ function updateMobs(dt){
       b.wk=lerp(b.wk,mv>0?1:0,1-Math.exp(-8*dt)); b.walk.timeScale=Math.max(.25,mv/(2.7*T.scale));
       const el=m.swing>0?m.swingMax-m.swing:0, aw=m.swing>0?clamp(Math.min(el/.15,m.swing/.25),0,1):0;
       b.atk.setEffectiveWeight(aw+1e-4); b.walk.setEffectiveWeight((b.wk+.0001)*(1-aw)+1e-5); b.idle.setEffectiveWeight((1-b.wk+.0001)*(1-aw)+1e-5);
-      if(dPlayer<75){ b.mixer.update(dt); if(aw<.05&&b.wk<.2){ const br=Math.sin(time*1.6+m.id)*.02; rotW(b.bn.Spine1,1,0,0,br,g); } }
+      if(dPlayer<(coarse?42:75)&&b.g.visible){ b.mixer.update(dt); if(aw<.05&&b.wk<.2){ const br=Math.sin(time*1.6+m.id)*.02; rotW(b.bn.Spine1,1,0,0,br,g); } }
       for(const mt of m.mats){ mt.emissive.setHex(m.flash>0?0xff3322:0x000000); mt.emissiveIntensity=m.flash>0?.9:0; }
     }
-    if(b.fx){ if(dPlayer<55) b.fx.mixer.update(dt); for(const mt of m.mats){ mt.emissive.setHex(m.flash>0?0xff3322:0x000000); mt.emissiveIntensity=m.flash>0?.9:0; } }
+    if(b.fx){ if(dPlayer<(coarse?36:55)&&b.g.visible) b.fx.mixer.update(dt); for(const mt of m.mats){ mt.emissive.setHex(m.flash>0?0xff3322:0x000000); mt.emissiveIntensity=m.flash>0?.9:0; } }
     const sw=Math.sin(m.phase)*.8*(mv>0?1:0);
     if(b.legs.length===4){ b.legs[0].rotation.x=sw; b.legs[3].rotation.x=sw; b.legs[1].rotation.x=-sw; b.legs[2].rotation.x=-sw; if(b.tail) b.tail.rotation.z=Math.sin(time*5+m.id)*.4; }
     else if(b.legs.length===2){ b.legs[0].rotation.x=sw; b.legs[1].rotation.x=-sw; if(b.arms[0]) b.arms[0].rotation.x=-sw*.6; }
@@ -2313,12 +2316,14 @@ function updateCamera(dt){
 let adN=0, adSum=0, adWorst=0, adFps=0;
 function adaptRes(ms){ if(ms>250||ms<=0) return; adSum+=ms; adN++; if(ms>adWorst) adWorst=ms;
   if(adN>=40){ const avg=adSum/adN; adFps=Math.round(1000/avg); let np=PR;
-    if(avg>24) np=Math.max(PRMIN,PR*(avg>34?.78:.88)); else if(avg<15.5&&PR<PRMAX) np=Math.min(PRMAX,PR*1.1);
+    if(avg>30) np=Math.max(PRMIN,PR*.9); else if(avg<19&&PR<PRMAX) np=Math.min(PRMAX,PR*1.08);
     if(Math.abs(np-PR)>.02){ PR=np; renderer.setPixelRatio(PR); resize(); }
     const f=document.getElementById('fpsInfo'); if(f) f.textContent=`${adFps} fps · ${Math.round(PR*100)}%`;
     adN=0; adSum=0; adWorst=0; } }
+let lastFT=0;
 function frame(now){
   requestAnimationFrame(frame);
+  if(now-lastFT<15.2&&!window.__freeze) return; lastFT=now;   // en fazla ~60 fps: 120 Hz ekranda telefon ısınmasın
   if(started&&!window.__freeze) adaptRes(now-last);
   let dt=Math.min(.05,(now-last)/1000); last=now; if(window.__freeze) dt=0; time+=dt;
   if(started){
@@ -2371,7 +2376,7 @@ async function boot(){
     myTag=document.createElement('div'); myTag.className='tag'; myTag.style.color='#fff'; $('pops').appendChild(myTag);
     $('loading').classList.add('hidden'); $('login').classList.remove('hidden');
     const has=loadGame(); if(has){ $('nameIn').value=S.name; document.querySelector(`input[name=king][value="${S.king}"]`).checked=true; }
-    window.__game={renderMenu,setTab,toggleWin,closeWins,skillUp,skPoints,skL,skv,skStats,saveGame,loadGame,renderSkillWin,gainExp,updatePlayer,updateMobs,updateProjectiles,updateSkills,updateCamera,updateHUD,SKD,SLOT_DEF,SK,cds,fx2,pt2,sched,projectiles,SHAKE,clearSkillFx,MAPS,TRAVEL,travelTo,get MAP(){return MAP;},get obstacles(){return obstacles;},hAt,get HAS3(){return HAS3;},get A3META(){return A3META;},damagePlayer,get COMBO(){return COMBO;},horseRear,horseAnim,playerHit,killMob,fxPlay,fxStep,get FROG2(){return FROG2;},MOUNT,toggleMount,get mixer(){return mixer},rotW,overlayPose,S,P,mobs,cam,actions,bones,setAnim,useSlot,clickAt,THREE,scene,camera,renderer,model,get tIdle(){return tIdle;},get TURN_DELTA(){return TURN_DELTA;}};
+    window.__game={get PLANT_SETS(){return PLANT_SETS},renderMenu,setTab,toggleWin,closeWins,skillUp,skPoints,skL,skv,skStats,saveGame,loadGame,renderSkillWin,gainExp,updatePlayer,updateMobs,updateProjectiles,updateSkills,updateCamera,updateHUD,SKD,SLOT_DEF,SK,cds,fx2,pt2,sched,projectiles,SHAKE,clearSkillFx,MAPS,TRAVEL,travelTo,get MAP(){return MAP;},get obstacles(){return obstacles;},hAt,get HAS3(){return HAS3;},get A3META(){return A3META;},damagePlayer,get COMBO(){return COMBO;},horseRear,horseAnim,playerHit,killMob,fxPlay,fxStep,get FROG2(){return FROG2;},MOUNT,toggleMount,get mixer(){return mixer},rotW,overlayPose,S,P,mobs,cam,actions,bones,setAnim,useSlot,clickAt,THREE,scene,camera,renderer,model,get tIdle(){return tIdle;},get TURN_DELTA(){return TURN_DELTA;}};
   }catch(err){ console.error(err); $('loadTxt').textContent='Yükleme başarısız oldu.'; $('err').textContent=String(err&&err.message||err); }
 }
 $('go').onclick=()=>{
