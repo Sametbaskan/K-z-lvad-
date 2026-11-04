@@ -366,6 +366,13 @@ body{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-c
 .m4d .ft{display:flex;align-items:center;justify-content:space-between;margin-top:auto;font:600 3cqw var(--body)}.m4d .ft b{color:#ffe08a}.m4d .lk{color:#c9a24e}
 .m4up{pointer-events:auto;cursor:pointer;font:700 3.2cqw var(--body);color:#ffe9b8;background:linear-gradient(#6a2417,#2e0f09);border:1px solid #c9a24e;border-radius:3px;padding:1.2% 4%}.m4up:disabled{opacity:.35;cursor:default}
 #lvmed::after{content:"";position:absolute;inset:0;border-radius:50%;background:repeating-conic-gradient(from -1deg,#000 0 2.5deg,transparent 2.5deg 90deg);-webkit-mask:radial-gradient(circle,transparent calc(50% - 6px),#000 calc(50% - 5px));mask:radial-gradient(circle,transparent calc(50% - 6px),#000 calc(50% - 5px));pointer-events:none;z-index:3}
+
+#dragGhost{position:fixed;z-index:80;width:46px;height:46px;object-fit:contain;transform:translate(-50%,-50%);pointer-events:none;opacity:.92;filter:drop-shadow(0 4px 6px #000)}
+.m2c.has,.m2s.has{pointer-events:auto;touch-action:none;cursor:grab}.m2c.drag img,.m2s.drag img{opacity:.25}
+.m2s .lb{opacity:.55}.m2s.has{background:#d9b25a}.m2s.has .n{z-index:2}
+.m2c.hl::after{content:"";position:absolute;inset:6%;border:2px solid #ffe08a;box-shadow:0 0 8px #ffe08a;clip-path:polygon(16% 0,84% 0,100% 16%,100% 84%,84% 100%,16% 100%,0 84%,0 16%)}
+.m2s.hl{background:#ffe9a0!important}.m2tabs button.hl{background:linear-gradient(#e0b83a,#8a6a1a)!important;color:#000!important}
+#mw img{-webkit-user-drag:none;user-drag:none;-webkit-user-select:none}.m2s img{pointer-events:none}
 </style>
 
 <canvas id="view" tabindex="0"></canvas>
@@ -1066,13 +1073,57 @@ function updatePops(dt){ for(let i=pops.length-1;i>=0;i--){ const o=pops[i]; o.t
 let bannerT=0; function banner(t){ const b=$('banner'); b.textContent=t; b.classList.add('on'); bannerT=2.4; }
 
 /* ============================== oyuncu verisi ============================== */
-const S = { name:'Yiğit', king:0, lvl:1, exp:0, yang:0, pts:0, qd:0, rst:0, st:5, vit:5, int:4, dex:4, weap:0, red:5, blue:5, hp:1, sp:1, buff:0, buffAtk:1.3, buffRed:.75, haste:0, hasteMul:1.3, sk:{cut:0,spin:0,fire:0,body:0,heal:0,dash:0,curse:0,ice:0}, shield:0, shieldT:0, regenT:0, regenAmt:0, dead:false, combat:0 };
+const S = { name:'Yiğit', king:0, lvl:1, exp:0, yang:0, pts:0, qd:0, rst:0, inv:null, eq:null, st:5, vit:5, int:4, dex:4, weap:0, red:5, blue:5, hp:1, sp:1, buff:0, buffAtk:1.3, buffRed:.75, haste:0, hasteMul:1.3, sk:{cut:0,spin:0,fire:0,body:0,heal:0,dash:0,curse:0,ice:0}, shield:0, shieldT:0, regenT:0, regenAmt:0, dead:false, combat:0 };
 const BASESTAT={st:5,vit:5,int:4,dex:4}, STATCAP=90;
 const KINGS=['Kızıl','Altın','Mavi'], KCOL=['#ff6a5a','#ffd24a','#6aa8ff'];
 const expNeed = l => Math.floor(70*Math.pow(l,1.9));
 const maxHP = () => 100+(S.lvl-1)*30+S.vit*8;
 const maxSP = () => 60+(S.lvl-1)*12+S.int*5;
-const weapMul = () => 1+S.weap*.12;
+/* ===== eşya altyapısı: ITEMS kaydı, 180 hücreli envanter (4 sayfa x 45), 14 ekipman slotu ===== */
+const INVN=45, INVPAGES=4;
+const ITEMS={   // slot: hangi ekipman türüne takılır (null = takılmaz); stack: üst üste yığılır; cnt: sayı kaynağı; use: kısayol indeksi
+  red: {name:'Kırmızı İksir',img:'health_potion',slot:null,stack:true,cnt:()=>S.red,use:4,desc:'Canı yeniler. Dokun: kullan.'},
+  blue:{name:'Mavi İksir',img:'mana_potion',slot:null,stack:true,cnt:()=>S.blue,use:5,desc:'SP yeniler. Dokun: kullan.'},
+  sword:{name:'Demir Kılıç',img:'steel_sword',slot:'weapon',kind:'kılıç',desc:'Başlangıç silahı. Demirci ile yükseltilir.',badge:()=>'+'+S.weap}
+};
+/* yeni eşya eklemek: registerItem('kask_demir',{name,img,slot:'helmet'|'armor'|'boots'|'weapon'|'necklace'|'earring'|'arrow'|'bracelet'|'boost',...}); addItem(id,n) */
+const registerItem=(id,def)=>{ ITEMS[id]=def; };
+const EQS=[  // id, tür, etiket, merkez x/y (kukla kutusuna göre 0..1)
+  {id:'helmet',type:'helmet',lb:'Kask',x:.362,y:.133},
+  {id:'armor1',type:'armor',lb:'Zırh',x:.362,y:.313},{id:'armor2',type:'armor',lb:'Zırh',x:.362,y:.487},
+  {id:'boots',type:'boots',lb:'Ayakkabı',x:.362,y:.849},
+  {id:'w1',type:'weapon',lb:'Silah',x:.145,y:.133},{id:'w2',type:'weapon',lb:'Silah',x:.145,y:.313},{id:'w3',type:'weapon',lb:'Silah',x:.145,y:.487},
+  {id:'arrow',type:'arrow',lb:'Ok',x:.828,y:.133},{id:'ear',type:'earring',lb:'Küpe',x:.828,y:.313},{id:'neck',type:'necklace',lb:'Kolye',x:.828,y:.487},
+  {id:'brace',type:'bracelet',lb:'Bilezik',x:.603,y:.487},
+  {id:'ex1',type:'boost',lb:'Güç',x:.145,y:.849},{id:'ex2',type:'boost',lb:'Güç',x:.603,y:.849}];
+const eqDef=id=>EQS.find(e=>e.id===id);
+const itemOf=it=>it&&ITEMS[it.id];
+function initInv(){ if(!Array.isArray(S.inv)) S.inv=[]; S.inv.length=INVN*INVPAGES; for(let i=0;i<S.inv.length;i++){ const it=S.inv[i]; S.inv[i]=(it&&ITEMS[it.id])?{id:it.id,n:Math.max(1,it.n|0||1)}:null; }
+  if(!S.eq||typeof S.eq!=='object'||Array.isArray(S.eq)) S.eq={w1:{id:'sword',n:1}};
+  const eq={}; for(const e of EQS){ const it=S.eq[e.id]; if(it&&ITEMS[it.id]&&ITEMS[it.id].slot===e.type) eq[e.id]={id:it.id,n:Math.max(1,it.n|0||1)}; } S.eq=eq;
+  // kılıç hiçbir yerde yoksa (eski kayıt) ilk silah slotuna koy
+  if(!hasItem('sword')) S.eq.w1=S.eq.w1||{id:'sword',n:1};
+  syncPots(); }
+function hasItem(id){ return S.inv.some(i=>i&&i.id===id)||EQS.some(e=>S.eq[e.id]&&S.eq[e.id].id===id); }
+function firstEmpty(page=-1){ const a=page>=0?page*INVN:0, b=page>=0?a+INVN:S.inv.length; for(let i=a;i<b;i++) if(!S.inv[i]) return i; return -1; }
+function syncPots(){ for(const id of ['red','blue']){ const idx=S.inv.findIndex(i=>i&&i.id===id); if(S[id]>0){ if(idx<0){ const f=firstEmpty(); if(f>=0) S.inv[f]={id,n:1}; } } else if(idx>=0) S.inv[idx]=null; } }
+function addItem(id,n=1){ const d=ITEMS[id]; if(!d) return false; if(d.stack&&!d.cnt){ const i=S.inv.findIndex(x=>x&&x.id===id); if(i>=0){ S.inv[i].n+=n; INVV++; saveGame(); return true; } } const f=firstEmpty(); if(f<0){ say('Envanter dolu.','c-bad'); return false; } S.inv[f]={id,n:d.stack?n:1}; INVV++; saveGame(); return true; }
+/* tut-bırak: from/to = {k:'inv',i} | {k:'eq',id} | {k:'page',p} */
+const slotAt=(r)=>r.k==='inv'?S.inv[r.i]:r.k==='eq'?S.eq[r.id]:null;
+const slotPut=(r,it)=>{ if(r.k==='inv') S.inv[r.i]=it; else S.eq[r.id]=it||undefined; if(r.k==='eq'&&!it) delete S.eq[r.id]; };
+const fits=(r,it)=>!it||r.k==='inv'||(r.k==='eq'&&ITEMS[it.id].slot===eqDef(r.id).type);
+let INVV=0;
+function moveItem(a,b){
+  if(a.k==='page'||!slotAt(a)) return false; const A=slotAt(a);
+  if(b.k==='page'){ const f=firstEmpty(b.p); if(f<0){ say('Bu sayfa dolu.','c-bad'); return false; } if(a.k==='inv'&&Math.floor(a.i/INVN)===b.p) return false; slotPut(a,null); S.inv[f]=A; return fin(); }
+  if(a.k===b.k&&(a.k==='inv'?a.i===b.i:a.id===b.id)) return false;
+  if(!fits(b,A)){ say(`${ITEMS[A.id].name} bu slota takılamaz.`,'c-bad'); return false; }
+  const B=slotAt(b);
+  if(B&&!fits(a,B)){ say(`${ITEMS[B.id].name} o slota takılamaz.`,'c-bad'); return false; }
+  if(a.k==='inv'&&b.k==='inv'&&B&&B.id===A.id&&ITEMS[A.id].stack&&!ITEMS[A.id].cnt){ B.n+=A.n; S.inv[a.i]=null; return fin(); }
+  slotPut(b,A); slotPut(a,B||null); return fin(); }
+function fin(){ INVV++; saveGame(); renderMenu(true); SFX.pot&&SFX.pot(); return true; }
+const weapMul = () => 1+(S.eq&&S.eq.w1&&S.eq.w1.id==='sword'?S.weap*.12:0);
 const atkPow = () => (10+S.lvl*3+S.st*1.5)*weapMul()*(S.buff>0?(S.buffAtk||1.3):1);
 const defPow = () => Math.floor(2+S.lvl*1.2+S.vit*.8);
 const dodgeCh = () => Math.min(.25,S.dex*.0028), hitCh = () => Math.min(1,.93+S.dex*.0008), magMul = () => 1+S.int*.006, critCh = () => .12+S.dex*.004;
@@ -1082,8 +1133,8 @@ const qOf = () => S.lvl>=30?3:Math.min(3,Math.floor(S.exp/expNeed(S.lvl)*4));
 function addStat(k){ if(!(k in BASESTAT)) return; if(S.pts<=0){ say('Stat puanın yok.','c-bad'); return; } if(S[k]>=STATCAP){ say(STATD[k][0]+' en yüksek değerde ('+STATCAP+').','c-bad'); return; } S.pts--; S[k]++; if(k==='vit') S.hp+=8; if(k==='int') S.sp+=5; saveGame(); renderMenu(true); }
 /* ileride NPC / özel eşya için: tüm dağıtılan stat puanlarını iade eder */
 function resetStats(){ let refund=0; for(const k in BASESTAT){ refund+=S[k]-BASESTAT[k]; S[k]=BASESTAT[k]; } S.pts+=refund; S.rst=(S.rst|0)+1; S.hp=Math.min(S.hp,maxHP()); S.sp=Math.min(S.sp,maxSP()); saveGame(); renderMenu(true); return refund; }
-function saveGame(){ safe(()=>localStorage.setItem('kizilvadi.v1',JSON.stringify({name:S.name,king:S.king,lvl:S.lvl,exp:S.exp,yang:S.yang,pts:S.pts,qd:S.qd,rst:S.rst,st:S.st,vit:S.vit,int:S.int,dex:S.dex,weap:S.weap,red:S.red,blue:S.blue,sk:S.sk}))); }
-function loadGame(){ const d=safe(()=>JSON.parse(localStorage.getItem('kizilvadi.v1')||'null')); if(d&&typeof d==='object'){ for(const k of Object.keys(d)) if(k!=='sk'&&k in S && typeof d[k]===typeof S[k]) S[k]=d[k]; sanitizeSkills(d.sk); for(const k in BASESTAT) S[k]=Math.max(BASESTAT[k],Math.min(STATCAP,Math.floor(S[k])||BASESTAT[k])); S.pts=Math.max(0,Math.floor(S.pts)||0); if(d.qd===undefined) S.qd=qOf(); S.qd=Math.max(0,Math.min(3,S.qd|0)); return true; } return false; }
+function saveGame(){ safe(()=>localStorage.setItem('kizilvadi.v1',JSON.stringify({name:S.name,king:S.king,lvl:S.lvl,exp:S.exp,yang:S.yang,pts:S.pts,qd:S.qd,rst:S.rst,inv:S.inv,eq:S.eq,st:S.st,vit:S.vit,int:S.int,dex:S.dex,weap:S.weap,red:S.red,blue:S.blue,sk:S.sk}))); }
+function loadGame(){ try{ initInv(); }catch(e){} const d=safe(()=>JSON.parse(localStorage.getItem('kizilvadi.v1')||'null')); if(d&&typeof d==='object'){ for(const k of Object.keys(d)) if(k!=='sk'&&k in S && typeof d[k]===typeof S[k]) S[k]=d[k]; sanitizeSkills(d.sk); initInv(); for(const k in BASESTAT) S[k]=Math.max(BASESTAT[k],Math.min(STATCAP,Math.floor(S[k])||BASESTAT[k])); S.pts=Math.max(0,Math.floor(S.pts)||0); if(d.qd===undefined) S.qd=qOf(); S.qd=Math.max(0,Math.min(3,S.qd|0)); return true; } return false; }
 
 /* ============================== oyuncu karakteri (FBX) ============================== */
 const playerGroup = new THREE.Group(); scene.add(playerGroup);
@@ -2015,6 +2066,23 @@ SLOT_DEF.forEach((id,i)=>{ const sk=SK[i]; const d=document.createElement('div')
   $('chatBtn').addEventListener('pointerdown',e=>{ e.stopPropagation(); e.preventDefault(); $('chat').classList.toggle('off'); });
   for(const b of document.querySelectorAll('#topbtns .rb,#lcol .rb')) b.addEventListener('pointerdown',e=>e.stopPropagation());
 })();
+
+/* ---- envanter tut-bırak (fare + dokunmatik) ---- */
+(function(){
+  const mwEl=$('mw'); let dr=null, moved=false, ghost=null, hov=null, hovT=0;
+  const refOf=el=>el.dataset.ci!==undefined?{k:'inv',i:+el.dataset.ci}:el.dataset.eq?{k:'eq',id:el.dataset.eq}:null;
+  function target(x,y){ for(const el of mwEl.querySelectorAll('.m2c,.m2s,.m2tabs button')){ const r=el.getBoundingClientRect(); if(x>=r.left&&x<=r.right&&y>=r.top&&y<=r.bottom){ if(el.dataset.ipg!==undefined) return {k:'page',p:+el.dataset.ipg,el}; const rf=refOf(el); if(rf) return Object.assign(rf,{el}); } } return null; }
+  function clearHl(){ mwEl.querySelectorAll('.hl').forEach(e=>e.classList.remove('hl')); }
+  function end(e,ok){ if(!dr) return; const was=dr.on; if(was){ const t=ok?target(e.clientX,e.clientY):null; clearHl(); clearTimeout(hovT); hov=null; if(ghost){ ghost.remove(); ghost=null; } if(t) moveItem(dr.ref,t); else renderMenu(true); } dr=null; }
+  document.addEventListener('pointerdown',e=>{ if(MTAB!=='inv'||mwEl.classList.contains('hidden')||e.button>0) return; const el=e.target.closest('.m2c.has,.m2s.has'); moved=false; if(!el){ dr=null; return; } dr={el,ref:refOf(el),x:e.clientX,y:e.clientY,on:false}; },true);
+  document.addEventListener('pointermove',e=>{ if(!dr) return; if(!dr.on){ if(Math.hypot(e.clientX-dr.x,e.clientY-dr.y)<8) return; const im=dr.el.querySelector('img'); if(!im){ dr=null; return; } dr.on=true; moved=true; ghost=document.createElement('img'); ghost.id='dragGhost'; ghost.src=im.src; document.body.appendChild(ghost); dr.el.classList.add('drag'); }
+    ghost.style.left=e.clientX+'px'; ghost.style.top=e.clientY+'px'; clearHl(); const t=target(e.clientX,e.clientY); if(t&&t.el) t.el.classList.add('hl');
+    const tp=t&&t.k==='page'?t.p:null; if(tp!==hov){ hov=tp; clearTimeout(hovT); if(tp!==null&&tp!==INVPG) hovT=setTimeout(()=>{ INVPG=tp; renderMenu(true); },450); } },true);
+  document.addEventListener('dragstart',e=>{ if(e.target.closest&&e.target.closest('#mw')) e.preventDefault(); },true);
+  document.addEventListener('pointerup',e=>end(e,true),true);
+  document.addEventListener('pointercancel',e=>end(e,false),true);
+  document.addEventListener('click',e=>{ if(moved){ e.stopPropagation(); e.preventDefault(); moved=false; } },true);
+})();
 let skSig='', SKSEL='cut';
 const SKCX=[35,105,174], SKRY=[113,183,250,318];
 function renderSkillWin(force){
@@ -2056,20 +2124,16 @@ const CELLX=[.102,.307,.511,.709], CELLY=[.171,.357,.544,.730];
 function renderMenu(force){
   const t=MTAB;
   if(t==='skw'){ renderSkillWin(force); return; }
-  const sig=t==='inv'?[S.yang,S.weap,S.red,S.blue,S.lvl,INVPG].join():[S.pts,S.st,S.vit,S.int,S.dex,S.lvl,Math.floor(S.exp),Math.ceil(S.hp),Math.ceil(S.sp),S.weap,S.buff>0,skPoints()].join();
+  const sig=t==='inv'?[S.yang,S.weap,S.red,S.blue,S.lvl,INVPG,INVV].join():[S.pts,S.st,S.vit,S.int,S.dex,S.lvl,Math.floor(S.exp),Math.ceil(S.hp),Math.ceil(S.sp),S.weap,S.buff>0,skPoints()].join();
   if(!force&&sig===mwSig+'|'+t) return; mwSig=sig+'|'+t; // (aynı sekme + aynı veri → yeniden çizme)
   const el=$('pg-'+t); let h='';
   if(t==='inv'){
-    const items=[{img:'health_potion',name:'Kırmızı İksir (canı yeniler) — dokun: kullan',n:S.red,use:4},{img:'mana_potion',name:'Mavi İksir (SP yeniler) — dokun: kullan',n:S.blue,use:5}].filter(i=>i.n>0);
-    const pg=INVPG; let cells=''; for(let i=0;i<45;i++){ const it=pg===0?items[i]:null;
-      cells+=`<div class="m2c"${it&&it.use!==undefined?` data-use="${it.use}"`:''}${it?` title="${it.name}"`:''}>${it?`<img src="${UIIMG[it.img]}" alt="${it.name}"><span class="n">${it.n}</span>`:''}</div>`; }
+    syncPots(); const pg=INVPG; let cells=''; for(let i=0;i<INVN;i++){ const gi=pg*INVN+i, it=S.inv[gi], d=itemOf(it), n=d?(d.cnt?d.cnt():it.n):0;
+      cells+=`<div class="m2c${d?' has':''}" data-ci="${gi}"${d&&d.use!==undefined?` data-use="${d.use}"`:''}${d?` title="${d.name}${d.desc?' — '+d.desc:''}"`:''}>${d?`<img src="${UIIMG[d.img]||''}" alt="${d.name}">${d.badge?`<span class="n">${d.badge()}</span>`:n>1?`<span class="n">${n}</span>`:''}`:''}</div>`; }
+    const dollSlots=EQS.map(e=>{ const it=S.eq[e.id], d=itemOf(it); return `<div class="m2s${d?' has':''}" data-eq="${e.id}" title="${d?d.name:e.lb}" style="left:${((e.x-.095)*100).toFixed(2)}%;top:${((e.y-.082)*100).toFixed(2)}%;width:19%;height:16.4%">${d?`<img src="${UIIMG[d.img]||''}" alt=""><span class="n">${d.badge?d.badge():''}</span>`:`<span class="lb">${e.lb}</span>`}</div>`; }).join('');
     h=`<div class="m2t">Envanter</div><button class="m2x" data-close="mw" aria-label="Kapat"></button>
       <div class="m2tabs">${['I','II','III','IV'].map((r,i)=>`<button data-ipg="${i}" class="${i===pg?'on':''}">${r}</button>`).join('')}</div>
-      <div class="m2doll">
-        <div class="m2s off" title="Kask (yakında)" style="left:50.30%;top:23.38%;width:20.12%;height:16.92%"><img src="${UIIMG.knight_helmet}" alt=""><span class="lb">Kask</span></div>
-        <div class="m2s" title="Demir Kılıç +${S.weap} · saldırı x${weapMul().toFixed(2)}" style="left:6.51%;top:5.47%;width:21.30%;height:16.92%"><img src="${UIIMG.steel_sword}" alt=""><span class="n">+${S.weap}</span></div>
-        <div class="m2s off" title="Zırh (yakında)" style="left:50.30%;top:5.47%;width:20.12%;height:16.92%"><img src="${UIIMG.steel_chest_armor}" alt=""><span class="lb">Zırh</span></div>
-        <div class="m2s off" title="Ayakkabı (yakında)" style="left:50.30%;top:55.72%;width:20.12%;height:16.92%"><svg viewBox="0 0 24 24" fill="#c9a24e"><path d="M8 3h6v9l5 2c1.5.6 2.5 1.6 2.5 3.2V20H4v-3l3-2z"/></svg><span class="lb">Ayakkabı</span></div></div>
+      <div class="m2doll">${dollSlots}</div>
       <div class="m2name"><b>${S.name}</b><small>Sv. ${S.lvl}</small></div>
       <div class="m2yang"><b>${fmt(S.yang)}</b><small>Yang</small></div>
       <div class="m2btns"><button data-tab="chr">Karakter</button><button data-tab="skw">Yetenekler</button></div>
@@ -2729,7 +2793,7 @@ async function boot(){
     myTag=document.createElement('div'); myTag.className='tag'; myTag.style.color='#fff'; $('pops').appendChild(myTag);
     $('loading').classList.add('hidden'); $('login').classList.remove('hidden');
     const has=loadGame(); if(has){ $('nameIn').value=S.name; document.querySelector(`input[name=king][value="${S.king}"]`).checked=true; }
-    window.__game={get S(){return S},addStat,resetStats,qOf,expNeed,get PLANT_SETS(){return PLANT_SETS},renderMenu,setTab,toggleWin,closeWins,skillUp,skPoints,skL,skv,skStats,saveGame,loadGame,renderSkillWin,gainExp,updatePlayer,updateMobs,updateProjectiles,updateSkills,updateCamera,updateHUD,SKD,SLOT_DEF,SK,cds,fx2,pt2,sched,projectiles,SHAKE,clearSkillFx,MAPS,TRAVEL,travelTo,get MAP(){return MAP;},get obstacles(){return obstacles;},get MAP(){return MAP;},get renderer(){return renderer;},npcs,vRoadD,MAPS,hAt,get HAS3(){return HAS3;},get A3META(){return A3META;},damagePlayer,get COMBO(){return COMBO;},horseRear,horseAnim,playerHit,killMob,fxPlay,fxStep,get FROG2(){return FROG2;},MOUNT,toggleMount,get mixer(){return mixer},rotW,overlayPose,S,P,mobs,cam,actions,bones,setAnim,useSlot,clickAt,THREE,scene,camera,renderer,model,get tIdle(){return tIdle;},get TURN_DELTA(){return TURN_DELTA;}};
+    window.__game={get S(){return S},ITEMS,EQS,registerItem,addItem,moveItem,initInv,addStat,resetStats,qOf,expNeed,get PLANT_SETS(){return PLANT_SETS},renderMenu,setTab,toggleWin,closeWins,skillUp,skPoints,skL,skv,skStats,saveGame,loadGame,renderSkillWin,gainExp,updatePlayer,updateMobs,updateProjectiles,updateSkills,updateCamera,updateHUD,SKD,SLOT_DEF,SK,cds,fx2,pt2,sched,projectiles,SHAKE,clearSkillFx,MAPS,TRAVEL,travelTo,get MAP(){return MAP;},get obstacles(){return obstacles;},get MAP(){return MAP;},get renderer(){return renderer;},npcs,vRoadD,MAPS,hAt,get HAS3(){return HAS3;},get A3META(){return A3META;},damagePlayer,get COMBO(){return COMBO;},horseRear,horseAnim,playerHit,killMob,fxPlay,fxStep,get FROG2(){return FROG2;},MOUNT,toggleMount,get mixer(){return mixer},rotW,overlayPose,S,P,mobs,cam,actions,bones,setAnim,useSlot,clickAt,THREE,scene,camera,renderer,model,get tIdle(){return tIdle;},get TURN_DELTA(){return TURN_DELTA;}};
   }catch(err){ console.error(err); $('loadTxt').textContent='Yükleme başarısız oldu.'; $('err').textContent=String(err&&err.message||err); }
 }
 $('go').onclick=()=>{
