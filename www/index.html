@@ -1244,6 +1244,7 @@ function setupPlayer(fbxA, cj){
   model=fbxA.root; MSCALE=model.scale.x;
   const holder=new THREE.Group(); holder.add(model); playerGroup.add(holder); HOLDER=holder;
   model.traverse(o=>{ if(o.isSkinnedMesh){ if(!Object.keys(bones).length) o.skeleton.bones.forEach(b=>{ bones[b.name.replace(/^mixamorig:?/,'')]=b; }); styleMesh(o); } });
+  for(const k in bones) REST[k]=bones[k].quaternion.clone();   // bağlama (T) duruşu: binicilik bacak pozu bunun üstüne mutlak kurulur
   mixer=new THREE.AnimationMixer(model);
   const idleC=THREE.AnimationClip.parse(cj.clip); idleC.name='idle'; lockRootXZ(idleC);
   const miss=idleC.tracks.filter(tr=>!bones[tr.name.split('.')[0].replace(/^mixamorig:?/,'')]).map(tr=>tr.name);
@@ -1315,9 +1316,16 @@ function horseAnim(name,fade=.25,ts=1){ if(!MOUNT.acts) return; const to=MOUNT.a
   if(MOUNT.cur!==name){ const from=MOUNT.acts[MOUNT.cur]; to.reset(); to.setEffectiveWeight(1); to.play(); if(from) from.crossFadeTo(to,fade,false); MOUNT.cur=name; }
   to.timeScale=ts; }
 function horseRear(){ if(!MOUNT.acts||!MOUNT.acts.rear||MOUNT.cur==='rear'||MOUNT.speed>.5) return; horseAnim('rear',.2); MOUNT.rearT=MOUNT.acts.rear.getClip().duration; }
+const REST={}, SEAT={spread:.85, thigh:-.85, knee:1.2, foot:-.3}, _sq=new THREE.Quaternion();
+/* binicilik: bacaklar animasyondan bağımsız, bağlama duruşundan mutlak kurulur (iki bacak simetrik: uyluk dışa açık+öne, diz bükük) ve k ile karıştırılır */
 function sitPose(k){
   for(const [s,UL,LG,FT] of [[1,'LeftUpLeg','LeftLeg','LeftFoot'],[-1,'RightUpLeg','RightLeg','RightFoot']]){
-    rotW(B(UL),1,0,0,-1.1*k); rotW(B(UL),0,1,0,s*.45*k); rotW(B(LG),1,0,0,1.2*k); rotW(B(FT),1,0,0,-.25*k);
+    const bu=B(UL),bl=B(LG),bf=B(FT); if(!bu||!bl||!bf||!REST[UL]) continue;
+    const a0=bu.quaternion.clone(), b0=bl.quaternion.clone(), c0=bf.quaternion.clone();
+    bu.quaternion.copy(REST[UL]); bl.quaternion.copy(REST[LG]); bf.quaternion.copy(REST[FT]);
+    rotW(bu,0,0,1,s*SEAT.spread); rotW(bu,1,0,0,SEAT.thigh); rotW(bl,1,0,0,SEAT.knee); rotW(bf,1,0,0,SEAT.foot);
+    bu.quaternion.premultiply(_sq.identity()); 
+    bu.quaternion.slerpQuaternions(a0,bu.quaternion,k); bl.quaternion.slerpQuaternions(b0,bl.quaternion,k); bf.quaternion.slerpQuaternions(c0,bf.quaternion,k);
   }
   rotW(B('Spine1'),1,0,0,-.06*k);
 }
@@ -2236,7 +2244,9 @@ void main(){
   gl_FragColor=vec4(rgb,al);
 }`;
 function buildGate(def,ry,label,glow,signFg){
-  const g=new THREE.Group(); g.position.set(def.x,hAt(def.x,def.z),def.z); g.rotation.y=ry;
+  // zemin: kemerin ayak izi (7 x 3 m) üzerindeki EN ALÇAK arazi yüksekliğine otur, 12 cm göm → eğimde ayaklar havada kalmaz
+  let gy=1e9; for(const [ox,oz] of [[0,0],[3.2,1.4],[-3.2,1.4],[3.2,-1.4],[-3.2,-1.4],[3.2,0],[-3.2,0],[0,1.4],[0,-1.4]]){ const wx=def.x+ox*Math.cos(ry)+oz*Math.sin(ry), wz=def.z-ox*Math.sin(ry)+oz*Math.cos(ry); gy=Math.min(gy,hAt(wx,wz)); }
+  const g=new THREE.Group(); g.position.set(def.x,(ARCH?gy-.12:hAt(def.x,def.z)),def.z); g.rotation.y=ry;
   if(ARCH){
     const am=ARCH.clone(true); am.scale.setScalar(ARCH_S); am.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.receiveShadow=true; o.frustumCulled=true; } }); g.add(am);
     const u={t:{value:Math.random()*10}};
@@ -2857,7 +2867,7 @@ async function boot(){
     myTag=document.createElement('div'); myTag.className='tag'; myTag.style.color='#fff'; $('pops').appendChild(myTag);
     $('loading').classList.add('hidden'); $('login').classList.remove('hidden');
     const has=loadGame(); if(has){ $('nameIn').value=S.name; document.querySelector(`input[name=king][value="${S.king}"]`).checked=true; }
-    window.__game={get FOREST_STATS(){return FOREST_STATS},zoneAt,updateMount,groundFix,get GOFF(){return GOFF},get S(){return S},ITEMS,EQS,registerItem,addItem,moveItem,initInv,addStat,resetStats,qOf,expNeed,get PLANT_SETS(){return PLANT_SETS},renderMenu,setTab,toggleWin,closeWins,skillUp,skPoints,skL,skv,skStats,saveGame,loadGame,renderSkillWin,gainExp,updatePlayer,updateMobs,updateProjectiles,updateSkills,updateCamera,updateHUD,SKD,SLOT_DEF,SK,cds,fx2,pt2,sched,projectiles,SHAKE,clearSkillFx,MAPS,TRAVEL,travelTo,get MAP(){return MAP;},get obstacles(){return obstacles;},get MAP(){return MAP;},get renderer(){return renderer;},npcs,vRoadD,MAPS,hAt,get HAS3(){return HAS3;},get A3META(){return A3META;},damagePlayer,get COMBO(){return COMBO;},horseRear,horseAnim,playerHit,killMob,fxPlay,fxStep,get FROG2(){return FROG2;},MOUNT,toggleMount,get mixer(){return mixer},rotW,overlayPose,S,P,mobs,cam,actions,bones,setAnim,useSlot,clickAt,THREE,scene,camera,renderer,model,get tIdle(){return tIdle;},get TURN_DELTA(){return TURN_DELTA;}};
+    window.__game={SEAT,get FOREST_STATS(){return FOREST_STATS},zoneAt,updateMount,groundFix,get GOFF(){return GOFF},get S(){return S},ITEMS,EQS,registerItem,addItem,moveItem,initInv,addStat,resetStats,qOf,expNeed,get PLANT_SETS(){return PLANT_SETS},renderMenu,setTab,toggleWin,closeWins,skillUp,skPoints,skL,skv,skStats,saveGame,loadGame,renderSkillWin,gainExp,updatePlayer,updateMobs,updateProjectiles,updateSkills,updateCamera,updateHUD,SKD,SLOT_DEF,SK,cds,fx2,pt2,sched,projectiles,SHAKE,clearSkillFx,MAPS,TRAVEL,travelTo,get MAP(){return MAP;},get obstacles(){return obstacles;},get MAP(){return MAP;},get renderer(){return renderer;},npcs,vRoadD,MAPS,hAt,get HAS3(){return HAS3;},get A3META(){return A3META;},damagePlayer,get COMBO(){return COMBO;},horseRear,horseAnim,playerHit,killMob,fxPlay,fxStep,get FROG2(){return FROG2;},MOUNT,toggleMount,get mixer(){return mixer},rotW,overlayPose,S,P,mobs,cam,actions,bones,setAnim,useSlot,clickAt,THREE,scene,camera,renderer,model,get tIdle(){return tIdle;},get TURN_DELTA(){return TURN_DELTA;}};
   }catch(err){ console.error(err); $('loadTxt').textContent='Yükleme başarısız oldu.'; $('loadTxt').style.color='#ff8a80'; $('err').textContent=String(err&&err.message||err); }
 }
 $('go').onclick=()=>{
