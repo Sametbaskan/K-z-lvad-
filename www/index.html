@@ -2460,7 +2460,7 @@ function populateForest(){
     for(const c of F_RUINS) if(Math.hypot(x-c[0],z-c[1])<9) return false; if(Math.hypot(x-F_CAVE.x,z-F_CAVE.z)<13) return false; for(const c of FCAMPS) if(Math.hypot(x-c[0],z-c[1])<5) return false; return true; };
   // sürüler: bir merkez etrafında 3-4 canavar (her sürünün kendi yuvası)
   const pack=(zn,nPacks,per)=>{ let made=0, tries=0;
-    while(made<nPacks&&tries++<400){ const a=R()*6.283, d=rr(zn.r0+3,zn.r1-3), cx=Math.cos(a)*d, cz=Math.sin(a)*d; if(!free(cx,cz,2.2)) continue;
+    while(made<nPacks&&tries++<400){ const a=R()*6.283, d=rr(zn.r0+.5,zn.r1-.5), cx=Math.cos(a)*d, cz=Math.sin(a)*d; if(!free(cx,cz,2.2)) continue;
       let n=0; for(let k=0;k<per*3&&n<per;k++){ const aa=R()*6.283, rr2=rr(1.5,5.5), x=cx+Math.cos(aa)*rr2, z=cz+Math.sin(aa)*rr2; if(!free(x,z,1.4)) continue; spawnMob(zn.type,lvAt(zn,Math.hypot(x,z)),x,z); n++; }
       if(n>=2) made++; } };
   const Z=id=>ZONES.find(z=>z.id===id);
