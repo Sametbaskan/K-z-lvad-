@@ -1220,7 +1220,7 @@ let GOFF=null, FOOTD=.08; const _gfv=new THREE.Vector3();
 /* zemin oturtma: her karede en alçak ayak/parmak kemiği botun taban payı kadar zeminin üstünde tutulur; ölüm klibi sabit ofsetle */
 function groundFix(){ if(!GOFF||!HOLDER) return;
   // ölüm klibi yok: karakter ayak ucundan geriye devrilir (0.65 sn), yeniden doğunca ayağa kalkar
-  if(S.dead){ if(!P.deadAt) P.deadAt=performance.now(); const e=ease(Math.min(1,(performance.now()-P.deadAt)/650)); HOLDER.rotation.x=-1.5*e; HOLDER.position.y=HBASE*(1-e)+.14*e; return; }
+  if(S.dead&&!actions.death){ if(!P.deadAt) P.deadAt=performance.now(); const e=ease(Math.min(1,(performance.now()-P.deadAt)/650)); HOLDER.rotation.x=-1.5*e; HOLDER.position.y=HBASE*(1-e)+.14*e; return; }
   else if(P.deadAt){ P.deadAt=0; HOLDER.rotation.x=0; }
   if(MOUNT.ready&&MOUNT.blend>0) return;
   let dead=0,tot=0; for(const k in actions){ const a=actions[k]; if(!a||!a.isRunning()) continue; const e=a.getEffectiveWeight(); tot+=e; if(k==='death') dead+=e; }
@@ -1241,6 +1241,7 @@ function setupPlayer(fbxA, cj){
   const walkC=idleC.clone(); walkC.name='jog';   // koşu klibi yok: hareket ederken geçici olarak bekleme klibi oynar
   actions.idle=mixer.clipAction(idleC); actions.jog=mixer.clipAction(walkC);
   for(const k of ['idle','jog']) actions[k].setLoop(THREE.LoopRepeat,Infinity);
+  if(cj.death){ try{ const dc=THREE.AnimationClip.parse(cj.death); dc.name='death'; const a=mixer.clipAction(dc); a.setLoop(THREE.LoopOnce,1); a.clampWhenFinished=true; actions.death=a; console.info('[Anim] ölüm: '+dc.tracks.length+' kanal, süre '+dc.duration.toFixed(2)+' sn'); }catch(e){ console.error('[Anim] ölüm klibi işlenemedi:',e); } }
   HAS3=false; REALIDLE=true; RUN_CLIP_SPEED=RUN_SPEED; tIdle=0;
   actions.idle.play(); actions.idle.time=0; actions.idle.timeScale=1; actions.idle.weight=1;
   holder.position.y=HBASE=0; mixer.update(0); model.updateMatrixWorld(true);
@@ -2802,7 +2803,7 @@ async function boot(){
     const dec=t=>{ const bin=atob(t.trim()); const u8=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i); return u8.buffer; };
     const glb=await new Promise((ok,no)=>new GLTFLoader().parse(dec(tg),'',ok,no));
     const b=JSON.parse(tc); try{ const t2=await get('models/frog2.glb.b64.txt',()=>{}); const g2=await new Promise((ok,no)=>new GLTFLoader().parse(dec(t2),'',ok,no)); prepFrog2(g2); }catch(e){ FROG2=null; console.error('[Kurbağa] Animasyonlu kurbağa GLB yüklenemedi, yedek model kullanılacak:',e); try{ prepFrog(JSON.parse(await get('models/frog.json',()=>{}))); }catch(e2){ FROG=null; console.error('[Kurbağa] Yedek kurbağa da yüklenemedi, kurt modeli kullanılacak:',e2); } }
-    let hero=null, HJ=null; try{ HJ=JSON.parse(await get('models/hero.json',()=>{})); hero=buildBrute(HJ); }catch(e){ console.error('[Karakter] hero.json yüklenemedi:',e); }
+    let hero=null, HJ=null; try{ HJ=JSON.parse(await get('models/hero.json',()=>{})); try{ HJ.death=JSON.parse(await get('models/hero_death.json',()=>{})); }catch(e){ console.error('[Anim] hero_death.json yüklenemedi:',e); } hero=buildBrute(HJ); }catch(e){ console.error('[Karakter] hero.json yüklenemedi:',e); }
     if(!hero) throw new Error('Karakter modeli yüklenemedi');
     setupPlayer(hero,HJ); try{ const th=await get('models/horse.glb.b64.txt',()=>{}); const hg=await new Promise((ok,no)=>new GLTFLoader().parse(dec(th),'',ok,no)); setupMount(hg); }catch(e){ console.error('[At] Warhorse Lite yüklenemedi, binek devre dışı:',e); MOUNT.ready=false; }
     if(tm){ try{ const mb=atob(tm.trim()); const mu=new Uint8Array(mb.length); for(let i=0;i<mb.length;i++) mu[i]=mb.charCodeAt(i); prepMaw(L.parse(mu.buffer,''),b); }catch(e){ console.warn('Maw yüklenemedi, eski ork kullanılacak',e); MAW=null; } }
