@@ -557,6 +557,20 @@ function buildHero(THREE, skelJson, glb, opts){
   return {root,bones,skeleton:sk2,hs,cx,cz,y0,box};
 }
 
+/* ===== Oyuncu: Mixamo "MaleBruteA" (Sword_And_Shield_Idle.fbx) — models/brute.json ===== */
+function buildBrute(J,H=1.95){
+  const root=new THREE.Group(); const bn=J.bones.map(d=>{ const b=new THREE.Bone(); b.name=d.n; b.position.fromArray(d.pos); b.quaternion.fromArray(d.q); b.scale.fromArray(d.s); return b; });
+  J.bones.forEach((d,i)=>{ if(d.p>=0) bn[d.p].add(bn[i]); }); root.add(bn[0]); root.updateMatrixWorld(true);
+  const sk=new THREE.Skeleton(bn,J.inv.map(a=>new THREE.Matrix4().fromArray(a)));
+  const tl=new THREE.TextureLoader(), tex={}; for(const k in J.tex){ const t=tl.load(J.tex[k]); t.colorSpace=THREE.SRGBColorSpace; tex[k]=t; }
+  for(const pt of J.parts){
+    const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.Float32BufferAttribute(pt.pos,3)); g.setAttribute('normal',new THREE.Float32BufferAttribute(pt.nrm,3)); g.setAttribute('uv',new THREE.Float32BufferAttribute(pt.uv,2));
+    g.setAttribute('skinIndex',new THREE.Uint16BufferAttribute(pt.si,4)); g.setAttribute('skinWeight',new THREE.Float32BufferAttribute(pt.sw,4)); g.setIndex(pt.idx);
+    const mat=new THREE.MeshStandardMaterial({map:pt.tex?tex[pt.tex]:null,color:pt.tex?0xffffff:pt.col,roughness:.7,metalness:.05,alphaTest:pt.alpha?.4:0,side:pt.alpha?THREE.DoubleSide:THREE.FrontSide});
+    const sm=new THREE.SkinnedMesh(g,mat); sm.name=pt.n; sm.frustumCulled=false; root.add(sm); sm.bind(sk,new THREE.Matrix4()); }
+  root.scale.setScalar(H/J.h);
+  return {root,bones:Object.fromEntries(bn.map(b=>[b.name.replace(/^mixamorig:?/,''),b]))};
+}
 function buildMount(THREE, glb, o){
   // geyik: statik mesh -> 6 kemikli basit iskelet (gövde, 4 bacak, baş); o={re:/npc-mount/, x0}
   glb.scene.updateMatrixWorld(true);
@@ -1202,11 +1216,12 @@ function makeSword(){
   g.traverse(o=>{ if(o.isMesh) o.castShadow=true; }); return g;
 }
 function B(name){ return bones[name]||null; }
-let MSCALE=SCALE; const OLD_HIPS=104.27;
+let MSCALE=SCALE; const OLD_HIPS=104.27; const SWROT=[0,0,0], SWPOS=[0,0,0], SWDIR=[0,.55,.83];
 function setupPlayer(fbxA, cj){
   model=fbxA.root; MSCALE=model.scale.x;
   const holder=new THREE.Group(); holder.add(model); playerGroup.add(holder); HOLDER=holder;
   model.traverse(o=>{ if(o.isSkinnedMesh){ if(!Object.keys(bones).length) o.skeleton.bones.forEach(b=>{ bones[b.name.replace(/^mixamorig:?/,'')]=b; }); styleMesh(o); } });
+  if(bones.Weapon&&!model.userData.ownSword){ sword=makeSword(); sword.scale.setScalar(1/MSCALE); sword.rotation.set(SWROT[0],SWROT[1],SWROT[2]); sword.position.set(SWPOS[0],SWPOS[1],SWPOS[2]); bones.Weapon.add(sword); }
   const jog=THREE.AnimationClip.parse(cj.jog), turn=THREE.AnimationClip.parse(cj.turn);
   stripRootMotion(jog,true); stripRootMotion(turn,false);
   const K=(bones.Hips?bones.Hips.position.y:OLD_HIPS)/OLD_HIPS;   // eski iskelet santimetre, yeni iskelet farklı ölçekte
@@ -1260,6 +1275,10 @@ function setupPlayer(fbxA, cj){
   if(REALIDLE){ let mn=1e9; for(let t=0;t<idleC.duration;t+=.2){ actions.idle.time=t; mixer.update(0); model.updateMatrixWorld(true); lf.getWorldPosition(p1); rf.getWorldPosition(p2); mn=Math.min(mn,p1.y,p2.y); } minA=Math.min(minA,mn); actions.idle.time=0; }
   holder.position.y=HBASE=(RIDER_OPTS.ankle||.165)-minA;
   mixer.update(0); model.updateMatrixWorld(true);
+  if(sword&&bones.Weapon){   // kılıcı bekleme pozunda öne-yukarı bakacak şekilde elin yerel eksenine hizala
+    holder.updateMatrixWorld(true); const tmp=new THREE.Matrix4().copy(model.matrixWorld).invert().multiply(bones.Weapon.matrixWorld), qb=new THREE.Quaternion(); tmp.decompose(new THREE.Vector3(),qb,new THREE.Vector3());
+    const Y=new THREE.Vector3(SWDIR[0],SWDIR[1],SWDIR[2]).normalize(), Zs=new THREE.Vector3(1,0,0).addScaledVector(Y,-Y.x).normalize(), Xs=new THREE.Vector3().crossVectors(Y,Zs);
+    const qm=new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(Xs,Y,Zs)); sword.quaternion.copy(qb.invert().multiply(qm)); }
   // kılıç: karakter modelinin kendi kılıcı sağ ele bağlı (rigidHand)
   P.anim='idle'; playerGroup.userData.ready=true;
 }
@@ -2781,7 +2800,8 @@ async function boot(){
     const dec=t=>{ const bin=atob(t.trim()); const u8=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i); return u8.buffer; };
     const glb=await new Promise((ok,no)=>new GLTFLoader().parse(dec(tg),'',ok,no));
     const b=JSON.parse(tc); try{ b.anim=JSON.parse(await get('models/anim.json',()=>{})); }catch(e){ b.anim=null; } try{ b.anim2=JSON.parse(await get('models/anim2.json',()=>{})); }catch(e){ b.anim2=null; console.error('[Anim] anim2.json yüklenemedi:',e); } try{ b.anim3=JSON.parse(await get('models/anim3.json',()=>{})); }catch(e){ b.anim3=null; console.error('[Anim] anim3.json yüklenemedi:',e); } try{ const t2=await get('models/frog2.glb.b64.txt',()=>{}); const g2=await new Promise((ok,no)=>new GLTFLoader().parse(dec(t2),'',ok,no)); prepFrog2(g2); }catch(e){ FROG2=null; console.error('[Kurbağa] Animasyonlu kurbağa GLB yüklenemedi, yedek model kullanılacak:',e); try{ prepFrog(JSON.parse(await get('models/frog.json',()=>{}))); }catch(e2){ FROG=null; console.error('[Kurbağa] Yedek kurbağa da yüklenemedi, kurt modeli kullanılacak:',e2); } }
-    const hero=buildHero(THREE,JSON.parse(tj),glb,RIDER_OPTS);
+    let hero=null; try{ hero=buildBrute(JSON.parse(await get('models/brute.json',()=>{}))); }catch(e){ console.error('[Karakter] brute.json yüklenemedi, eski karakter kullanılacak:',e); }
+    if(!hero) hero=buildHero(THREE,JSON.parse(tj),glb,RIDER_OPTS);
     setupPlayer(hero,b); try{ const th=await get('models/horse.glb.b64.txt',()=>{}); const hg=await new Promise((ok,no)=>new GLTFLoader().parse(dec(th),'',ok,no)); setupMount(hg); }catch(e){ console.error('[At] Warhorse Lite yüklenemedi, binek devre dışı:',e); MOUNT.ready=false; }
     if(tm){ try{ const mb=atob(tm.trim()); const mu=new Uint8Array(mb.length); for(let i=0;i<mb.length;i++) mu[i]=mb.charCodeAt(i); prepMaw(L.parse(mu.buffer,''),b); }catch(e){ console.warn('Maw yüklenemedi, eski ork kullanılacak',e); MAW=null; } }
     try{ const ta=await get('models/archway.b64.txt',()=>{}); const ag=await new Promise((ok,no)=>new GLTFLoader().parse(dec(ta),'',ok,no)); ARCH=ag.scene; }catch(e){ console.error('[Geçit] kemer modeli yüklenemedi, eski kapı kullanılacak:',e); }
