@@ -1219,6 +1219,9 @@ function B(name){ return bones[name]||null; }
 let GOFF=null, FOOTD=.08; const _gfv=new THREE.Vector3();
 /* zemin oturtma: her karede en alçak ayak/parmak kemiği botun taban payı kadar zeminin üstünde tutulur; ölüm klibi sabit ofsetle */
 function groundFix(){ if(!GOFF||!HOLDER) return;
+  // ölüm klibi yok: karakter ayak ucundan geriye devrilir (0.65 sn), yeniden doğunca ayağa kalkar
+  if(S.dead){ if(!P.deadAt) P.deadAt=performance.now(); const e=ease(Math.min(1,(performance.now()-P.deadAt)/650)); HOLDER.rotation.x=-1.5*e; HOLDER.position.y=HBASE*(1-e)+.14*e; return; }
+  else if(P.deadAt){ P.deadAt=0; HOLDER.rotation.x=0; }
   if(MOUNT.ready&&MOUNT.blend>0) return;
   let dead=0,tot=0; for(const k in actions){ const a=actions[k]; if(!a||!a.isRunning()) continue; const e=a.getEffectiveWeight(); tot+=e; if(k==='death') dead+=e; }
   const wd=tot>.001?dead/tot:0; let dyn=HBASE;
@@ -1227,86 +1230,42 @@ function groundFix(){ if(!GOFF||!HOLDER) return;
   HBASE=wd>.001?dyn*(1-wd)+GOFF.death*wd:dyn; HOLDER.position.y=HBASE; }
 let MSCALE=SCALE; const OLD_HIPS=104.27; const SWROT=[0,0,0], SWPOS=[0,0,0], SWDIR=[0,.55,.83];
 function setupPlayer(fbxA, cj){
+  /* Oyuncu: Mixamo "Ch44" (models/hero.json). Yalnızca kendi içindeki bekleme animasyonu var; koşu/saldırı/ölüm klipleri yok (kullanıcı yenilerini verecek) */
   model=fbxA.root; MSCALE=model.scale.x;
   const holder=new THREE.Group(); holder.add(model); playerGroup.add(holder); HOLDER=holder;
   model.traverse(o=>{ if(o.isSkinnedMesh){ if(!Object.keys(bones).length) o.skeleton.bones.forEach(b=>{ bones[b.name.replace(/^mixamorig:?/,'')]=b; }); styleMesh(o); } });
-  if(bones.Weapon&&!model.userData.ownSword){ sword=makeSword(); sword.scale.setScalar(1/MSCALE); sword.rotation.set(SWROT[0],SWROT[1],SWROT[2]); sword.position.set(SWPOS[0],SWPOS[1],SWPOS[2]); bones.Weapon.add(sword); }
-  const jog=THREE.AnimationClip.parse(cj.jog), turn=THREE.AnimationClip.parse(cj.turn);
-  stripRootMotion(jog,true); stripRootMotion(turn,false);
-  const K=(bones.Hips?bones.Hips.position.y:OLD_HIPS)/OLD_HIPS;   // eski iskelet santimetre, yeni iskelet farklı ölçekte
-  for(const c of [jog,turn]) for(const tr of c.tracks) if(/\.position$/.test(tr.name)) for(let i=0;i<tr.values.length;i++) tr.values[i]*=K;
   mixer=new THREE.AnimationMixer(model);
-  // Mutant_Run / Great_Sword_Idle (models/anim.json): varsa koşu ve bekleme bunlardan gelir, yoksa eski jog klibi kullanılır
-  let runC=null, idleC=null;
-  if(cj.anim&&cj.anim.run&&cj.anim.idle){
-    runC=THREE.AnimationClip.parse(cj.anim.run); idleC=THREE.AnimationClip.parse(cj.anim.idle); stripRootMotion(runC,true); stripRootMotion(idleC,false);
-    for(const c of [runC,idleC]) for(const tr of c.tracks) if(/\.position$/.test(tr.name)) for(let i=0;i<tr.values.length;i++) tr.values[i]*=K;
-    REALIDLE=true; RUN_CLIP_SPEED=4.1;   // Running.fbx: 0.63 sn döngü, gömülü hız ~5.7 m/sn; oyun hızında (3.3) 0.8x oynar (ayak kayması/hız dengesi)
-  }
-  // Yeni animasyonlar (models/anim2.json): Idle.fbx, One_Hand_Club_Combo.fbx, Dying_Backwards.fbx — aynı Mixamo iskeleti, yalnızca klip verisi kullanılır
-  let comboC=null, deathC=null;
-  if(cj.anim2){
-    const prep=(j,nm)=>{ try{ const c=THREE.AnimationClip.parse(j); c.name=nm; lockRootXZ(c); for(const tr of c.tracks) if(/\.position$/.test(tr.name)) for(let i=0;i<tr.values.length;i++) tr.values[i]*=K;
-      const miss=c.tracks.filter(tr=>!bones[tr.name.split('.')[0].replace(/^mixamorig:?/,'')]).map(tr=>tr.name); if(miss.length) console.warn('[Anim] '+nm+': eşleşmeyen kemik/kanal '+miss.length+': '+miss.slice(0,6).join(', ')); else console.info('[Anim] '+nm+': '+c.tracks.length+' kanalın tamamı eşleşti, süre '+c.duration.toFixed(2)+' sn'); return c; }catch(e){ console.error('[Anim] '+nm+' klibi işlenemedi:',e); return null; } };
-    const i2=prep(cj.anim2.idle,'idle2'); if(i2){ if(REALIDLE) idleC=i2; else console.error('[Anim] Idle klibi uygulanamadı: anim.json (koşu) yok'); }
-    comboC=prep(cj.anim2.combo,'combo'); deathC=prep(cj.anim2.death,'death');
-  } else console.error('[Anim] models/anim2.json yok: yeni bekleme/saldırı/ölüm animasyonları kullanılamıyor');
-  // Human Melee Animations FREE (farklı iskelet: B-hips/B-spine/...): kemik eşlemeli retarget ile önceden pişirilmiş klipler (models/anim3.json)
-  const A3={};
-  if(cj.anim3&&cj.anim3.clips){
-    for(const k of ['idle','cidle','atkR','atkL','dmg','death','run','sL','sR']){ try{ const j=cj.anim3.clips[k]; if(!j) throw new Error('klip yok'); const c=THREE.AnimationClip.parse(j); c.name='h_'+k; if(['idle','cidle','atkR','atkL','dmg','death'].includes(k)) lockRootXZ(c);   // klip kalçayı 2+ m ileri/geri taşıyordu: yer değiştirmeyi oyun hareketi yönetir
-      const miss=c.tracks.filter(tr=>!bones[tr.name.split('.')[0].replace(/^mixamorig:?/,'')]).map(tr=>tr.name); if(miss.length) console.warn('[Anim] '+k+': eşleşmeyen kanal '+miss.length+': '+miss.join(', ')); A3[k]=c; }catch(e){ console.error('[Anim] retarget klibi alınamadı: '+k,e); } }
-    A3META=cj.anim3.meta||{};
-    if(A3.idle&&A3.cidle&&A3.run){ HAS3=true; REALIDLE=true; idleC=A3.idle; runC=A3.run; RUN_CLIP_SPEED=A3META.runSpeed||3.33; if(A3.death) deathC=A3.death;
-      console.info('[Anim] Human Melee: '+Object.keys(A3).join(', ')+' hazır; eşlenen kemik '+A3META.mapped+', eksik: '+((A3META.missing||[]).join(',')||'yok')+', koşu hızı '+RUN_CLIP_SPEED); }
-    else console.error('[Anim] Human Melee: idle/cidle/run klipleri eksik, eski animasyonlar kullanılacak');
-  } else console.error('[Anim] models/anim3.json yok, Human Melee animasyonları kullanılamıyor');
-  const jc=runC||jog;
-  const jogIdle=jog.clone(); jogIdle.name='idle';
-  actions.jog=mixer.clipAction(jc); actions.idle=mixer.clipAction(idleC||jogIdle); actions.turn=mixer.clipAction(turn);
-  actions.turn.setLoop(THREE.LoopOnce,1); actions.turn.clampWhenFinished=true;
-  if(HAS3) for(const [k,c] of [['cidle',A3.cidle],['atkR',A3.atkR],['atkL',A3.atkL],['dmg',A3.dmg],['strafeL',A3.sL],['strafeR',A3.sR]]) if(c){ const a=mixer.clipAction(c); if(k==='cidle'||k[0]==='s'){ a.setLoop(THREE.LoopRepeat,Infinity); } else { a.setLoop(THREE.LoopOnce,1); a.clampWhenFinished=true; } actions[k]=a; }
-  for(const [k,c] of [['combo',comboC],['death',deathC]]) if(c){ const a=mixer.clipAction(c); a.setLoop(THREE.LoopOnce,1); a.clampWhenFinished=true; actions[k]=a; }
-  const hq=turn.tracks.find(t=>/Hips\.quaternion$/.test(t.name));
-  if(hq){ const v=hq.values, n=hq.times.length; const q0=new THREE.Quaternion(v[0],v[1],v[2],v[3]), q1=new THREE.Quaternion(v[(n-1)*4],v[(n-1)*4+1],v[(n-1)*4+2],v[(n-1)*4+3]); const d=q1.multiply(q0.invert()); const a=2*Math.atan2(d.y,d.w); if(isFinite(a)&&Math.abs(a)>.6) TURN_DELTA=Math.abs(a); }
-  actions.jog.play(); let best=1e9; const lf=B('LeftFoot'), rf=B('RightFoot'); const p1=new THREE.Vector3(), p2=new THREE.Vector3();
-  let minA=1e9; for(let t=0;t<jc.duration;t+=.04){ actions.jog.time=t; mixer.update(0); model.updateMatrixWorld(true); lf.getWorldPosition(p1); rf.getWorldPosition(p2); minA=Math.min(minA,p1.y,p2.y); const sc=Math.abs(p1.z-p2.z)+(p1.y+p2.y)*.8; if(sc<best){best=sc; tIdle=t;} }
-  if(REALIDLE) tIdle=0;
-  actions.jog.stop();
-  if(actions.combo){   // vuruş anlarını bul: sağ el hızının tepe noktaları
-    const a=actions.combo, rh=B('RightHand'), sp=[], h=1/30; let prev=null; a.play(); a.setEffectiveWeight(1);
-    for(let t=0;t<comboC.duration;t+=h){ a.time=t; mixer.update(0); model.updateMatrixWorld(true); rh.getWorldPosition(p1); if(prev) sp.push([t,p1.distanceTo(prev)/h]); prev=p1.clone(); }
-    a.stop(); const v=sp.map((e,i)=>(sp[Math.max(0,i-1)][1]+e[1]+sp[Math.min(sp.length-1,i+1)][1])/3), mx=Math.max(...v); const imps=[];
-    for(let i=1;i<sp.length-1;i++) if(v[i]>.6*mx&&v[i]>=v[i-1]&&v[i]>=v[i+1]&&(!imps.length||sp[i][0]-imps[imps.length-1]>.45)) imps.push(+sp[i][0].toFixed(3));
-    COMBO={dur:comboC.duration,imps:imps.length?imps:[comboC.duration*.45]}; console.info('[Anim] combo vuruş anları (sn): '+COMBO.imps.join(', '));
-  }
-  actions.idle.play(); actions.idle.time=tIdle; actions.idle.timeScale=REALIDLE?1:0; actions.idle.weight=1;
-  if(REALIDLE){ let mn=1e9; for(let t=0;t<idleC.duration;t+=.2){ actions.idle.time=t; mixer.update(0); model.updateMatrixWorld(true); lf.getWorldPosition(p1); rf.getWorldPosition(p2); mn=Math.min(mn,p1.y,p2.y); } minA=Math.min(minA,mn); actions.idle.time=0; }
-  holder.position.y=HBASE=(RIDER_OPTS.ankle||.165)-minA;
-  mixer.update(0); model.updateMatrixWorld(true);
-  // klip başına zemin ofseti: bot tabanının en alçak noktası klip boyunca zemine değer (Melee klipleri farklı kalça yüksekliğinde pişirildi)
-  { const lowMs=[], allMs=[]; model.traverse(o=>{ if(o.isSkinnedMesh){ allMs.push(o); if(/Shoes|Bottoms/i.test(o.name)) lowMs.push(o); } });
-    const v=new THREE.Vector3(); holder.position.y=0; playerGroup.updateMatrixWorld(true); const gy=playerGroup.position.y;
+  const idleC=THREE.AnimationClip.parse(cj.clip); idleC.name='idle'; lockRootXZ(idleC);
+  const miss=idleC.tracks.filter(tr=>!bones[tr.name.split('.')[0].replace(/^mixamorig:?/,'')]).map(tr=>tr.name);
+  if(miss.length) console.warn('[Anim] bekleme: eşleşmeyen kanal '+miss.length+': '+miss.slice(0,6).join(', ')); else console.info('[Anim] bekleme: '+idleC.tracks.length+' kanalın tamamı eşleşti, süre '+idleC.duration.toFixed(2)+' sn');
+  const walkC=idleC.clone(); walkC.name='jog';   // koşu klibi yok: hareket ederken geçici olarak bekleme klibi oynar
+  actions.idle=mixer.clipAction(idleC); actions.jog=mixer.clipAction(walkC);
+  for(const k of ['idle','jog']) actions[k].setLoop(THREE.LoopRepeat,Infinity);
+  HAS3=false; REALIDLE=true; RUN_CLIP_SPEED=RUN_SPEED; tIdle=0;
+  actions.idle.play(); actions.idle.time=0; actions.idle.timeScale=1; actions.idle.weight=1;
+  holder.position.y=HBASE=0; mixer.update(0); model.updateMatrixWorld(true);
+  // klip başına zemin ofseti: bot tabanının en alçak noktası zemine değsin
+  { const allMs=[]; model.traverse(o=>{ if(o.isSkinnedMesh) allMs.push(o); });
+    const v=new THREE.Vector3(); playerGroup.updateMatrixWorld(true); const gy=playerGroup.position.y;
     const lowest=(ms,st)=>{ model.updateMatrixWorld(true); let lo=1e9; for(const m of ms){ const n=m.geometry.attributes.position.count; for(let i=0;i<n;i+=st){ m.getVertexPosition(i,v); v.applyMatrix4(m.matrixWorld); if(v.y<lo) lo=v.y; } } return lo-gy; };
     GOFF={}; for(const k in actions) actions[k].stop();
     for(const k in actions){ const a=actions[k], c=a.getClip(); a.reset(); a.setEffectiveWeight(1); a.play(); a.paused=true; let lo=1e9;
-      if(k==='death'){ a.time=c.duration; mixer.update(0); lo=lowest(allMs,6); }
-      else { for(let t=0;t<c.duration;t+=Math.max(.04,c.duration/30)){ a.time=t; mixer.update(0); lo=Math.min(lo,lowest(lowMs,2)); } }
+      for(let t=0;t<c.duration;t+=Math.max(.05,c.duration/20)){ a.time=t; mixer.update(0); lo=Math.min(lo,lowest(allMs,3)); }
       a.stop(); GOFF[k]=-lo; }
-    { const fb=['LeftFoot','RightFoot','LeftToeBase','RightToeBase'].map(n=>bones[n]).filter(Boolean), pv=new THREE.Vector3(); let sum=0,cnt=0;
-      for(const k of ['idle','cidle','jog']){ const a=actions[k]; if(!a) continue; const c=a.getClip(); a.reset(); a.setEffectiveWeight(1); a.play(); a.paused=true;
-        for(let t=0;t<c.duration;t+=c.duration/12){ a.time=t; mixer.update(0); const lo=lowest(lowMs,2); let mb=1e9; for(const b of fb){ b.getWorldPosition(pv); mb=Math.min(mb,pv.y-gy); } sum+=mb-lo; cnt++; } a.stop(); }
-      FOOTD=cnt?sum/cnt:.08; }
-    actions.idle.reset(); actions.idle.timeScale=REALIDLE?1:0; actions.idle.play(); actions.idle.setEffectiveWeight(1);
-    holder.position.y=HBASE=GOFF.idle; console.info('[Zemin] klip ofsetleri: '+Object.keys(GOFF).map(k=>k+' '+GOFF[k].toFixed(3)).join(', ')); }
+    { const fb=['LeftFoot','RightFoot','LeftToeBase','RightToeBase'].map(n=>bones[n]).filter(Boolean), pv=new THREE.Vector3(); let sum=0,cnt=0; const a=actions.idle, c=a.getClip(); a.reset(); a.setEffectiveWeight(1); a.play(); a.paused=true;
+      for(let t=0;t<c.duration;t+=c.duration/12){ a.time=t; mixer.update(0); const lo=lowest(allMs,3); let mb=1e9; for(const b of fb){ b.getWorldPosition(pv); mb=Math.min(mb,pv.y-gy); } sum+=mb-lo; cnt++; } a.stop(); FOOTD=cnt?sum/cnt:.08; }
+    actions.idle.reset(); actions.idle.timeScale=1; actions.idle.play(); actions.idle.setEffectiveWeight(1);
+    holder.position.y=HBASE=GOFF.idle; console.info('[Zemin] klip ofsetleri: '+Object.keys(GOFF).map(k=>k+' '+GOFF[k].toFixed(3)).join(', ')+'; ayak kemiği/taban payı '+FOOTD.toFixed(3)); }
   mixer.update(0); model.updateMatrixWorld(true);
-  if(sword&&bones.Weapon){   // kılıcı bekleme pozunda öne-yukarı bakacak şekilde elin yerel eksenine hizala
-    holder.updateMatrixWorld(true); const tmp=new THREE.Matrix4().copy(model.matrixWorld).invert().multiply(bones.Weapon.matrixWorld), qb=new THREE.Quaternion(); tmp.decompose(new THREE.Vector3(),qb,new THREE.Vector3());
-    const Y=new THREE.Vector3(SWDIR[0],SWDIR[1],SWDIR[2]).normalize(), Zs=new THREE.Vector3(1,0,0).addScaledVector(Y,-Y.x).normalize(), Xs=new THREE.Vector3().crossVectors(Y,Zs);
-    const qm=new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(Xs,Y,Zs)); sword.quaternion.copy(qb.invert().multiply(qm)); }
-  // kılıç: karakter modelinin kendi kılıcı sağ ele bağlı (rigidHand)
+  // kılıç: sağ ele takılı (kabza avuç içinde, ele göre sabit)
+  if(bones.RightHand){ sword=makeSword(); sword.scale.setScalar(1/MSCALE); SWHAND=bones.RightHand; SWHAND.add(sword); placeSword(); }
   P.anim='idle'; playerGroup.userData.ready=true;
 }
+let SWHAND=null;
+/* kılıç ekseni: el yerel X ekseni = yumruk deliği (kabza ekseni); ayarlanabilir */
+const SWCFG={ax:[.948,.317,-.044], edge:[0,0,1], pos:[1.8,11.1,3.3]};   // ölçüm: parmak eklem merkezi (0,10.5,3.4) cm, işaret→serçe ekseni
+function placeSword(){ if(!sword) return; const Y=new THREE.Vector3(...SWCFG.ax).normalize(), X0=new THREE.Vector3(...SWCFG.edge), Z=new THREE.Vector3().crossVectors(X0,Y).normalize(), X=new THREE.Vector3().crossVectors(Y,Z).normalize();
+  sword.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(X,Y,Z)); sword.position.fromArray(SWCFG.pos); }
 
 
 /* ---- binek (geyik): bin / in, inince sahibini takip eder ---- */
@@ -1409,7 +1368,7 @@ const ATK_SPEED=1.35, ATK_DUR=2.267/ATK_SPEED, ATK_IMPACT=.9/ATK_SPEED;
 function overlayPose(time){
   if(MOUNT.ready&&MOUNT.blend>0) sitPose(ease(MOUNT.blend));
   // nefes / bekleme titreşimi
-  if(P.anim==='idle' && !P.atk && !HAS3){ const b=Math.sin(time*2)*.02; rotW(B('Spine1'),1,0,0,b); rotW(B('Spine2'),1,0,0,b*.7); }
+  if(false){ const b=Math.sin(time*2)*.02; rotW(B('Spine1'),1,0,0,b); rotW(B('Spine2'),1,0,0,b*.7); }
   if(P.flinch>0&&!S.dead&&!(HAS3&&actions.dmg)){ const k=P.flinch/.25; rotW(B('Spine1'),1,0,0,-.35*k); rotW(B('Head'),1,0,0,-.25*k); }
   if(P.dash&&!S.dead){ rotW(B('Spine'),1,0,0,.22); rotW(B('Spine1'),1,0,0,.22); rotW(B('Head'),1,0,0,-.2); }   // atılış: öne eğik koşu
   const a=P.atk; if(!a||a.combo||a.clip) return;   // combo klibi kendi animasyonunu oynatır
@@ -2595,7 +2554,7 @@ function updatePlayer(dt){
   if(moving){
     const want=Math.atan2(moveDir.x,moveDir.z);
     const stX=strafe;
-    if((P.anim==='idle'||P.anim==='cidle')&&!P.mounted&&!stX){ const d=wrap(want-P.yaw); if(d>1.1&&d<2.75&&!P.turnOut){ P.turn={t:0,base:P.yaw}; setAnim('turn',.15); } }
+    if(actions.turn&&(P.anim==='idle'||P.anim==='cidle')&&!P.mounted&&!stX){ const d=wrap(want-P.yaw); if(d>1.1&&d<2.75&&!P.turnOut){ P.turn={t:0,base:P.yaw}; setAnim('turn',.15); } }
     if(!P.turn){ P.yaw+=wrap((stX?stX.face:want)-P.yaw)*(1-Math.exp(-14*dt)); }
   }
   if(P.turn){ const a=actions.turn; P.turn.t+=dt*1.8; if(a.time>=a.getClip().duration-.04||P.turn.t>a.getClip().duration+.15){ P.yaw=P.turn.base; P.turnOut={t:0,d:.25,base:P.turn.base}; P.turn=null; setAnim('idle',.25); } }
@@ -2842,10 +2801,10 @@ async function boot(){
     const [tg,tj,tc,tm]=await Promise.all([ get('models/mount.glb.b64.txt',v=>pa=v), get('models/skeleton.json',()=>{}), get('models/clips.json',v=>pb=v), get('models/maw.b64.txt',()=>{}).catch(()=>null) ]);
     const dec=t=>{ const bin=atob(t.trim()); const u8=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i); return u8.buffer; };
     const glb=await new Promise((ok,no)=>new GLTFLoader().parse(dec(tg),'',ok,no));
-    const b=JSON.parse(tc); try{ b.anim=JSON.parse(await get('models/anim.json',()=>{})); }catch(e){ b.anim=null; } try{ b.anim2=JSON.parse(await get('models/anim2.json',()=>{})); }catch(e){ b.anim2=null; console.error('[Anim] anim2.json yüklenemedi:',e); } try{ b.anim3=JSON.parse(await get('models/anim3.json',()=>{})); }catch(e){ b.anim3=null; console.error('[Anim] anim3.json yüklenemedi:',e); } try{ const t2=await get('models/frog2.glb.b64.txt',()=>{}); const g2=await new Promise((ok,no)=>new GLTFLoader().parse(dec(t2),'',ok,no)); prepFrog2(g2); }catch(e){ FROG2=null; console.error('[Kurbağa] Animasyonlu kurbağa GLB yüklenemedi, yedek model kullanılacak:',e); try{ prepFrog(JSON.parse(await get('models/frog.json',()=>{}))); }catch(e2){ FROG=null; console.error('[Kurbağa] Yedek kurbağa da yüklenemedi, kurt modeli kullanılacak:',e2); } }
-    let hero=null; try{ hero=buildBrute(JSON.parse(await get('models/brute.json',()=>{}))); }catch(e){ console.error('[Karakter] brute.json yüklenemedi, eski karakter kullanılacak:',e); }
-    if(!hero) hero=buildHero(THREE,JSON.parse(tj),glb,RIDER_OPTS);
-    setupPlayer(hero,b); try{ const th=await get('models/horse.glb.b64.txt',()=>{}); const hg=await new Promise((ok,no)=>new GLTFLoader().parse(dec(th),'',ok,no)); setupMount(hg); }catch(e){ console.error('[At] Warhorse Lite yüklenemedi, binek devre dışı:',e); MOUNT.ready=false; }
+    const b=JSON.parse(tc); try{ const t2=await get('models/frog2.glb.b64.txt',()=>{}); const g2=await new Promise((ok,no)=>new GLTFLoader().parse(dec(t2),'',ok,no)); prepFrog2(g2); }catch(e){ FROG2=null; console.error('[Kurbağa] Animasyonlu kurbağa GLB yüklenemedi, yedek model kullanılacak:',e); try{ prepFrog(JSON.parse(await get('models/frog.json',()=>{}))); }catch(e2){ FROG=null; console.error('[Kurbağa] Yedek kurbağa da yüklenemedi, kurt modeli kullanılacak:',e2); } }
+    let hero=null, HJ=null; try{ HJ=JSON.parse(await get('models/hero.json',()=>{})); hero=buildBrute(HJ); }catch(e){ console.error('[Karakter] hero.json yüklenemedi:',e); }
+    if(!hero) throw new Error('Karakter modeli yüklenemedi');
+    setupPlayer(hero,HJ); try{ const th=await get('models/horse.glb.b64.txt',()=>{}); const hg=await new Promise((ok,no)=>new GLTFLoader().parse(dec(th),'',ok,no)); setupMount(hg); }catch(e){ console.error('[At] Warhorse Lite yüklenemedi, binek devre dışı:',e); MOUNT.ready=false; }
     if(tm){ try{ const mb=atob(tm.trim()); const mu=new Uint8Array(mb.length); for(let i=0;i<mb.length;i++) mu[i]=mb.charCodeAt(i); prepMaw(L.parse(mu.buffer,''),b); }catch(e){ console.warn('Maw yüklenemedi, eski ork kullanılacak',e); MAW=null; } }
     try{ const ta=await get('models/archway.b64.txt',()=>{}); const ag=await new Promise((ok,no)=>new GLTFLoader().parse(dec(ta),'',ok,no)); ARCH=ag.scene; }catch(e){ console.error('[Geçit] kemer modeli yüklenemedi, eski kapı kullanılacak:',e); }
     try{ for(const [k,n] of [['av','Avonmere_House_II'],['wh','Wolfhold_Barracks_II'],['gl','Granite_Legion_Watchtower_III']]){ const tb=await get('models/'+n+'.b64.txt',()=>{}); prepBuilding(k,await new Promise((ok,no)=>new GLTFLoader().parse(dec(tb),'',ok,no))); } }catch(e){ console.error('[Köy] bina modelleri yüklenemedi:',e); }
