@@ -817,7 +817,7 @@ function updatePt2(dt){ for(let i=pt2.length-1;i>=0;i--){ const p=pt2[i]; p.t+=d
   p.vy-=p.g*dt; if(p.dr){ const f=Math.exp(-p.dr*dt); p.vx*=f; p.vy*=f; p.vz*=f; } const s=p.s; s.position.x+=p.vx*dt; s.position.y+=p.vy*dt; s.position.z+=p.vz*dt;
   s.material.opacity=p.a0*Math.min(1,k*9)*(1-k*k); s.scale.setScalar(p.s0+(p.s1-p.s0)*k); if(p.rs) s.material.rotation+=p.rs*dt; } }
 function updateFx2(dt){ for(let i=fx2.length-1;i>=0;i--){ const e=fx2[i]; e.t+=dt; const k=e.t/e.dur; if(k>=1){ scene.remove(e.o); for(const m of e.mats) m.dispose(); if(e.done) e.done(e); fx2.splice(i,1); continue; } if(e.follow) e.o.position.copy(e.follow()); e.upd(e,k,dt); } }
-function clearSkillFx(){
+function clearSkillFx(){ if(typeof clearBolts==='function') clearBolts();
   for(const e of fx2){ scene.remove(e.o); for(const m of e.mats) m.dispose(); if(e.done) e.done(e); } fx2.length=0;
   for(const p of pt2) sprFree(p.s); pt2.length=0; sched.length=0;
   for(const pr of projectiles) projDispose(pr); projectiles.length=0;
@@ -1565,6 +1565,50 @@ function makeMaw(boss){
   idle.play(); idle.time=tIdle; idle.timeScale=0; idle.setEffectiveWeight(1); walk.play(); walk.time=R()*2; walk.setEffectiveWeight(0);
   return {g,legs:[],arms:[],head:null,tail:null,h:2.4,mixer,walk,idle,atk,wk:0,bn,Bf:n=>bn[n]||null,root};
 }
+/* Gölge Elfi (Mixamo Ch34): JSON'dan iskeletli mesh kurar */
+function buildMageRoot(J){
+  const root=new THREE.Group(); const bones=J.bones.map(d=>{ const b=new THREE.Bone(); b.name=d.n; b.position.fromArray(d.pos); b.quaternion.fromArray(d.q); b.scale.fromArray(d.s); return b; });
+  J.bones.forEach((d,i)=>{ if(d.p>=0) bones[d.p].add(bones[i]); });
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.Float32BufferAttribute(J.pos,3)); g.setAttribute('normal',new THREE.Float32BufferAttribute(J.nrm,3));
+  g.setAttribute('color',new THREE.BufferAttribute(new Uint8Array(J.col),3,true));
+  g.setAttribute('skinIndex',new THREE.Uint16BufferAttribute(J.si,4)); g.setAttribute('skinWeight',new THREE.Float32BufferAttribute(J.sw,4)); g.setIndex(J.idx);
+  const mat=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.7,metalness:.08,side:THREE.DoubleSide,emissive:0x1a0f2e,emissiveIntensity:.5});
+  const sm=new THREE.SkinnedMesh(g,mat); sm.name='MageMesh'; root.add(sm); root.add(bones[0]); root.updateMatrixWorld(true);
+  sm.bind(new THREE.Skeleton(bones,J.inv.map(a=>new THREE.Matrix4().fromArray(a))),new THREE.Matrix4());
+  return root; }
+
+let MAGE=null;
+const MAGE_H=1.95;
+function prepMage(J,cj){
+  const root=buildMageRoot(J); const have=new Set(); root.traverse(o=>have.add(o.name));
+  const K=J.bones[0].pos[1]/104.275;
+  const jog=THREE.AnimationClip.parse(cj.jog); stripRootMotion(jog,true); for(const tr of jog.tracks) if(/\.position$/.test(tr.name)) for(let i=0;i<tr.values.length;i++) tr.values[i]*=K;
+  jog.tracks=jog.tracks.filter(t=>have.has(t.name.split('.')[0])); const idle=jog.clone(); idle.name='idle';
+  const atk=THREE.AnimationClip.parse(J.clip); atk.name='cast'; atk.tracks=atk.tracks.filter(t=>have.has(t.name.split('.')[0]));
+  for(const tr of atk.tracks) if(/Hips\.position$/.test(tr.name)){ const v=tr.values; for(let i=3;i<v.length;i+=3){ v[i]=v[0]; v[i+2]=v[2]; } }   // yerinde kalsın (konumu oyun yönetir)
+  root.traverse(o=>{ if(o.isSkinnedMesh){ o.castShadow=false; o.frustumCulled=false; } });
+  MAGE={scene:root,ps:MAGE_H/J.h,jog,idle,atk}; }
+function makeMage(boss){
+  const root=cloneSkinned(MAGE.scene); root.scale.setScalar(MAGE.ps); const g=new THREE.Group(); g.add(root);
+  const bn={}, mats=[];
+  root.traverse(o=>{ if(o.isSkinnedMesh){ if(!Object.keys(bn).length) o.skeleton.bones.forEach(b=>{ bn[b.name.replace(/^mixamorig:?/,'')]=b; }); o.material=o.material.clone(); if(boss){ o.material.color.setRGB(1.25,.7,1.5); o.material.emissive.setHex(0x3a1060); } else { o.material.color.setRGB(.92,.9,1.0); } o.castShadow=false; o.frustumCulled=false; mats.push(o.material); } });
+  const mixer=new THREE.AnimationMixer(root); const walk=mixer.clipAction(MAGE.jog), idle=mixer.clipAction(MAGE.idle), atk=mixer.clipAction(MAGE.atk); atk.setLoop(THREE.LoopOnce,1); atk.clampWhenFinished=true; atk.play(); atk.setEffectiveWeight(0); atk.paused=true;
+  idle.play(); idle.time=tIdle; idle.timeScale=0; idle.setEffectiveWeight(1); walk.play(); walk.time=R()*2; walk.setEffectiveWeight(0);
+  return {g,legs:[],arms:[],head:null,tail:null,h:MAGE_H+.15,mixer,walk,idle,atk,wk:0,bn,root,atkSpeed:1.25,atkDur:2.3/1.25,atkImpact:.88/1.25}; }
+/* büyücü saldırısı: elden çıkan enerji küresi oyuncuya uçar, varınca hasar verir */
+const BOLTS=[];
+function mageBolt(m){
+  const b=m.b, hand=b.bn&&b.bn.RightHand; const from=new THREE.Vector3(); if(hand) hand.getWorldPosition(from); else from.set(m.group.position.x,m.group.position.y+1.4*m.T.scale,m.group.position.z);
+  const to=new THREE.Vector3(P.pos.x,P.pos.y+1.2,P.pos.z); const dist=from.distanceTo(to); const boss=m.T.boss;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,color:boss?0xff5ad8:0xb070ff,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,fog:false})); sp.scale.setScalar(boss?1.5:.95); sp.position.copy(from); scene.add(sp);
+  const core=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,color:0x66ffb0,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,fog:false})); core.scale.setScalar(boss?.8:.5); sp.add(core);
+  BOLTS.push({s:sp,from,to,t:0,dur:Math.max(.12,dist/17),m,dmg:mobDmg(m),boss}); burst(from,0xb070ff,6,2,.3,.25,0); }
+function updateBolts(dt){
+  for(let i=BOLTS.length-1;i>=0;i--){ const k=BOLTS[i]; k.t+=dt; const u=Math.min(1,k.t/k.dur); k.to.set(P.pos.x,P.pos.y+1.2,P.pos.z); k.s.position.lerpVectors(k.from,k.to,u); k.s.position.y+=Math.sin(u*Math.PI)*.35;
+    if(Math.random()<.5) burst(k.s.position,k.boss?0xff5ad8:0x9a6cff,1,.6,.25,.18,0);
+    if(u>=1){ scene.remove(k.s); k.s.material.dispose(); k.s.children[0].material.dispose(); BOLTS.splice(i,1); if(!S.dead){ damagePlayer(k.dmg,k.m); burst(k.to,k.boss?0xff5ad8:0xb070ff,14,4,.5,.4,-1); } } } }
+function clearBolts(){ for(const k of BOLTS){ scene.remove(k.s); } BOLTS.length=0; }
 function makeStone(){
   const g=new THREE.Group(), rock=M(0x34303a), cry=new THREE.MeshStandardMaterial({color:0xb77cff,emissive:0x8a3dff,emissiveIntensity:1.6,roughness:.2,metalness:.2,transparent:true,opacity:.92});
   for(let i=0;i<6;i++){ const r=new THREE.Mesh(new THREE.DodecahedronGeometry(rr(.5,.9),0),rock); const a=i/6*6.28; r.position.set(Math.cos(a)*1.2,.3,Math.sin(a)*1.2); r.castShadow=true; g.add(r); }
@@ -1573,14 +1617,20 @@ function makeStone(){
   const glow=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,color:0xa855ff,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,fog:false})); glow.scale.setScalar(6); glow.position.y=2.4; g.add(glow);
   return {g,legs:[],arms:[],head:null,tail:null,h:4.2,crystal,ring,glow};
 }
+function makeFrogBoss(){ const b=makeWolf(); if(b.root) b.root.traverse(o=>{ if(o.isSkinnedMesh&&o.material){ o.material.color.setRGB(.62,.42,1.15); } }); return b; }
+/* Kızıl Orman seviye aralığı 1-15: Kurbağa 1-5 · Gölge Elfi 5-10 · Ork 10-15; her türün kendi bölgesi ve bossu var */
 const TYPES={
-  wolf:{name:'Kurbağa',mk:makeWolf,hp:1,atk:1,exp:1,speed:3.1,aggro:8,range:1.5,cd:1.4,scale:1,hit:.85},
-  orc:{name:'Ork Savaşçısı',mk:()=>MAW?makeMaw(false):makeOrc(false),hp:1.25,atk:1.1,exp:1.2,speed:2.5,aggro:9,range:2.1,cd:1.8,scale:1,hit:1.1},
-  boss:{name:'Ork Reisi',mk:()=>MAW?makeMaw(true):makeOrc(true),hp:9,atk:1.7,exp:9,speed:2.6,aggro:12,range:2.9,cd:2.2,scale:1.75,hit:1.1},
-  stone:{name:'Mühür Taşı',mk:makeStone,hp:14,atk:0,exp:12,speed:0,aggro:0,range:0,cd:9,scale:1,hit:1.6}
+  wolf:{name:'Kurbağa',mk:makeWolf,hp:1,atk:1.15,exp:1,speed:3.1,aggro:8,range:1.5,cd:1.4,scale:1,hit:.85},
+  mage:{name:'Gölge Elfi',mk:()=>MAGE?makeMage(false):(MAW?makeMaw(false):makeOrc(false)),hp:1.25,atk:1.55,exp:1.2,speed:2.6,aggro:11,range:8,cd:2.7,scale:1,hit:.8,ranged:true},
+  orc:{name:'Ork Savaşçısı',mk:()=>MAW?makeMaw(false):makeOrc(false),hp:1.35,atk:1.0,exp:1.3,speed:2.5,aggro:9,range:2.1,cd:1.8,scale:1,hit:1.1},
+  fboss:{name:'Dev Kurbağa',mk:makeFrogBoss,hp:10.7,atk:2.0,exp:11,speed:3.0,aggro:12,range:2.2,cd:1.7,scale:2.5,hit:.85,boss:true,aura:0x9a4cff},
+  mboss:{name:'Gölge Kraliçesi',mk:()=>MAGE?makeMage(true):(MAW?makeMaw(true):makeOrc(true)),hp:9.6,atk:2.6,exp:13,speed:2.7,aggro:13,range:10,cd:2.5,scale:1.8,hit:.8,ranged:true,boss:true,aura:0xff5ad8},
+  boss:{name:'Ork Reisi',mk:()=>MAW?makeMaw(true):makeOrc(true),hp:8.8,atk:1.8,exp:14,speed:2.6,aggro:12,range:2.9,cd:2.2,scale:1.75,hit:1.1,boss:true,aura:0xff3a2a},
+  stone:{name:'Mühür Taşı',mk:makeStone,hp:6,atk:0,exp:12,speed:0,aggro:0,range:0,cd:9,scale:1,hit:1.6}
 };
 const mobs=[]; const mobHits=[];
-const mobHP = (t,l)=> Math.round((30*Math.pow(l,1.35)+20)*TYPES[t].hp);
+const mobBase = l=>70+8*Math.pow(l,1.55);   // seviyeye göre temel can (oyuncu hasarına göre ~5-16 sn öldürme süresi)
+const mobHP = (t,l)=> Math.round(mobBase(l)*TYPES[t].hp);
 function spawnMob(type,lvl,x,z,temp=false){
   const T=TYPES[type], b=T.mk(); const group=new THREE.Group(); group.add(b.g); group.scale.setScalar(T.scale); scene.add(group);
   const hit=new THREE.Mesh(new THREE.SphereGeometry(T.hit*T.scale+(type==='stone'?.6:0),8,6),new THREE.MeshBasicMaterial({visible:false})); hit.position.y=(b.h*T.scale)/2; group.add(hit);
@@ -1588,18 +1638,19 @@ function spawnMob(type,lvl,x,z,temp=false){
   const m={type,T,b,group,hit,lvl,hp:mobHP(type,lvl),maxHp:mobHP(type,lvl),home:new THREE.Vector3(x,0,z),yaw:R()*6.28,state:'wander',st:R()*3,wdest:null,cdT:0,phase:R()*6,dead:false,respT:0,tag,temp,flash:0,fade:0,mats:[],spawned:0,id:mobs.length};
   group.position.set(x,hAt(x,z),z); group.rotation.y=m.yaw; hit.userData.mob=m;
   b.g.traverse(o=>{ if(o.isMesh&&o.material&&o.material.emissive&&!o.material.transparent) m.mats.push(o.material); });
+  if(T.boss){ const au=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,color:T.aura||0xff3a2a,transparent:true,opacity:.5,depthWrite:false,blending:THREE.AdditiveBlending,fog:false})); au.scale.set(5.5,3.2,1); au.position.y=.25; group.add(au); m.aura=au; }
   if(coarse) b.g.traverse(o=>{ if(o.isMesh) o.castShadow=false; });   // mobil: canavarlar gölge geçişine girmez
   mobs.push(m); mobHits.push(hit); return m;
 }
-function mobDmg(m){ return Math.max(1,Math.round((4*Math.pow(m.lvl,1.2)+3)*m.T.atk*rr(.85,1.15)*(m.curseT>0?(m.curseMul||.7):1))); }
+function mobDmg(m){ return Math.max(1,Math.round((7+1.45*Math.pow(m.lvl,1.2))*m.T.atk*rr(.85,1.15)*(m.curseT>0?(m.curseMul||.7):1))); }
 function mobExp(m){ return Math.round(14*Math.pow(m.lvl,1.45)*m.T.exp); }
 function killMob(m){
-  m.dead=true; m.state='dead'; m.st=0; m.respT=m.type==='boss'?60:m.type==='stone'?45:rr(14,22);
+  m.dead=true; m.state='dead'; m.st=0; m.respT=m.T.boss?60:m.type==='stone'?45:rr(14,22);
   const xp=mobExp(m); gainExp(xp); say(`${m.T.name} yenildi. +${xp} tecrübe`,'c-xp'); SFX.die();
-  const y=m.type==='stone'?[m.lvl*40,m.lvl*70]:m.type==='boss'?[m.lvl*80,m.lvl*140]:[m.lvl*6,m.lvl*14];
+  const y=m.type==='stone'?[m.lvl*40,m.lvl*70]:m.T.boss?[m.lvl*80,m.lvl*140]:[m.lvl*6,m.lvl*14];
   dropAt(m.group.position,'yang',Math.round(rr(y[0],y[1])));
   if(R()<(m.type==='wolf'?.2:.28)) dropAt(m.group.position,R()<.6?'red':'blue',1);
-  if(m.type==='boss'||m.type==='stone'){ dropAt(m.group.position,'yang',Math.round(rr(y[0],y[1]))); dropAt(m.group.position,'red',2); }
+  if(m.T.boss||m.type==='stone'){ dropAt(m.group.position,'yang',Math.round(rr(y[0],y[1]))); dropAt(m.group.position,'red',2); }
   if(P.target===m){ P.target=null; }
   burst(m.group.position.clone().setY(m.group.position.y+1),m.type==='stone'?0xb77cff:0xffffff,18,4,.8,.4);
   if(m.type==='stone') { ringFx(m.group.position,5,0xb77cff,.9); banner('Mühür Taşı yıkıldı!'); }
@@ -1637,10 +1688,10 @@ function gainExp(x){
 function playerHit(m,mul,crit=false,quiet=false,col=0){
   if(m.dead) return; let dmg=atkPow()*mul*rr(.88,1.12)-m.lvl*1.4; dmg=Math.max(1,Math.round(dmg)); if(R()<.12+S.dex*.004){ dmg=Math.round(dmg*1.7); crit=true; }
   m.hp-=dmg; m.flash=.12; m.hitReq=true; popup(String(dmg),m.group.position.clone().setY(m.group.position.y+m.b.h*m.T.scale+.3),quiet?'dot':crit?'crit':'');
-  if(!quiet){ fxImpactFor(m,col||(crit?0xffc040:0xfff0cf),crit,m.type==='boss'); (crit?SFX.crit:SFX.hit)(); }
+  if(!quiet){ fxImpactFor(m,col||(crit?0xffc040:0xfff0cf),crit,!!m.T.boss); (crit?SFX.crit:SFX.hit)(); }
   S.combat=6;
   if(m.type!=='stone'&&m.state!=='chase'&&m.state!=='attack'&&!m.dead){ m.state='chase'; }
-  if(m.type==='stone'){ const frac=m.hp/m.maxHp; const stage=frac<.25?3:frac<.5?2:frac<.75?1:0; while(m.spawned<stage){ m.spawned++; banner('Mühür Taşı canavar çağırdı!'); for(let i=0;i<3;i++){ const a=R()*6.28; const w=spawnMob('wolf',Math.max(1,m.lvl-1),m.group.position.x+Math.cos(a)*4,m.group.position.z+Math.sin(a)*4,true); w.state='chase'; } } }
+  if(m.type==='stone'){ const frac=m.hp/m.maxHp; const stage=frac<.25?3:frac<.5?2:frac<.75?1:0; while(m.spawned<stage){ m.spawned++; banner('Mühür Taşı canavar çağırdı!'); for(let i=0;i<3;i++){ const a=R()*6.28; const zt=zoneTypeAt(m.group.position.x,m.group.position.z), w=spawnMob(zt.type,clamp(m.lvl-1,zt.l0,zt.l1),m.group.position.x+Math.cos(a)*4,m.group.position.z+Math.sin(a)*4,true); w.state='chase'; } } }
   if(m.hp<=0) killMob(m);
 }
 function damagePlayer(n,src){
@@ -2155,7 +2206,7 @@ function updatePlayer(dt){
   const busy = !!(P.atk||P.turn||P.spin||dead);
   if(!manual && !dead && !P.atk && !P.turn){
     let goal=null, stopD=.25;
-    if(P.target&&!P.target.dead){ goal=P.target.group.position; stopD=P.target.T.scale*(.7)+1.5+(P.target.type==='stone'?1.2:0); if(P.target.type==='boss') stopD+=.6; }
+    if(P.target&&!P.target.dead){ goal=P.target.group.position; stopD=P.target.T.scale*(.7)+1.5+(P.target.type==='stone'?1.2:0); if(P.target.T.boss) stopD+=.6; }
     else if(P.target&&P.target.dead) P.target=null;
     else if(P.dest){ goal=P.dest; stopD=P.npc?2.6:(P.pickT?.6:.25); }
     if(goal){ const dx=goal.x-P.pos.x, dz=goal.z-P.pos.z, d=Math.hypot(dx,dz);
@@ -2226,6 +2277,7 @@ function openShop(){ closeWins(); $('shop').classList.remove('hidden'); refreshW
 
 const _mfv=new THREE.Vector3(); let _mfx=0,_mfz=1;
 function updateMobs(dt){
+  updateBolts(dt);
   const pp=P.pos; camera.getWorldDirection(_mfv); _mfx=_mfv.x; _mfz=_mfv.z;
   for(const m of mobs){
     const g=m.group, T=m.T, b=m.b; const dPlayer=Math.hypot(g.position.x-pp.x,g.position.z-pp.z);
@@ -2262,8 +2314,8 @@ function updateMobs(dt){
     } else if(m.state==='attack'){
       m.st+=dt; m.yaw+=wrap(Math.atan2(toP.x,toP.z)-m.yaw)*(1-Math.exp(-9*dt));
       if(dp>T.range+.9*T.scale||S.dead){ m.state=S.dead?'return':'chase'; }
-      else if(m.cdT<=0 && m.st>.35 && (!b.fx||fxCanAtk(b.fx))){ m.cdT=T.cd; m.st=0; m.swingMax=b.fx?b.fx.atkDur:(b.mixer?ATK_DUR:.5); m.swing=m.swingMax; m.hitDone=false; if(b.fx){ fxAttack(b.fx); } else if(b.mixer){ b.atk.reset(); b.atk.timeScale=ATK_SPEED; b.atk.paused=false; b.atk.play(); } }
-      if(m.swing>0){ m.swing-=dt; const el=m.swingMax-m.swing, imp=b.fx?b.fx.atkImpact:(b.mixer?ATK_IMPACT:m.swingMax); if(!m.hitDone&&el>=imp){ m.hitDone=true; if(!S.dead&&dp<T.range+1.1*T.scale){ damagePlayer(mobDmg(m),m); } } }
+      else if(m.cdT<=0 && m.st>.35 && (!b.fx||fxCanAtk(b.fx))){ m.cdT=T.cd; m.st=0; m.swingMax=b.fx?b.fx.atkDur:(b.mixer?(b.atkDur||ATK_DUR):.5); m.swing=m.swingMax; m.hitDone=false; if(b.fx){ fxAttack(b.fx); } else if(b.mixer){ b.atk.reset(); b.atk.timeScale=b.atkSpeed||ATK_SPEED; b.atk.paused=false; b.atk.play(); } }
+      if(m.swing>0){ m.swing-=dt; const el=m.swingMax-m.swing, imp=b.fx?b.fx.atkImpact:(b.mixer?(b.atkImpact||ATK_IMPACT):m.swingMax); if(!m.hitDone&&el>=imp){ m.hitDone=true; if(!S.dead&&dp<T.range+1.1*T.scale){ if(T.ranged&&b.mixer) mageBolt(m); else damagePlayer(mobDmg(m),m); } } }
     } else if(m.state==='return'){
       const dx=m.home.x-g.position.x, dz=m.home.z-g.position.z, d=Math.hypot(dx,dz); m.yaw+=wrap(Math.atan2(dx,dz)-m.yaw)*(1-Math.exp(-8*dt)); mv=speed*1.3; m.hp=Math.min(m.maxHp,m.hp+m.maxHp*.2*dt);
       if(d<1.5){ m.state='wander'; m.st=1; }
@@ -2329,7 +2381,7 @@ function updateHUD(){
   $('buffs').innerHTML=(S.buff>0?`<span>Demir İrade ${Math.ceil(S.buff)}sn</span>`:'')+(S.shieldT>0&&S.shield>0?`<span class="ice">Buz Kalkanı ${Math.ceil(S.shield)}</span>`:'')+(S.haste>0?`<span>Hız ${Math.ceil(S.haste)}sn</span>`:'')+(S.regenT>0?`<span class="gr">Yenilenme</span>`:'');
   const t=P.target; const tg=$('tgt'); if(t&&!t.dead){ tg.classList.remove('hidden'); $('tgtName').textContent=`Sv.${t.lvl} ${t.T.name}`; $('tgtHp').style.width=(clamp(t.hp/t.maxHp,0,1)*100)+'%'; $('tgtHpT').textContent=`${Math.max(0,Math.ceil(t.hp))} / ${t.maxHp}`; } else tg.classList.add('hidden');
   slotEls.forEach((el,i)=>{ const cdv=cds[i], max=CD[i], sk=SK[i], c=el.querySelector('.cd'); c.style.transform=`scaleY(${cdv>0?cdv/max:0})`; c.textContent=cdv>0.05?Math.ceil(cdv):''; if(i===4||i===5) el.querySelector('.n').textContent=i===4?S.red:S.blue; el.classList.toggle('off',!!(sk&&S.sp<sk.sp)||(i===4&&S.red<=0)||(i===5&&S.blue<=0)); if(el._cd>0&&cdv<=0&&sk){ el.classList.remove('rdy'); void el.offsetWidth; el.classList.add('rdy'); } el._cd=cdv; if(sk){ const L=skL(sk.id), lv=el.querySelector('.lv'), tx=L>=SKMAX?'P':(L>0?String(L):''); if(lv.textContent!==tx){ lv.textContent=tx; lv.classList.toggle('p',L>=SKMAX); } el.classList.toggle('lock',S.lvl<SKUNLOCK); } });
-  { const dd=Math.hypot(P.pos.x,P.pos.z); $('zone').textContent=MAP.id==='village'?'Kızıl Vadi Köyü':'Kızıl Orman · '+(dd<FOREST_CLEAR?'Dönüş Kapısı':dd<60?'Kurbağa Bataklığı':'Ork Toprakları'); } $('xy').textContent=`${Math.round(P.pos.x+HALF)}, ${Math.round(P.pos.z+HALF)}`;
+  { const dd=Math.hypot(P.pos.x,P.pos.z); $('zone').textContent=MAP.id==='village'?'Kızıl Vadi Köyü':'Kızıl Orman · '+zoneAt(P.pos.x,P.pos.z).name+(zoneAt(P.pos.x,P.pos.z).type?` (Sv. ${zoneAt(P.pos.x,P.pos.z).l0}-${zoneAt(P.pos.x,P.pos.z).l1})`:''); } $('xy').textContent=`${Math.round(P.pos.x+HALF)}, ${Math.round(P.pos.z+HALF)}`;
   if(!$('shop').classList.contains('hidden')) refreshWins(); if(!$('mw').classList.contains('hidden')) renderMenu();
 }
 const mm=$('mm'), mctx=mm.getContext('2d');
@@ -2341,7 +2393,7 @@ function drawMini(){
   c.strokeStyle='rgba(0,0,0,.35)'; c.lineWidth=2; if(MAP.id==='forest') c.strokeRect(X(-HALF),Z(-HALF),HALF*2*sc,HALF*2*sc); else { c.beginPath(); c.arc(X(0),Z(0),MAP.bound*sc,0,6.283); c.stroke(); }
   c.fillStyle=MAP.id==='forest'?'#ffb050':'#66ffa0'; c.fillRect(X(MAP.gate.x)-5,Z(MAP.gate.z)-5,10,10);
   c.fillStyle='#c9bfa0'; for(const o of obstacles){ if(o.r>2){ c.fillRect(X(o.x)-o.r*sc*.7,Z(o.z)-o.r*sc*.7,o.r*sc*1.4,o.r*sc*1.4); } }
-  for(const m of mobs){ if(m.dead) continue; c.fillStyle=m.type==='stone'?'#c28bff':m.type==='boss'?'#ff2a2a':'#ff7a5a'; c.beginPath(); c.arc(X(m.group.position.x),Z(m.group.position.z),m.type==='stone'||m.type==='boss'?8:4,0,6.283); c.fill(); }
+  for(const m of mobs){ if(m.dead) continue; c.fillStyle=m.type==='stone'?'#c28bff':m.T.boss?'#ff2a2a':'#ff7a5a'; c.beginPath(); c.arc(X(m.group.position.x),Z(m.group.position.z),m.type==='stone'||m.T.boss?8:4,0,6.283); c.fill(); }
   c.fillStyle='#7fe5ff'; if(MAP.id==='village') for(const n of npcs){ c.beginPath(); c.arc(X(n.pos.x),Z(n.pos.z),6,0,6.283); c.fill(); }
   c.fillStyle='#ffd24a'; for(const d of drops){ c.fillRect(X(d.g.position.x)-3,Z(d.g.position.z)-3,6,6); }
   c.translate(150,150); c.rotate(-P.yaw+Math.PI); c.fillStyle='#fff'; c.strokeStyle='#000'; c.lineWidth=2; c.beginPath(); c.moveTo(0,-11); c.lineTo(8,9); c.lineTo(0,5); c.lineTo(-8,9); c.closePath(); c.fill(); c.stroke();
@@ -2394,11 +2446,28 @@ function frame(now){
 }
 
 /* ============================== başlatma ============================== */
+/* Kızıl Orman bölgeleri (merkezden uzaklaştıkça zorlaşır): her türün kendi alanı */
+const ZONES=[
+  {id:'gate', name:'Dönüş Kapısı',        type:null,   r0:0,  r1:FOREST_CLEAR, l0:1,  l1:1},
+  {id:'frog', name:'Kurbağa Bataklığı',   type:'wolf', r0:FOREST_CLEAR+4, r1:52, l0:1, l1:5},
+  {id:'mage', name:'Gölge Elfi Ormanı',   type:'mage', r0:52, r1:80,  l0:5,  l1:10},
+  {id:'orc',  name:'Ork Toprakları',      type:'orc',  r0:80, r1:112, l0:10, l1:15}];
+function zoneAt(x,z){ const d=Math.hypot(x,z); for(let i=ZONES.length-1;i>=0;i--) if(d>=ZONES[i].r0-(i===1?4:0)) return ZONES[i]; return ZONES[0]; }
+function zoneTypeAt(x,z){ const zn=zoneAt(x,z); return zn.type?{type:zn.type,l0:zn.l0,l1:zn.l1}:{type:'wolf',l0:1,l1:5}; }
 function populateForest(){
-  const spawn=(type,lvlA,lvlB,rA,rB,count)=>{ for(let i=0;i<count;i++){ let x,z,t=0; do{ const a=R()*6.28,d=rr(rA,rB); x=Math.cos(a)*d; z=Math.sin(a)*d; t++; }while(t<30&&obstacles.some(o=>Math.hypot(o.x-x,o.z-z)<o.r+1.4)); spawnMob(type,Math.round(rr(lvlA,lvlB)),x,z); } };
-  spawn('wolf',1,3,22,48,26); spawn('wolf',3,5,45,70,14); spawn('orc',5,8,55,85,16); spawn('orc',8,10,80,98,8);
-  for(const [x,z,l] of [[0,-42,4],[38,34,6],[-52,28,7],[-30,-70,9]]) spawnMob('stone',l,x,z);
-  spawnMob('boss',11,70,-70);
+  const lvAt=(zn,d)=>clamp(Math.floor(zn.l0+clamp((d-zn.r0)/(zn.r1-zn.r0)+rr(-.12,.12),0,.999)*(zn.l1-zn.l0+1)),zn.l0,zn.l1);
+  const free=(x,z,pad)=>{ if(Math.abs(x)>HALF-4||Math.abs(z)>HALF-4) return false; for(const o of obstacles) if(Math.hypot(o.x-x,o.z-z)<o.r+pad) return false;
+    for(const c of F_RUINS) if(Math.hypot(x-c[0],z-c[1])<9) return false; if(Math.hypot(x-F_CAVE.x,z-F_CAVE.z)<13) return false; for(const c of FCAMPS) if(Math.hypot(x-c[0],z-c[1])<5) return false; return true; };
+  // sürüler: bir merkez etrafında 3-4 canavar (her sürünün kendi yuvası)
+  const pack=(zn,nPacks,per)=>{ let made=0, tries=0;
+    while(made<nPacks&&tries++<400){ const a=R()*6.283, d=rr(zn.r0+3,zn.r1-3), cx=Math.cos(a)*d, cz=Math.sin(a)*d; if(!free(cx,cz,2.2)) continue;
+      let n=0; for(let k=0;k<per*3&&n<per;k++){ const aa=R()*6.283, rr2=rr(1.5,5.5), x=cx+Math.cos(aa)*rr2, z=cz+Math.sin(aa)*rr2; if(!free(x,z,1.4)) continue; spawnMob(zn.type,lvAt(zn,Math.hypot(x,z)),x,z); n++; }
+      if(n>=2) made++; } };
+  const Z=id=>ZONES.find(z=>z.id===id);
+  pack(Z('frog'),9,coarse?3:4); pack(Z('mage'),7,3); pack(Z('orc'),6,3);
+  for(const [x,z,l] of [[0,-42,4],[38,34,5],[-52,28,7],[-30,-70,9]]) spawnMob('stone',l,x,z);
+  // bosslar: her biri kendi bölgesinin harabesinde / kampında, türünden büyük ve güçlü
+  spawnMob('fboss',7,F_RUINS[0][0],F_RUINS[0][1]); spawnMob('mboss',12,F_RUINS[2][0],F_RUINS[2][1]); spawnMob('boss',16,70,-70);
 }
 function populateVillage(){
   shopNPC=makeNPC('Tüccar Han',-4,-3,0x2e5f8a,0x3a2a1a); makeNPC('Nöbetçi',6,-9,0x7a2a22,0x555a60);
@@ -2416,6 +2485,7 @@ async function boot(){
     setupPlayer(hero,b); try{ const th=await get('models/horse.glb.b64.txt',()=>{}); const hg=await new Promise((ok,no)=>new GLTFLoader().parse(dec(th),'',ok,no)); setupMount(hg); }catch(e){ console.error('[At] Warhorse Lite yüklenemedi, binek devre dışı:',e); MOUNT.ready=false; }
     if(tm){ try{ const mb=atob(tm.trim()); const mu=new Uint8Array(mb.length); for(let i=0;i<mb.length;i++) mu[i]=mb.charCodeAt(i); prepMaw(L.parse(mu.buffer,''),b); }catch(e){ console.warn('Maw yüklenemedi, eski ork kullanılacak',e); MAW=null; } }
     try{ const ta=await get('models/archway.b64.txt',()=>{}); const ag=await new Promise((ok,no)=>new GLTFLoader().parse(dec(ta),'',ok,no)); ARCH=ag.scene; }catch(e){ console.error('[Geçit] kemer modeli yüklenemedi, eski kapı kullanılacak:',e); }
+    try{ const tmg=await get('models/mage.json',()=>{}); prepMage(JSON.parse(tmg),b); }catch(e){ console.error('[Gölge Elfi] model yüklenemedi, yedek kullanılacak:',e); }
     try{ const [tdp,tst]=await Promise.all([get('models/deadpine.b64.txt',()=>{}),get('models/stone.b64.txt',()=>{})]); const [gp,gs]=await Promise.all([new Promise((ok,no)=>new GLTFLoader().parse(dec(tdp),'',ok,no)),new Promise((ok,no)=>new GLTFLoader().parse(dec(tst),'',ok,no))]); NATURE_PENDING=[gp,gs]; }catch(e){ console.error('[Doğa] kuru ağaç/kaya modeli yüklenemedi, eski ağaçlar kullanılacak:',e); }
     try{ const tp=await get('models/plants.b64.txt',()=>{}); prepPlants(L.parse(dec(tp),'')); if(NATURE_PENDING) prepNature(NATURE_PENDING[0],NATURE_PENDING[1]); }catch(e){ console.error('[Bitki] Bitki paketi (plants kit FBX) yüklenemedi, eski ağaçlar kullanılacak:',e); }
     initMapUI(); initVillageMap(); try{ warmFx(); }catch(e){ console.warn('[Efekt] ısınma atlandı',e); } bar.style.width='100%';
