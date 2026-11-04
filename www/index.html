@@ -164,6 +164,14 @@ body{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-c
 #joy i{position:absolute;left:50%;top:50%;width:52px;height:52px;margin:-26px 0 0 -26px;border-radius:50%;background:rgba(240,200,120,.55);border:2px solid rgba(255,235,190,.8)}
 
 /* Açılış ekranları */
+#loading{padding:0;background:#0a0405;overflow:hidden}
+#spl{position:absolute;left:50%;bottom:0;width:max(100vw,calc(100vh*1672/941));aspect-ratio:1672/941;transform:translateX(-50%)}
+#spl img{position:absolute;inset:0;width:100%;height:100%;user-select:none;-webkit-user-drag:none}
+#splTrack{position:absolute;left:31.9%;width:34.8%;top:87.9%;height:2%;overflow:hidden;border-radius:2px}
+#splTrack i{display:block;height:100%;width:0;background:linear-gradient(#ff5a4a,#e00610 45%,#8a0008);box-shadow:0 0 10px #f22,inset 0 1px 0 rgba(255,200,180,.55);transition:width .25s ease-out}
+#splPct{position:absolute;left:66.9%;top:87.6%;font:700 12px/2.2 var(--body,serif);color:#e9c98a;text-shadow:0 1px 2px #000;width:5%}
+#loadTxt{position:absolute;left:0;right:0;top:94.4%;margin:0;text-align:center;font:13px var(--body,serif);color:transparent}
+#err{position:absolute;left:10%;right:10%;top:80%;text-align:center;color:#ff8a80;font:13px var(--body,sans-serif);text-shadow:0 1px 3px #000}
 .screen{position:fixed;inset:0;display:grid;place-items:center;z-index:20;padding:16px;pointer-events:auto;
   background:radial-gradient(ellipse at 50% 30%,#3a1a12 0%,#150d09 60%,#0a0605 100%)}
 .card{width:min(420px,100%);padding:22px 22px 20px;text-align:center}
@@ -434,8 +442,9 @@ body{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-c
 
 <div id="rotate"><div><svg viewBox="0 0 24 24" fill="none" stroke="#d3ad62" stroke-width="1.6"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 19h2"/></svg>Telefonu yatay çevir</div></div>
 <div id="loading" class="screen">
-  <div class="card panel"><h1 class="logo">Kızıl Vadi</h1><p class="sub" id="loadTxt">Karakter ve animasyonlar yükleniyor…</p>
-  <div class="prog"><i id="loadBar"></i></div><div id="err"></div></div>
+  <div id="spl"><img src="img/varkon_loading.jpg" alt="VARKON" draggable="false">
+    <div id="splTrack"><i id="loadBar"></i></div><div id="splPct">0%</div>
+    <p id="loadTxt">Varkon Dünyasına Hoş Geldin…</p><div id="err"></div></div>
 </div>
 <div id="login" class="screen hidden">
   <div class="card panel"><h1 class="logo">Kızıl Vadi</h1><p class="sub">Savaşçı yolu seni bekliyor.</p>
@@ -2827,10 +2836,10 @@ function populateVillage(){
   makeNPC('Eğitmen',-33.5,11,0x7a2a22,0x555a60); makeNPC('Nöbetçi',5,50,0x7a2a22,0x555a60); makeNPC('Nöbetçi',7.5,-52,0x7a2a22,0x555a60);
 }
 async function boot(){
-  const L=new FBXLoader(); const bar=$('loadBar'); let pa=0,pb=0; const upd=()=>{ bar.style.width=Math.min(95,(pa+pb)*45)+'%'; };
+  const L=new FBXLoader(); const bar=$('loadBar'); let pa=0,pb=0; let step=0,pc=0; const setP=v=>{ pc=Math.max(pc,Math.min(100,v)); bar.style.width=pc+'%'; const pe=$('splPct'); if(pe) pe.textContent=Math.round(pc)+'%'; }; const upd=()=>setP(Math.min(97,(pa+pb)*15+step*4.2));
   try{
     const prog=(set)=>e=>{ if(e.lengthComputable){ set(e.loaded/e.total); upd(); } };
-    const get=async(u,set)=>{ const r=await fetch(u); if(!r.ok) throw new Error(u+' yüklenemedi ('+r.status+')'); const t=await r.text(); set(1); upd(); return t; };
+    const get=async(u,set)=>{ const r=await fetch(u); if(!r.ok) throw new Error(u+' yüklenemedi ('+r.status+')'); const t=await r.text(); set(1); step++; upd(); await new Promise(r=>requestAnimationFrame(()=>setTimeout(r,0))); return t; };
     const [tg,tj,tc,tm]=await Promise.all([ get('models/mount.glb.b64.txt',v=>pa=v), get('models/skeleton.json',()=>{}), get('models/clips.json',v=>pb=v), get('models/maw.b64.txt',()=>{}).catch(()=>null) ]);
     const dec=t=>{ const bin=atob(t.trim()); const u8=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i); return u8.buffer; };
     const glb=await new Promise((ok,no)=>new GLTFLoader().parse(dec(tg),'',ok,no));
@@ -2844,12 +2853,12 @@ async function boot(){
     try{ const tmg=await get('models/mage.json',()=>{}); prepMage(JSON.parse(tmg),b); }catch(e){ console.error('[Gölge Elfi] model yüklenemedi, yedek kullanılacak:',e); }
     try{ const [tdp,tst]=await Promise.all([get('models/deadpine.b64.txt',()=>{}),get('models/stone.b64.txt',()=>{})]); const [gp,gs]=await Promise.all([new Promise((ok,no)=>new GLTFLoader().parse(dec(tdp),'',ok,no)),new Promise((ok,no)=>new GLTFLoader().parse(dec(tst),'',ok,no))]); NATURE_PENDING=[gp,gs]; }catch(e){ console.error('[Doğa] kuru ağaç/kaya modeli yüklenemedi, eski ağaçlar kullanılacak:',e); }
     try{ const tp=await get('models/plants.b64.txt',()=>{}); prepPlants(L.parse(dec(tp),'')); if(NATURE_PENDING) prepNature(NATURE_PENDING[0],NATURE_PENDING[1]); }catch(e){ console.error('[Bitki] Bitki paketi (plants kit FBX) yüklenemedi, eski ağaçlar kullanılacak:',e); }
-    initMapUI(); initVillageMap(); setAtmos('village'); try{ warmFx(); }catch(e){ console.warn('[Efekt] ısınma atlandı',e); } bar.style.width='100%';
+    initMapUI(); initVillageMap(); setAtmos('village'); try{ warmFx(); }catch(e){ console.warn('[Efekt] ısınma atlandı',e); } setP(100);
     myTag=document.createElement('div'); myTag.className='tag'; myTag.style.color='#fff'; $('pops').appendChild(myTag);
     $('loading').classList.add('hidden'); $('login').classList.remove('hidden');
     const has=loadGame(); if(has){ $('nameIn').value=S.name; document.querySelector(`input[name=king][value="${S.king}"]`).checked=true; }
     window.__game={get FOREST_STATS(){return FOREST_STATS},zoneAt,updateMount,groundFix,get GOFF(){return GOFF},get S(){return S},ITEMS,EQS,registerItem,addItem,moveItem,initInv,addStat,resetStats,qOf,expNeed,get PLANT_SETS(){return PLANT_SETS},renderMenu,setTab,toggleWin,closeWins,skillUp,skPoints,skL,skv,skStats,saveGame,loadGame,renderSkillWin,gainExp,updatePlayer,updateMobs,updateProjectiles,updateSkills,updateCamera,updateHUD,SKD,SLOT_DEF,SK,cds,fx2,pt2,sched,projectiles,SHAKE,clearSkillFx,MAPS,TRAVEL,travelTo,get MAP(){return MAP;},get obstacles(){return obstacles;},get MAP(){return MAP;},get renderer(){return renderer;},npcs,vRoadD,MAPS,hAt,get HAS3(){return HAS3;},get A3META(){return A3META;},damagePlayer,get COMBO(){return COMBO;},horseRear,horseAnim,playerHit,killMob,fxPlay,fxStep,get FROG2(){return FROG2;},MOUNT,toggleMount,get mixer(){return mixer},rotW,overlayPose,S,P,mobs,cam,actions,bones,setAnim,useSlot,clickAt,THREE,scene,camera,renderer,model,get tIdle(){return tIdle;},get TURN_DELTA(){return TURN_DELTA;}};
-  }catch(err){ console.error(err); $('loadTxt').textContent='Yükleme başarısız oldu.'; $('err').textContent=String(err&&err.message||err); }
+  }catch(err){ console.error(err); $('loadTxt').textContent='Yükleme başarısız oldu.'; $('loadTxt').style.color='#ff8a80'; $('err').textContent=String(err&&err.message||err); }
 }
 $('go').onclick=()=>{
   const nm=$('nameIn').value.trim().slice(0,14)||'Yiğit'; S.name=nm; S.king=+(document.querySelector('input[name=king]:checked')||{value:0}).value;
