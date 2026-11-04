@@ -2134,7 +2134,11 @@ function buildVillage(){
   [22,28.5,35,41.5].forEach((x,i)=>{ vStall(x,6,0,CL[i],i); vStall(x,16,Math.PI,CL[(i+2)%4],i+1); });
   [16,23,30].forEach((x,i)=>vStall(x,26,0,[0x3a3a44,0x5a1c1c,0x2a3a30][i],i+3));
   // sancaklar (meydan çevresi)
-  for(let i=0;i<4;i++){ const a=[.436,2.705,3.578,5.847][i], x=Math.cos(a)*14.5, z=Math.sin(a)*14.5; vFrame(x,z,-a+Math.PI/2); vCyl(0,3.4,0,.09,6.8,C.wood); vBox(.0,6.9,0,.8,.14,.14,C.iron); vBox(.7,5.4,0,1.2,2.8,.05,C.red); vBox(.7,6.5,0,1.2,.16,.07,C.gold); addObstacle(x,z,.3); }
+  { const BT=['geyik','kilic','yilan'].map(n=>{ const t=new THREE.TextureLoader().load('models/banner_'+n+'.png'); t.colorSpace=THREE.SRGBColorSpace; t.anisotropy=4; return t; }); world.banners=[];   // üç krallık sancağı: Mavi Geyik · Altın Kılıçlar · Yılanlı Kılıç
+    const AN=[.436,1.047,2.094,2.705,3.578,5.847];
+    for(let i=0;i<AN.length;i++){ const a=AN[i], x=Math.cos(a)*14.5, z=Math.sin(a)*14.5, ry=-a+Math.PI/2; vFrame(x,z,ry); vCyl(0,3.7,0,.1,7.4,C.wood); vCyl(0,7.55,0,.16,.2,C.gold); vBox(1.0,7.3,0,2.1,.1,.1,C.iron); vP(GS,2.05,7.3,0,C.gold,{sx:.12,sy:.12,sz:.12}); addObstacle(x,z,.3);
+      const mat=new THREE.MeshBasicMaterial({map:BT[i%3],transparent:true,alphaTest:.4,side:THREE.DoubleSide,color:0xd8d8d8}), pl=new THREE.Mesh(new THREE.PlaneGeometry(2.0,3.2),mat); pl.geometry.translate(0,-1.6,0);
+      const pv=new THREE.Group(); pv.position.set(x+Math.cos(ry)*1.05,hAt(x,z)+7.2,z-Math.sin(ry)*1.05); pv.rotation.y=ry; pv.add(pl); scene.add(pv); world.banners.push(pv); } }
   for(const a of [0,1,2,3,4,5,6,7].map(i=>Math.PI/8+i*Math.PI/4)) vTorch(Math.cos(a)*11,Math.sin(a)*11,2.3);
   // yollar boyunca meşale ve kırmızı fenerler
   VROADS.forEach((r,i)=>{ if(i===7||i===8) lampsAlong(r,8.5,'lantern'); else if(i!==2) lampsAlong(r,13,'torch'); });
@@ -2521,6 +2525,7 @@ function frame(now){
     if(dest.visible){ dest.userData.t+=dt; dest.scale.setScalar(1+Math.sin(dest.userData.t*8)*.12); if(!P.dest) dest.visible=false; }
     if(world.flag) world.flag.rotation.y=Math.sin(time*2)*.12;
     world.windU.value=time;
+    if(world.banners) world.banners.forEach((b,i)=>{ b.rotation.z=Math.sin(time*1.3+i*1.7)*.035; b.rotation.x=Math.sin(time*.9+i)*.03; });
     if(world.torchPts) world.torchPts.material.size=1.9+Math.sin(time*11)*.16+Math.sin(time*6.1)*.1;
     if(world.torches) world.torches.forEach((t,i)=>{ const f=1.4+Math.sin(time*13+i*3)*.15+Math.sin(time*7.3+i)*.1; t.scale.setScalar(f); });
     if(world.clouds) world.clouds.forEach((c,i)=>{ c.position.x+=dt*(.6+i%3*.2); if(c.position.x>190) c.position.x=-190; });
