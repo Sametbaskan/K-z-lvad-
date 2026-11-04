@@ -613,7 +613,7 @@ let RUN_CLIP_SPEED = 1.98;   // jogging klibinin gömülü hızı (m/sn)
 const RUN_SPEED = 3.3;
 
 const FOREST_CLEAR=12;                      // Kızıl Orman: dönüş kapısı etrafındaki güvenli açıklık
-const FCAMPS=[[0,-42],[38,34],[-52,28],[-30,-70],[70,-70]];   // canavar bölgeleri (mevcut avlak noktaları)
+const FCAMPS=[[0,-42],[38,34],[-52,28],[-30,-70],[70,-70],[-90,-90],[90,-92],[-90,90],[90,90],[0,-96],[0,96],[-96,0],[96,0]];   // canavar bölgeleri (mevcut avlak noktaları)
 const F_RUINS=[[48,-12,.5],[-36,50,.5],[30,70,.5]];            // harabeler
 const F_CAVE={x:-58,z:-20,h:6.0};                              // mağara girişi (tepenin yamacında düzlük)
 const FHILLS=[[-70,-20,22,10],[62,12,20,8],[-20,62,18,7],[10,-96,16,7],[-92,60,22,9],[88,-34,18,7],[-8,18,14,3.5],[40,90,14,6]];   // x,z,yarıçap,yükseklik (+ tepe, − çukur)
@@ -740,8 +740,8 @@ function addObstacle(x,z,r){ obstacles.push({x,z,r}); }
   world.buildFieldDecor=function(){   // Kızıl Orman: ağaç (yedek), kaya, çimen, çiçek — harita girişinde kurulur
   // ağaçlar
   const trees=[]; let tries=0;
-  while(trees.length<230 && tries++<4000){
-    const a=R()*Math.PI*2, d=VILL_R+4+Math.pow(R(),.8)*(HALF-VILL_R-6), x=Math.cos(a)*d, z=Math.sin(a)*d;
+  while(trees.length<300 && tries++<7000){
+    const x=rr(-HALF-3,HALF+3), z=rr(-HALF-3,HALF+3), d=Math.hypot(x,z), a=Math.atan2(z,x); if(d<VILL_R+4) continue;
     let nearRoad=false; for(const ra of [0.5,2.2,-1.3,3.9]){ if(Math.abs(wrap(a-ra))*d<4.2) nearRoad=true; }
     if(nearRoad && R()<.92) continue;
     if(trees.some(t=>Math.hypot(t.x-x,t.z-z)<3.2)) continue;
@@ -749,7 +749,7 @@ function addObstacle(x,z,r){ obstacles.push({x,z,r}); }
     trees.push({x,z,s:rr(.85,1.7)});
   }
   // ormanlık çerçeve: kenara yakın yoğun
-  for(let i=0;i<70;i++){ const a=R()*Math.PI*2, x=clamp(Math.cos(a)*HALF*rr(.95,1.04),-HALF-4,HALF+4), z=clamp(Math.sin(a)*HALF*rr(.95,1.04),-HALF-4,HALF+4); if(forestKeep(x,z,1)||trees.some(t=>Math.hypot(t.x-x,t.z-z)<2.6)) continue; trees.push({x,z,s:rr(1.2,2)}); }
+  for(let i=0;i<110;i++){ const sd=(R()*4)|0, tt=rr(-HALF-4,HALF+4), oo=HALF*rr(.95,1.04), x=clamp(sd<2?(sd?oo:-oo):tt,-HALF-4,HALF+4), z=clamp(sd>=2?(sd===3?oo:-oo):tt,-HALF-4,HALF+4); if(forestKeep(x,z,1)||trees.some(t=>Math.hypot(t.x-x,t.z-z)<2.6)) continue; trees.push({x,z,s:rr(1.2,2)}); }
   const N=trees.length;
   const trunk = new THREE.InstancedMesh(new THREE.CylinderGeometry(.18,.3,2.2,6), new THREE.MeshLambertMaterial({color:0x5b3f26}), N);
   const f1 = new THREE.InstancedMesh(new THREE.ConeGeometry(1.5,2.6,7), new THREE.MeshLambertMaterial({color:0xffffff}), N);
@@ -781,7 +781,7 @@ function addObstacle(x,z,r){ obstacles.push({x,z,r}); }
     const gm=new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.DoubleSide});
     gm.onBeforeCompile=sh=>{ sh.uniforms.uT=world.windU; sh.vertexShader=sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\n float k=position.y/.5; vec4 wp=instanceMatrix*vec4(position,1.0); transformed.x+=sin(uT*1.8+wp.x*.6+wp.z*.4)*.12*k*k; transformed.z+=cos(uT*1.5+wp.z*.5)*.08*k*k;').replace('void main() {','uniform float uT;\nvoid main() {'); };
     const NG=coarse?5000:9000, gi=new THREE.InstancedMesh(blade,gm,NG); let n=0;
-    while(n<NG){ const a=R()*6.283, d=VILL_R+1+Math.sqrt(R())*(HALF-VILL_R+8), x=Math.cos(a)*d, z=Math.sin(a)*d; if(obstacles.some(o=>o.r<1.8&&false)) continue;
+    while(n<NG){ const x=rr(-HALF-8,HALF+8), z=rr(-HALF-8,HALF+8), d=Math.hypot(x,z), a=Math.atan2(z,x); if(d<VILL_R+1) continue;
       let road=false; for(const ra of [0.5,2.2,-1.3,3.9]){ if(Math.abs(wrap(a-ra))*d<3.4) road=true; } if(road&&R()<.97) continue;
       const dn=grassDensity(x,z); if(R()>dn) continue;   // düzensiz yoğunluk: çıplak yamalar, avlaklarda sık
       Y.position.set(x,hAt(x,z)-.02,z); Y.rotation.set(0,R()*6.283,0); Y.scale.setScalar(rr(.45,1.0)*(.75+.5*dn)); Y.updateMatrix(); gi.setMatrixAt(n,Y.matrix);
@@ -789,7 +789,7 @@ function addObstacle(x,z,r){ obstacles.push({x,z,r}); }
     gi.receiveShadow=false; scene.add(gi); }
   // çiçekler
   { const fm=new THREE.InstancedMesh(new THREE.SphereGeometry(.09,6,5),new THREE.MeshLambertMaterial({color:0xffffff}),420); const cols=[0xffe066,0xffffff,0xff7fa8,0x9ec5ff,0xff9a4a];
-    for(let i=0;i<420;i++){ const a=R()*6.283,d=VILL_R+2+R()*(HALF-VILL_R-4),x=Math.cos(a)*d,z=Math.sin(a)*d; Y.position.set(x,hAt(x,z)+.28,z); Y.rotation.set(0,0,0); Y.scale.setScalar(rr(.8,1.4)); Y.updateMatrix(); fm.setMatrixAt(i,Y.matrix); cc.set(cols[i%cols.length]); fm.setColorAt(i,cc); }
+    for(let i=0;i<420;i++){ const x=rr(-HALF,HALF),z=rr(-HALF,HALF); Y.position.set(x,hAt(x,z)+.28,z); Y.rotation.set(0,0,0); Y.scale.setScalar(rr(.8,1.4)); Y.updateMatrix(); fm.setMatrixAt(i,Y.matrix); cc.set(cols[i%cols.length]); fm.setColorAt(i,cc); }
     scene.add(fm); }
   };
   const _b0=new Set(scene.children);
@@ -1518,9 +1518,9 @@ function buildPlantWorld(kind){
   // ek ormanlar: gürültüyle öbekleşen sık orman bölgeleri (köy, yollar, canavar noktaları ve mevcut engellerden uzak)
   const forestNoise=(x,z)=>Math.sin(x*.07+1.3)*Math.cos(z*.06-.4)+Math.sin((x+z)*.035)*.7;
   let tries=0, extra=0; const placed=[];
-  while(extra<(FV?(coarse?50:90):(coarse?200:320))&&tries++<9000){
-    const a=rnd()*Math.PI*2, d=clearR+14+Math.sqrt(rnd())*(HALFc+22-clearR-14), x=Math.cos(a)*d, z=Math.sin(a)*d;
-    if(forestNoise(x,z)<(FV?.15:-.12)+(d<HALFc?.0:-.6)) continue;
+  while(extra<(FV?(coarse?50:90):(coarse?260:420))&&tries++<12000){
+    const sq=!FV, a=sq?0:rnd()*Math.PI*2, d0=clearR+14+Math.sqrt(rnd())*(HALFc+22-clearR-14), x=sq?rr(-HALFc-10,HALFc+10):Math.cos(a)*d0, z=sq?rr(-HALFc-10,HALFc+10):Math.sin(a)*d0, d=sq?Math.hypot(x,z):d0; if(sq&&d<clearR+14) continue;
+    if(forestNoise(x,z)<(FV?.15:-.12)+((sq?Math.max(Math.abs(x),Math.abs(z)):d)<HALFc?.0:-.6)) continue;
     if(plantOnRoad(x,z,5)||plantBlocked(x,z,1.6)) continue;
     if(!FV&&forestKeep(x,z,1)) continue;
     if(!FV&&world.rockList&&world.rockList.some(r=>Math.hypot(r.x-x,r.z-z)<r.rad+1.3)) continue;
@@ -1541,7 +1541,7 @@ function buildPlantWorld(kind){
   const bushL={}; const bushNames=['Bush-01','Bush-02','Bush-03','Bush-04','Flowers-02','Flowers-04','Bush-05']; bushNames.forEach(n=>bushL[n]=[]);
   const nearTree=(x,z)=>{ for(const t of spots) if(Math.hypot(t.x-x,t.z-z)<6) return true; for(const p of placed) if(Math.hypot(p[0]-x,p[1]-z)<6) return true; return false; };
   let nb=0; tries=0;
-  while(nb<(FV?(coarse?50:80):(coarse?110:170))&&tries++<5000){ const a=rnd()*Math.PI*2, d=clearR+5+Math.sqrt(rnd())*(HALFc+10-clearR-5), x=Math.cos(a)*d, z=Math.sin(a)*d;
+  while(nb<(FV?(coarse?50:80):(coarse?110:170))&&tries++<5000){ const sq=!FV, a=sq?0:rnd()*Math.PI*2, d0=clearR+5+Math.sqrt(rnd())*(HALFc+10-clearR-5), x=sq?rr(-HALFc-6,HALFc+6):Math.cos(a)*d0, z=sq?rr(-HALFc-6,HALFc+6):Math.sin(a)*d0, d=sq?Math.hypot(x,z):d0; if(sq&&d<clearR+5) continue;
     if(!free(x,z,1)||!nearTree(x,z)) continue; const big=rnd()<.07, n=big?'Bush-05':bushNames[(rnd()*6)|0];
     bushL[n].push({x,y:hAt(x,z)-.03,z,r:rnd()*6.283,s:rr(.8,1.35)*(big?1:1)}); nb++; if(big&&Math.abs(x)<HALFc&&Math.abs(z)<HALFc){ addObstacle(x,z,1.3); PLANT_STATS.collidable++; } }
   PLANT_STATS.bushes=nb; for(const n of bushNames) addPlantSet(n,bushL[n],coarse?38:62,false);
@@ -1558,8 +1558,8 @@ function buildPlantWorld(kind){
   const addTuft=(x,z,smin,smax)=>{ const n=gn[(rnd()*3)|0]; gl[n].push({x,y:hAt(x,z)-.03,z,r:rnd()*6.283,s:rr(smin,smax),c:tint(x,z,rnd()),q:rnd()}); ng++; };
   const addGround=(x,z,flowerBias)=>{ const n=rnd()<flowerBias?(rnd()<.5?'Flowers-01':'Flowers-03'):cn[(rnd()*5)|0]; cl[n].push({x,y:hAt(x,z)+.015,z,r:rnd()*6.283,s:rr(.35,.8),c:tint(x,z,.2),q:rnd()}); };
   // a) açık alanlara yamalı serpiştirme (avlaklarda sık, yollarda neredeyse yok)
-  tries=0; const nScatter=Math.round((coarse?650:1150)*GQ*(FV?.5:1));
-  while(ng<nScatter&&tries++<20000){ const a=rnd()*Math.PI*2, d=clearR+4+Math.sqrt(rnd())*(HALFc+6-clearR-4), x=Math.cos(a)*d, z=Math.sin(a)*d;
+  tries=0; const nScatter=Math.round((coarse?650:1150)*GQ*(FV?.5:1.3));
+  while(ng<nScatter&&tries++<20000){ const sq=!FV, a=sq?0:rnd()*Math.PI*2, d0=clearR+4+Math.sqrt(rnd())*(HALFc+6-clearR-4), x=sq?rr(-HALFc-6,HALFc+6):Math.cos(a)*d0, z=sq?rr(-HALFc-6,HALFc+6):Math.sin(a)*d0, d=sq?Math.hypot(x,z):d0; if(sq&&d<clearR+4) continue;
     let dn=grassDensity(x,z); if(plantOnRoad(x,z,3)) dn*=.06; if(rnd()>dn||!gfree(x,z)) continue; addTuft(x,z,.5,.82); }
   // b) ağaç diplerinde doğal öbekler
   const trunks=[]; for(const t of spots) trunks.push([t.x,t.z]); for(const p of placed) trunks.push(p);
@@ -1570,8 +1570,8 @@ function buildPlantWorld(kind){
   for(const r of (world.rockSpots||[])){ if(plantOnRoad(r.x,r.z,3)) continue; const m=Math.round(rr(4,8)*GQ+1); for(let i=0;i<m;i++){ const a=rnd()*6.283, d=r.s*.9+rr(.15,1.1), x=r.x+Math.cos(a)*d, z=r.z+Math.sin(a)*d; if(!gfree(x,z,.05)) continue; if(rnd()<.8) addTuft(x,z,.35,.7); else addGround(x,z,.3); } nrock++; }
   PLANT_STATS.grass=ng; PLANT_STATS.grassClusters=nclu; PLANT_STATS.grassRocks=nrock;
   // d) yonca ve küçük çiçekler: serpiştirme (çiçek yamaları gürültüyle)
-  let nc=0; tries=0; const nGround=Math.round((coarse?280:520)*GQ*(FV?.5:1));
-  while(nc<nGround&&tries++<20000){ const a=rnd()*Math.PI*2, d=clearR+4+Math.sqrt(rnd())*(HALFc+6-clearR-4), x=Math.cos(a)*d, z=Math.sin(a)*d;
+  let nc=0; tries=0; const nGround=Math.round((coarse?280:520)*GQ*(FV?.5:1.3));
+  while(nc<nGround&&tries++<20000){ const sq=!FV, a=sq?0:rnd()*Math.PI*2, d0=clearR+4+Math.sqrt(rnd())*(HALFc+6-clearR-4), x=sq?rr(-HALFc-6,HALFc+6):Math.cos(a)*d0, z=sq?rr(-HALFc-6,HALFc+6):Math.sin(a)*d0, d=sq?Math.hypot(x,z):d0; if(sq&&d<clearR+4) continue;
     if(plantOnRoad(x,z,2.4)&&rnd()<.9) continue; const dn=grassDensity(x,z); if(rnd()>dn*.9||!gfree(x,z,.1)) continue; const patch=Math.sin(x*.19+1)*Math.sin(z*.17-2)>.35; addGround(x,z,patch?.7:.12); nc++; }
   for(const n of gn) addPlantSet(n,gl[n],coarse?28:46,false);
   let ngr=nc; for(const n of cn){ ngr+=0; } for(const n of cn) ngr+=cl[n].length-0; PLANT_STATS.ground=cn.reduce((t,n)=>t+cl[n].length,0);
@@ -2639,10 +2639,10 @@ function updateMobs(dt){
     if(m.state==='wander'){
       m.st-=dt;
       if(!S.dead&&!inV&&dp<T.aggro&&!m.temp||(!S.dead&&!inV&&m.temp&&dp<30)){ m.state='chase'; }
-      else if(m.st<=0){ if(m.wdest){ m.wdest=null; m.st=rr(1.5,4); } else { const a=R()*6.28,r=rr(2,7); m.wdest=new THREE.Vector3(m.home.x+Math.cos(a)*r,0,m.home.z+Math.sin(a)*r); m.st=6; } }
+      else if(m.st<=0){ if(m.wdest){ m.wdest=null; m.st=rr(1.5,4); } else { const a=R()*6.28,r=rr(FMOB.wander[0],FMOB.wander[1]); m.wdest=new THREE.Vector3(m.home.x+Math.cos(a)*r,0,m.home.z+Math.sin(a)*r); m.st=6; } }
       if(m.wdest){ const dx=m.wdest.x-g.position.x, dz=m.wdest.z-g.position.z, d=Math.hypot(dx,dz); if(d<.5){ m.wdest=null; m.st=rr(1.5,4); } else { m.yaw+=wrap(Math.atan2(dx,dz)-m.yaw)*(1-Math.exp(-6*dt)); mv=speed*.45; } }
     } else if(m.state==='chase'){
-      if(S.dead||inV&&!m.temp||homeD>32&&!m.temp){ m.state='return'; }
+      if(S.dead||inV&&!m.temp||homeD>(MAP.id==='forest'?30:32)&&!m.temp){ m.state='return'; }
       else{ m.yaw+=wrap(Math.atan2(toP.x,toP.z)-m.yaw)*(1-Math.exp(-9*dt)); if(dp>T.range+P.pos.y*0+.2*T.scale){ mv=speed; } else { m.state='attack'; m.st=0; } }
     } else if(m.state==='attack'){
       m.st+=dt; m.yaw+=wrap(Math.atan2(toP.x,toP.z)-m.yaw)*(1-Math.exp(-9*dt));
@@ -2660,6 +2660,7 @@ function updateMobs(dt){
     // oyuncuyu itme
     { const dx=g.position.x-pp.x, dz=g.position.z-pp.z, d=Math.hypot(dx,dz), rmin=.55+.55*T.scale; if(d<rmin&&d>1e-4){ g.position.x+=dx/d*(rmin-d); g.position.z+=dz/d*(rmin-d); } }
     collide(g.position,.5*T.scale);
+    if(MAP.id==='forest'){ const L=HALF-2; g.position.x=clamp(g.position.x,-L,L); g.position.z=clamp(g.position.z,-L,L); }
     g.position.y=hAt(g.position.x,g.position.z); g.rotation.y=m.yaw; g.rotation.z=0;
     // animasyon
     if(b.mixer){
@@ -2784,26 +2785,43 @@ function frame(now){
 /* Kızıl Orman bölgeleri (merkezden uzaklaştıkça zorlaşır): her türün kendi alanı */
 const ZONES=[
   {id:'gate', name:'Dönüş Kapısı',        type:null,   r0:0,  r1:FOREST_CLEAR, l0:1,  l1:1},
-  {id:'frog', name:'Kurbağa Bataklığı',   type:'wolf', r0:FOREST_CLEAR+4, r1:52, l0:1, l1:5},
-  {id:'mage', name:'Gölge Elfi Ormanı',   type:'mage', r0:52, r1:80,  l0:5,  l1:10},
-  {id:'orc',  name:'Ork Toprakları',      type:'orc',  r0:80, r1:112, l0:10, l1:15}];
-function zoneAt(x,z){ const d=Math.hypot(x,z); for(let i=ZONES.length-1;i>=0;i--) if(d>=ZONES[i].r0-(i===1?4:0)) return ZONES[i]; return ZONES[0]; }
+  {id:'frog', name:'Kurbağa Bataklığı',   type:'wolf', r0:FOREST_CLEAR, r1:60, l0:1, l1:5},
+  {id:'mage', name:'Gölge Elfi Ormanı',   type:'mage', r0:60, r1:84,  l0:5,  l1:10},
+  {id:'orc',  name:'Ork Toprakları',      type:'orc',  r0:84, r1:HALF+8, l0:10, l1:15}];
+/* bölgeler artık kare halkalar (merkezden Chebyshev uzaklığı): köşeler ve kenarlar da avlak bölgesi */
+function zoneAt(x,z){ if(Math.hypot(x,z)<FOREST_CLEAR) return ZONES[0]; const c=Math.max(Math.abs(x),Math.abs(z)); for(let i=3;i>=2;i--) if(c>=ZONES[i].r0) return ZONES[i]; return ZONES[1]; }
 function zoneTypeAt(x,z){ const zn=zoneAt(x,z); return zn.type?{type:zn.type,l0:zn.l0,l1:zn.l1}:{type:'wolf',l0:1,l1:5}; }
+const FMOB={sepMob:4.2, sepCamp:25, wander:[1.5,4.5]};   // mob-mob en az mesafe, kamp-kamp en az mesafe, dolaşma yarıçapı
 function populateForest(){
-  const lvAt=(zn,d)=>clamp(Math.floor(zn.l0+clamp((d-zn.r0)/(zn.r1-zn.r0)+rr(-.12,.12),0,.999)*(zn.l1-zn.l0+1)),zn.l0,zn.l1);
-  const free=(x,z,pad)=>{ if(Math.abs(x)>HALF-4||Math.abs(z)>HALF-4) return false; for(const o of obstacles) if(Math.hypot(o.x-x,o.z-z)<o.r+pad) return false;
-    for(const c of F_RUINS) if(Math.hypot(x-c[0],z-c[1])<9) return false; if(Math.hypot(x-F_CAVE.x,z-F_CAVE.z)<13) return false; for(const c of FCAMPS) if(Math.hypot(x-c[0],z-c[1])<5) return false; return true; };
-  // sürüler: bir merkez etrafında 3-4 canavar (her sürünün kendi yuvası)
-  const pack=(zn,nPacks,per)=>{ let made=0, tries=0;
-    while(made<nPacks&&tries++<400){ const a=R()*6.283, d=rr(zn.r0+.5,zn.r1-.5), cx=Math.cos(a)*d, cz=Math.sin(a)*d; if(!free(cx,cz,2.2)) continue;
-      let n=0; for(let k=0;k<per*3&&n<per;k++){ const aa=R()*6.283, rr2=rr(1.5,5.5), x=cx+Math.cos(aa)*rr2, z=cz+Math.sin(aa)*rr2; if(!free(x,z,1.4)) continue; spawnMob(zn.type,lvAt(zn,Math.hypot(x,z)),x,z); n++; }
-      if(n>=2) made++; } };
-  const Z=id=>ZONES.find(z=>z.id===id);
-  pack(Z('frog'),9,coarse?3:4); pack(Z('mage'),7,3); pack(Z('orc'),6,3);
+  const lvAt=(zn,c)=>clamp(Math.floor(zn.l0+clamp((c-zn.r0)/(zn.r1-zn.r0)+rr(-.12,.12),0,.999)*(zn.l1-zn.l0+1)),zn.l0,zn.l1);
+  const homes=[];   // doğan her mobun ev noktası (aralık denetimi için)
+  const fixed=[...FCAMPS.slice(0,4).map(c=>[c[0],c[1]]),[F_RUINS[0][0],F_RUINS[0][1]],[F_RUINS[2][0],F_RUINS[2][1]],[70,-70]];   // mühür taşları ve boss noktaları
+  const terrainOk=(x,z)=>{ if(Math.abs(x)>HALF-5||Math.abs(z)>HALF-5) return false; if(Math.hypot(x,z)<FOREST_CLEAR+7) return false;
+    for(const o of obstacles) if(Math.hypot(o.x-x,o.z-z)<o.r+1.3) return false;
+    for(const c of F_RUINS) if(Math.hypot(x-c[0],z-c[1])<9) return false; if(Math.hypot(x-F_CAVE.x,z-F_CAVE.z)<13) return false;
+    for(const e of FPITS) if(Math.hypot(x-e[0],z-e[1])<e[2]*1.3) return false;
+    for(const f of fixed) if(Math.hypot(x-f[0],z-f[1])<6) return false;
+    if(groundSlope(x,z,1.5)>1.1) return false; return true; };
+  const roomFor=(x,z)=>{ for(const h of homes) if(Math.hypot(h[0]-x,h[1]-z)<FMOB.sepMob) return false; return true; };
+  // 1) kamp merkezleri: köşe/kenar çapaları + tüm kareye eşit aralıklı serpilmiş noktalar (Poisson-disk benzeri)
+  const camps=FCAMPS.slice(5).map(c=>[c[0],c[1]]); let tries=0; const target=coarse?30:38;
+  // en iyi aday yöntemi: her yeni kamp, mevcut kamplardan en uzak (boş kalan) noktaya konur → harita eşit kaplanır
+  while(camps.length<target&&tries++<400){ let best=null, bd=0;
+    for(let k=0;k<40;k++){ const x=rr(-HALF+8,HALF-8), z=rr(-HALF+8,HALF-8); if(!terrainOk(x,z)) continue; let d=1e9; for(const c of camps) d=Math.min(d,Math.hypot(c[0]-x,c[1]-z)); for(const f of fixed) d=Math.min(d,Math.hypot(f[0]-x,f[1]-z)+6); if(d>bd){ bd=d; best=[x,z]; } }
+    if(best&&bd>=16) camps.push(best); else if(!best) continue; else break; }
+  // 2) her kampta 3-5 mob: aralarında en az sepMob metre, merkez etrafında halka şeklinde
+  let total=0; const perType={};
+  for(const [cx,cz] of camps){ const zn=zoneAt(cx,cz); if(!zn.type) continue; const want=2+((R()*(coarse?2:3))|0); let n=0; const a0=R()*6.283;
+    for(let k=0;k<want*14&&n<want;k++){ const aa=a0+k*2.399+rr(-.4,.4), rad=rr(2.2,2.2+n*1.4+4.2), x=cx+Math.cos(aa)*rad, z=cz+Math.sin(aa)*rad;
+      if(!terrainOk(x,z)||!roomFor(x,z)) continue; const c=Math.max(Math.abs(x),Math.abs(z)), zz=zoneAt(x,z); if(!zz.type) continue;
+      spawnMob(zz.type,lvAt(zz,c),x,z); homes.push([x,z]); n++; total++; perType[zz.type]=(perType[zz.type]||0)+1; } }
   for(const [x,z,l] of [[0,-42,4],[38,34,5],[-52,28,7],[-30,-70,9]]) spawnMob('stone',l,x,z);
   // bosslar: her biri kendi bölgesinin harabesinde / kampında, türünden büyük ve güçlü
   spawnMob('fboss',7,F_RUINS[0][0],F_RUINS[0][1]); spawnMob('mboss',12,F_RUINS[2][0],F_RUINS[2][1]); spawnMob('boss',16,70,-70);
+  FOREST_STATS={camps:camps.length,mobs:total,perType,minGap:homes.length>1?Math.min(...homes.flatMap((h,i)=>homes.slice(i+1).map(o=>Math.hypot(h[0]-o[0],h[1]-o[1])))):0};
+  console.info('[Orman] '+camps.length+' avlak kampı, '+total+' mob; türler '+JSON.stringify(perType)+'; en yakın iki mob arası '+FOREST_STATS.minGap.toFixed(1)+' m');
 }
+let FOREST_STATS=null;
 function populateVillage(){
   shopNPC=makeNPC('Tüccar Han',31.7,8.9,0x2e5f8a,0x3a2a1a); makeNPC('Eşya Satıcısı',23,28.6,0x5a3a6a,0x2a2a2a); makeNPC('Demirci',21.2,33.6,0x4a3a2a,0x222222); makeNPC('Hancı',-24,34.2,0x6a4a2a,0x3a2a1a);
   makeNPC('Eğitmen',-33.5,11,0x7a2a22,0x555a60); makeNPC('Nöbetçi',5,50,0x7a2a22,0x555a60); makeNPC('Nöbetçi',7.5,-52,0x7a2a22,0x555a60);
@@ -2830,7 +2848,7 @@ async function boot(){
     myTag=document.createElement('div'); myTag.className='tag'; myTag.style.color='#fff'; $('pops').appendChild(myTag);
     $('loading').classList.add('hidden'); $('login').classList.remove('hidden');
     const has=loadGame(); if(has){ $('nameIn').value=S.name; document.querySelector(`input[name=king][value="${S.king}"]`).checked=true; }
-    window.__game={updateMount,groundFix,get GOFF(){return GOFF},get S(){return S},ITEMS,EQS,registerItem,addItem,moveItem,initInv,addStat,resetStats,qOf,expNeed,get PLANT_SETS(){return PLANT_SETS},renderMenu,setTab,toggleWin,closeWins,skillUp,skPoints,skL,skv,skStats,saveGame,loadGame,renderSkillWin,gainExp,updatePlayer,updateMobs,updateProjectiles,updateSkills,updateCamera,updateHUD,SKD,SLOT_DEF,SK,cds,fx2,pt2,sched,projectiles,SHAKE,clearSkillFx,MAPS,TRAVEL,travelTo,get MAP(){return MAP;},get obstacles(){return obstacles;},get MAP(){return MAP;},get renderer(){return renderer;},npcs,vRoadD,MAPS,hAt,get HAS3(){return HAS3;},get A3META(){return A3META;},damagePlayer,get COMBO(){return COMBO;},horseRear,horseAnim,playerHit,killMob,fxPlay,fxStep,get FROG2(){return FROG2;},MOUNT,toggleMount,get mixer(){return mixer},rotW,overlayPose,S,P,mobs,cam,actions,bones,setAnim,useSlot,clickAt,THREE,scene,camera,renderer,model,get tIdle(){return tIdle;},get TURN_DELTA(){return TURN_DELTA;}};
+    window.__game={get FOREST_STATS(){return FOREST_STATS},zoneAt,updateMount,groundFix,get GOFF(){return GOFF},get S(){return S},ITEMS,EQS,registerItem,addItem,moveItem,initInv,addStat,resetStats,qOf,expNeed,get PLANT_SETS(){return PLANT_SETS},renderMenu,setTab,toggleWin,closeWins,skillUp,skPoints,skL,skv,skStats,saveGame,loadGame,renderSkillWin,gainExp,updatePlayer,updateMobs,updateProjectiles,updateSkills,updateCamera,updateHUD,SKD,SLOT_DEF,SK,cds,fx2,pt2,sched,projectiles,SHAKE,clearSkillFx,MAPS,TRAVEL,travelTo,get MAP(){return MAP;},get obstacles(){return obstacles;},get MAP(){return MAP;},get renderer(){return renderer;},npcs,vRoadD,MAPS,hAt,get HAS3(){return HAS3;},get A3META(){return A3META;},damagePlayer,get COMBO(){return COMBO;},horseRear,horseAnim,playerHit,killMob,fxPlay,fxStep,get FROG2(){return FROG2;},MOUNT,toggleMount,get mixer(){return mixer},rotW,overlayPose,S,P,mobs,cam,actions,bones,setAnim,useSlot,clickAt,THREE,scene,camera,renderer,model,get tIdle(){return tIdle;},get TURN_DELTA(){return TURN_DELTA;}};
   }catch(err){ console.error(err); $('loadTxt').textContent='Yükleme başarısız oldu.'; $('err').textContent=String(err&&err.message||err); }
 }
 $('go').onclick=()=>{
