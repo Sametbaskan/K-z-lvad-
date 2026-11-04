@@ -553,7 +553,7 @@ function makeTerrain(kind){
   const size = HALF*2+60, seg = F?160:130;
   const geo = new THREE.PlaneGeometry(size,size,seg,seg); geo.rotateX(-Math.PI/2);
   const p = geo.attributes.position, col = new Float32Array(p.count*3), c = new THREE.Color();
-  const grassA = new THREE.Color(F?0x4d7c32:0x5a8a3a), grassB = new THREE.Color(F?0x2c5424:0x3f6e2c), dirt = new THREE.Color(F?0x7a6040:0x9a7d52), rock = new THREE.Color(0x7d7a6c), moss=new THREE.Color(0x35602a);
+  const grassA = new THREE.Color(F?(NATURE?0x3f6030:0x4d7c32):0x5a8a3a), grassB = new THREE.Color(F?(NATURE?0x233d1f:0x2c5424):0x3f6e2c), dirt = new THREE.Color(F?0x7a6040:0x9a7d52), rock = new THREE.Color(0x7d7a6c), moss=new THREE.Color(0x35602a);
   const rn = rng(F?11:7);
   for(let i=0;i<p.count;i++){
     const x=p.getX(i), z=p.getZ(i), h=hf(x,z); p.setY(i,h);
@@ -595,10 +595,11 @@ function addObstacle(x,z,r){ obstacles.push({x,z,r}); }
     let nearRoad=false; for(const ra of [0.5,2.2,-1.3,3.9]){ if(Math.abs(wrap(a-ra))*d<4.2) nearRoad=true; }
     if(nearRoad && R()<.92) continue;
     if(trees.some(t=>Math.hypot(t.x-x,t.z-z)<3.2)) continue;
+    if(forestKeep(x,z,1)) continue;
     trees.push({x,z,s:rr(.85,1.7)});
   }
   // ormanlık çerçeve: kenara yakın yoğun
-  for(let i=0;i<70;i++){ const a=R()*Math.PI*2, x=Math.cos(a)*HALF*rr(.95,1.04), z=Math.sin(a)*HALF*rr(.95,1.04); trees.push({x:clamp(x,-HALF-4,HALF+4),z:clamp(z,-HALF-4,HALF+4),s:rr(1.2,2)}); }
+  for(let i=0;i<70;i++){ const a=R()*Math.PI*2, x=clamp(Math.cos(a)*HALF*rr(.95,1.04),-HALF-4,HALF+4), z=clamp(Math.sin(a)*HALF*rr(.95,1.04),-HALF-4,HALF+4); if(forestKeep(x,z,1)||trees.some(t=>Math.hypot(t.x-x,t.z-z)<2.6)) continue; trees.push({x,z,s:rr(1.2,2)}); }
   const N=trees.length;
   const trunk = new THREE.InstancedMesh(new THREE.CylinderGeometry(.18,.3,2.2,6), new THREE.MeshLambertMaterial({color:0x5b3f26}), N);
   const f1 = new THREE.InstancedMesh(new THREE.ConeGeometry(1.5,2.6,7), new THREE.MeshLambertMaterial({color:0xffffff}), N);
@@ -614,10 +615,13 @@ function addObstacle(x,z,r){ obstacles.push({x,z,r}); }
   });
   [trunk,f1,f2].forEach(m=>{ m.castShadow=true; scene.add(m); }); world.oldForest=[trunk,f1,f2]; world.treeSpots=trees;
   // kayalar
+  if(NATURE){ const rl=genRocks(trees); world.rockList=rl; window.__rocks=rl; world.rockSpots=rl.map(r=>({x:r.x,z:r.z,s:r.rad})); for(const r of rl) if(r.s>=1.0) addObstacle(r.x,r.z,r.rad*.82); }
+  else {
   const rocks=[]; for(let i=0;i<60;i++){ const a=R()*Math.PI*2,d=VILL_R+6+R()*(HALF-VILL_R-10); rocks.push({x:Math.cos(a)*d,z:Math.sin(a)*d,s:rr(.6,2)}); }
   const rm=new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1,0), new THREE.MeshLambertMaterial({color:0x8b8a80}), rocks.length);
   rocks.forEach((r,i)=>{ Y.position.set(r.x,hAt(r.x,r.z)+r.s*.35,r.z); Y.rotation.set(R()*3,R()*3,R()*3); Y.scale.set(r.s,r.s*.7,r.s*rr(.8,1.2)); Y.updateMatrix(); rm.setMatrixAt(i,Y.matrix); cc.setHSL(.1,.05,rr(.35,.5)); rm.setColorAt(i,cc); addObstacle(r.x,r.z,r.s*.9); });
   rm.castShadow=true; scene.add(rm); world.rockSpots=rocks;
+  }
 
   // çimen tutamları (rüzgarla sallanır)
   { const blade=new THREE.PlaneGeometry(.1,.5,1,3); blade.translate(0,.25,0);
@@ -1297,6 +1301,36 @@ function grassDensity(x,z){
   return Math.min(1,dn);
 }
 /* ---- Shapespark Low Poly Plants Kit (FBX): ağaç / çalı / çit / ot / çiçek ---- */
+let NATURE=false, NATURE_PENDING=null, PFIX=false;   // PFIX: yalnız Kızıl Orman'da bitki mesafe kırpması doğru konum dizisini okur (köy aynen kalır)   // kuru ağaç + kaya modelleri yüklendi mi
+/* Kızıl Orman'da ağaç/kaya konmayacak yerler: açıklık, kapı, canavar kampları, harabeler, mağara, çukur/gölet havzaları */
+function forestKeep(x,z,pad=0){
+  const d=Math.hypot(x,z); if(d<FOREST_CLEAR+4+pad) return true;
+  for(const c of FCAMPS) if(Math.hypot(x-c[0],z-c[1])<12+pad) return true;
+  for(const c of F_RUINS) if(Math.hypot(x-c[0],z-c[1])<10+pad) return true;
+  if(Math.hypot(x-F_CAVE.x,z-F_CAVE.z)<14+pad) return true;
+  for(const e of FPITS) if(Math.hypot(x-e[0],z-e[1])<e[2]*1.35+pad) return true;
+  return false; }
+function groundMin(x,z,rad){ let m=hForest(x,z); for(let i=0;i<6;i++){ const a=i*1.0472; m=Math.min(m,hForest(x+Math.cos(a)*rad,z+Math.sin(a)*rad)); } return m; }
+function groundSlope(x,z,rad){ let lo=1e9,hi=-1e9; for(let i=0;i<6;i++){ const a=i*1.0472, h=hForest(x+Math.cos(a)*rad,z+Math.sin(a)*rad); lo=Math.min(lo,h); hi=Math.max(hi,h); } return hi-lo; }
+function genRocks(trees){
+  const rocks=[]; const lim=HALF-5, cap=coarse?130:190;
+  const ok=(x,z,rad)=>{ if(Math.abs(x)>lim||Math.abs(z)>lim) return false; if(forestKeep(x,z,rad)) return false; if(groundSlope(x,z,rad)>rad*.95+.5) return false;
+    for(const t of trees) if(Math.hypot(t.x-x,t.z-z)<rad+1.2) return false; for(const o of rocks) if(Math.hypot(o.x-x,o.z-z)<(o.rad+rad)*.96) return false; return true; };
+  const add=(x,z,sc)=>{ const rad=.86*sc; if(rocks.length>=cap||!ok(x,z,rad)) return null; const sy=rr(.75,1.05), gm=groundMin(x,z,rad*.8);
+    const c=new THREE.Color().setHSL(rr(.06,.12),rr(.03,.1),rr(.5,.78)); const o={x,y:gm+.673*sc*sy-.16*sc*sy,z,r:rnd01()*6.283,s:sc,sy,tx:rr(-.09,.09),tz:rr(-.09,.09),c,q:sc>1.3?1:rnd01()*.45,rad}; rocks.push(o); return o; };
+  // doğal kaya oluşumları: bir ana kaya + çevresinde orta ve küçük kayalar
+  let tries=0, forms=0; const nF=coarse?20:28;
+  while(forms<nF&&tries++<1500){ const x=rr(-lim,lim), z=rr(-lim,lim), main=add(x,z,rr(2.2,3.4)); if(!main) continue; forms++;
+    const n=3+((rnd01()*4)|0); for(let i=0;i<n;i++){ const sc=rr(.7,1.9), a=rnd01()*6.283, d=(main.rad+.86*sc)*rr(.98,1.2); add(main.x+Math.cos(a)*d,main.z+Math.sin(a)*d,sc); }
+    for(let i=0;i<3;i++){ const sc=rr(.3,.6), a=rnd01()*6.283, d=main.rad*rr(1.5,2.4); add(main.x+Math.cos(a)*d,main.z+Math.sin(a)*d,sc); } }
+  // tek tük kayalar ve kısa kaya sıraları
+  tries=0; let singles=0; while(singles<(coarse?34:50)&&tries++<1500){ const x=rr(-lim,lim), z=rr(-lim,lim), r0=add(x,z,rr(.7,1.7)); if(!r0) continue; singles++;
+    if(rnd01()<.4){ const sc=rr(.5,1.1), a=rnd01()*6.283, d=(r0.rad+.86*sc)*1.05; add(r0.x+Math.cos(a)*d,r0.z+Math.sin(a)*d,sc); } }
+  return rocks; }
+function prepNature(gp,gs){
+  const pick=(g,max)=>{ let me=null; g.scene.traverse(o=>{ if(o.isMesh&&!me) me=o; }); if(!me) throw new Error('mesh yok'); const mp=me.material.map; if(mp){ mp.colorSpace=THREE.SRGBColorSpace; mp.anisotropy=2; }
+    me.geometry.computeBoundingBox(); const bb=me.geometry.boundingBox; return {geo:me.geometry,mats:[new THREE.MeshLambertMaterial({map:mp||null,color:0xffffff})],h:bb.max.y-bb.min.y,w:Math.max(bb.max.x-bb.min.x,bb.max.z-bb.min.z)}; };
+  PLANTS.T.DeadPine=pick(gp); PLANTS.T.Stone=pick(gs); NATURE=true; }
 let PLANTS=null; let PLANT_SETS=[]; const PLANT_STATS={templates:0,textures:0,materials:0,instances:0,sets:0,trees:0,extraTrees:0,bushes:0,hedges:0,grass:0,ground:0,collidable:0};
 let PLANT_KEEP_CLEAR=[[0,0,VILL_R+2]];
 function plantOnRoad(x,z,lat=4){ if(MAP.id!=='village') return false; const d=Math.hypot(x,z), a=Math.atan2(z,x); for(const ra of [0.5,2.2,-1.3,3.9]) if(Math.abs(wrap(a-ra))*d<lat) return true; return false; }
@@ -1323,21 +1357,21 @@ function addPlantSet(name,list,R,shadow){
   const mats=new Float32Array(list.length*16), pos=new Float32Array(list.length*3); let col=null, qv=null;
   if(list[0].c!==undefined){ col=new Float32Array(list.length*3); im.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(list.length*3),3); list.forEach((p,i)=>{ _pc.set(p.c); col[i*3]=_pc.r; col[i*3+1]=_pc.g; col[i*3+2]=_pc.b; }); }
   if(list[0].q!==undefined){ qv=new Float32Array(list.length); list.forEach((p,i)=>qv[i]=p.q); }
-  list.forEach((p,i)=>{ _py.position.set(p.x,p.y,p.z); _py.rotation.set(0,p.r,0); _py.scale.setScalar(p.s); _py.updateMatrix(); _py.matrix.toArray(mats,i*16); pos[i*3]=p.x; pos[i*3+1]=p.z; });
-  scene.add(im); PLANT_SETS.push({im,n:list.length,mats,pos,col,qv,R2:R*R}); PLANT_STATS.instances+=list.length; PLANT_STATS.sets++;
+  list.forEach((p,i)=>{ _py.position.set(p.x,p.y,p.z); _py.rotation.set(p.tx||0,p.r,p.tz||0); _py.scale.set(p.s,p.s*(p.sy||1),p.s); _py.updateMatrix(); _py.matrix.toArray(mats,i*16); pos[i*3]=p.x; pos[i*3+1]=p.z; });
+  scene.add(im); PLANT_SETS.push({im,n:list.length,mats,pos,col,qv,R2:R*R,fix:PFIX}); PLANT_STATS.instances+=list.length; PLANT_STATS.sets++;
 }
 let plantT=9; const _fw=new THREE.Vector3();
 function updatePlants(dt,force){
   plantT+=dt; if(plantT<.3&&!force) return; plantT=0;
   camera.getWorldDirection(_fw); const fx=_fw.x, fz=_fw.z, fl=Math.hypot(fx,fz)||1, px=P.pos.x, pz=P.pos.z;
   for(const s of PLANT_SETS){ let k=0; const arr=s.im.instanceMatrix.array;
-    for(let i=0;i<s.n;i++){ const dx=s.pos[i*2]-px, dz=s.pos[i*2+1]-pz, d2=dx*dx+dz*dz; if(d2>s.R2*(s.qv?.2+.8*s.qv[i]:1)) continue;   // uzaklaştıkça seyrelir (LOD)
+    const ST=s.fix?3:2; for(let i=0;i<s.n;i++){ const dx=s.pos[i*ST]-px, dz=s.pos[i*ST+1]-pz, d2=dx*dx+dz*dz; if(d2>s.R2*(s.qv?.2+.8*s.qv[i]:1)) continue;   // uzaklaştıkça seyrelir (LOD)
       if(d2>196&&(dx*fx+dz*fz)<-.35*fl*Math.sqrt(d2)) continue;            // 14 m'den uzak ve kameranın arkasındaysa çizme
       arr.set(s.mats.subarray(i*16,i*16+16),k*16); if(s.col) s.im.instanceColor.array.set(s.col.subarray(i*3,i*3+3),k*3); k++; }
     s.im.count=k; s.im.instanceMatrix.needsUpdate=true; if(s.col) s.im.instanceColor.needsUpdate=true; }
 }
 function buildPlantWorld(kind){
-  const FV=kind==='village', HALFc=FV?46:HALF, clearR=FV?VILL_R:FOREST_CLEAR; PLANT_SETS=[];
+  const FV=kind==='village', HALFc=FV?46:HALF, clearR=FV?VILL_R:FOREST_CLEAR; PLANT_SETS=[]; PFIX=!FV;
   PLANT_KEEP_CLEAR=FV?[[0,0,VILL_R+2],[MAPS.village.gate.x,MAPS.village.gate.z,6]]:[...FCAMPS.map(c=>[c[0],c[1],c===FCAMPS[4]?9:7]),[0,0,FOREST_CLEAR+2],...F_RUINS.map(r=>[r[0],r[1],9]),[F_CAVE.x+7,F_CAVE.z,9],[MAPS.forest.gate.x,MAPS.forest.gate.z,6]];
   const rnd=R, spots=FV?Array.from({length:72},()=>{ const a=rnd()*6.283, d=rr(VILL_R+13,VILL_R+30); return {x:Math.cos(a)*d,z:Math.sin(a)*d,s:rr(.9,1.8)}; }):(world.treeSpots||[]).slice(); const names=n=>Array.from({length:n},(_,i)=>i+1);
   const variants=coarse?[1,2,3]:[1,2,3,4];
@@ -1354,12 +1388,20 @@ function buildPlantWorld(kind){
     const a=rnd()*Math.PI*2, d=clearR+14+Math.sqrt(rnd())*(HALFc+22-clearR-14), x=Math.cos(a)*d, z=Math.sin(a)*d;
     if(forestNoise(x,z)<(FV?.15:-.12)+(d<HALFc?.0:-.6)) continue;
     if(plantOnRoad(x,z,5)||plantBlocked(x,z,1.6)) continue;
+    if(!FV&&forestKeep(x,z,1)) continue;
+    if(!FV&&world.rockList&&world.rockList.some(r=>Math.hypot(r.x-x,r.z-z)<r.rad+1.3)) continue;
     if(placed.some(p=>Math.hypot(p[0]-x,p[1]-z)<3.4)) continue;
+    if(!FV&&spots.some(t=>Math.hypot(t.x-x,t.z-z)<3.4)) continue;
     const inside=Math.abs(x)<HALFc-.5&&Math.abs(z)<HALFc-.5; placed.push([x,z]); put(x,z,rr(.9,1.9),inside&&!FV); extra++;
   }
   PLANT_STATS.extraTrees=extra;
   const treeR=coarse?64:95;
-  for(const n of treeNames) addPlantSet(n,treeLists[n],treeR,true);
+  if(!FV&&NATURE){
+    const pl=[]; for(const n of treeNames) for(const e of treeLists[n]){ const sc=3.5+(e.s-.55)*4*(.8+rnd()*.4), gm=groundMin(e.x,e.z,.35*sc);
+      pl.push({x:e.x,y:gm+.952*sc-.12*sc,z:e.z,r:rnd()*6.283,s:sc,sy:rr(.92,1.12),tx:rr(-.03,.03),tz:rr(-.03,.03),c:new THREE.Color().setHSL(rr(.05,.1),rr(.04,.14),rr(.55,.85)),q:rnd()}); }
+    addPlantSet('DeadPine',pl,coarse?58:90,false); if(world.rockList) addPlantSet('Stone',world.rockList,coarse?66:95,false);
+    PLANT_STATS.deadPines=pl.length; PLANT_STATS.rocks=world.rockList?world.rockList.length:0;
+  } else for(const n of treeNames) addPlantSet(n,treeLists[n],treeR,true);
   // 2) çalılar (orman kenarları, yol kenarları), çitler, otlar, çiçekler
   const free=(x,z,pad)=>!plantOnRoad(x,z,3.4)&&!plantBlocked(x,z,pad);
   const bushL={}; const bushNames=['Bush-01','Bush-02','Bush-03','Bush-04','Flowers-02','Flowers-04','Bush-05']; bushNames.forEach(n=>bushL[n]=[]);
@@ -2035,7 +2077,10 @@ function buildForestMap(){
   populateForest();
   console.info('[Harita] Kızıl Orman kuruldu: '+MAPS.forest.objs.length+' nesne, '+obstacles.length+' engel, '+mobs.length+' canavar');
 }
-function setAtmos(id){ if(id==='forest'){ scene.fog.color.set(0xa6b99d); scene.fog.near=26; scene.fog.far=95; hemi.intensity=.68; } else { scene.fog.color.set(0xd6dccb); scene.fog.near=45; scene.fog.far=125; hemi.intensity=.75; } }
+let SKY_LIGHT=null, SKY_DARK=null, SUN0=0;
+function darkSky(){ const c=document.createElement('canvas'); c.width=2; c.height=256; const g=c.getContext('2d'); const gr=g.createLinearGradient(0,0,0,256); gr.addColorStop(0,'#2e3d4e'); gr.addColorStop(.55,'#5d7079'); gr.addColorStop(.8,'#74806f'); gr.addColorStop(1,'#7b7d68'); g.fillStyle=gr; g.fillRect(0,0,2,256); const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; return t; }
+function setAtmos(id){ if(!SKY_LIGHT) SKY_LIGHT=scene.background; if(!SUN0) SUN0=sun.intensity; sun.intensity=SUN0*(id==='forest'&&NATURE?.78:1); renderer.toneMappingExposure=id==='forest'&&NATURE?.94:1.05; if(id==='forest'&&NATURE){ if(!SKY_DARK) SKY_DARK=darkSky(); scene.background=SKY_DARK; } else if(SKY_LIGHT) scene.background=SKY_LIGHT;
+  if(id==='forest'){ if(NATURE){ scene.fog.color.set(0x77836f); scene.fog.near=22; scene.fog.far=88; hemi.intensity=.6; } else { scene.fog.color.set(0xa6b99d); scene.fog.near=26; scene.fog.far=95; hemi.intensity=.68; } } else { scene.fog.color.set(0xd6dccb); scene.fog.near=45; scene.fog.far=125; hemi.intensity=.75; } }
 function sharedPlantRes(){ const g=new Set(), m=new Set(); if(PLANTS) for(const t of Object.values(PLANTS.T)){ g.add(t.geo); t.mats.forEach(x=>m.add(x)); } return {g,m}; }
 function disposeObjs(list){ const sh=sharedPlantRes(); for(const o of list){ scene.remove(o); o.traverse(n=>{ if(n.isInstancedMesh&&n.dispose) n.dispose(); if(n.geometry&&!sh.g.has(n.geometry)) n.geometry.dispose(); const ms=n.material?(Array.isArray(n.material)?n.material:[n.material]):[]; for(const m of ms) if(!sh.m.has(m)) m.dispose(); }); } }
 function leaveMap(){
@@ -2371,7 +2416,8 @@ async function boot(){
     setupPlayer(hero,b); try{ const th=await get('models/horse.glb.b64.txt',()=>{}); const hg=await new Promise((ok,no)=>new GLTFLoader().parse(dec(th),'',ok,no)); setupMount(hg); }catch(e){ console.error('[At] Warhorse Lite yüklenemedi, binek devre dışı:',e); MOUNT.ready=false; }
     if(tm){ try{ const mb=atob(tm.trim()); const mu=new Uint8Array(mb.length); for(let i=0;i<mb.length;i++) mu[i]=mb.charCodeAt(i); prepMaw(L.parse(mu.buffer,''),b); }catch(e){ console.warn('Maw yüklenemedi, eski ork kullanılacak',e); MAW=null; } }
     try{ const ta=await get('models/archway.b64.txt',()=>{}); const ag=await new Promise((ok,no)=>new GLTFLoader().parse(dec(ta),'',ok,no)); ARCH=ag.scene; }catch(e){ console.error('[Geçit] kemer modeli yüklenemedi, eski kapı kullanılacak:',e); }
-    try{ const tp=await get('models/plants.b64.txt',()=>{}); prepPlants(L.parse(dec(tp),'')); }catch(e){ console.error('[Bitki] Bitki paketi (plants kit FBX) yüklenemedi, eski ağaçlar kullanılacak:',e); }
+    try{ const [tdp,tst]=await Promise.all([get('models/deadpine.b64.txt',()=>{}),get('models/stone.b64.txt',()=>{})]); const [gp,gs]=await Promise.all([new Promise((ok,no)=>new GLTFLoader().parse(dec(tdp),'',ok,no)),new Promise((ok,no)=>new GLTFLoader().parse(dec(tst),'',ok,no))]); NATURE_PENDING=[gp,gs]; }catch(e){ console.error('[Doğa] kuru ağaç/kaya modeli yüklenemedi, eski ağaçlar kullanılacak:',e); }
+    try{ const tp=await get('models/plants.b64.txt',()=>{}); prepPlants(L.parse(dec(tp),'')); if(NATURE_PENDING) prepNature(NATURE_PENDING[0],NATURE_PENDING[1]); }catch(e){ console.error('[Bitki] Bitki paketi (plants kit FBX) yüklenemedi, eski ağaçlar kullanılacak:',e); }
     initMapUI(); initVillageMap(); try{ warmFx(); }catch(e){ console.warn('[Efekt] ısınma atlandı',e); } bar.style.width='100%';
     myTag=document.createElement('div'); myTag.className='tag'; myTag.style.color='#fff'; $('pops').appendChild(myTag);
     $('loading').classList.add('hidden'); $('login').classList.remove('hidden');
