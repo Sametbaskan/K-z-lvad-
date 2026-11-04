@@ -2016,9 +2016,9 @@ function villageGateRy(){ const g=MAPS.village.gate; return Math.atan2(-g.x,-g.z
 /* ============================== KIZIL VADİ KALESİ (yeni köy) ============================== */
 let BLD={};   // Literock bina paketi: {anahtar:{g1,g2,mat}}  (LOD1 ≈5k, LOD2 ≈2k üçgen; 1024 doku)
 function prepBuilding(key,gltf){
-  const L={}; gltf.scene.traverse(o=>{ if(o.isMesh) L[o.name]=o; }); const m1=L.LOD1, m2=L.LOD2; if(!m1||!m2) throw new Error('LOD yok: '+key);
+  const L={}; gltf.scene.traverse(o=>{ if(o.isMesh) L[o.name]=o; }); const m1=L.LOD0, m2=L.LOD1; if(!m1||!m2) throw new Error('LOD yok: '+key);
   const map=m1.material.map; if(map){ map.colorSpace=THREE.SRGBColorSpace; map.anisotropy=2; }
-  const mt=new THREE.MeshLambertMaterial({map,side:THREE.DoubleSide}); mt.color.setScalar(key==='av'?1.45:1.7); BLD[key]={g1:m1.geometry,g2:m2.geometry,mat:mt};
+  const mt=new THREE.MeshLambertMaterial({map,side:THREE.DoubleSide}); mt.color.setScalar(key==='av'?1.45:1.7); BLD[key]={g0:m1.geometry,g1:m2.geometry,mat:mt};
 }
 const VLIST=[]; let VLT={t:[],l:[]};   // meşale / fener ışıma noktaları (tek çizim çağrısı)
 function vGlow(arr,color,size,op){ if(!arr.length) return null; const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.Float32BufferAttribute(arr,3)); const pt=new THREE.Points(g,new THREE.PointsMaterial({map:glowTex,color,size,sizeAttenuation:true,transparent:true,opacity:op,depthWrite:false,blending:THREE.AdditiveBlending,fog:false})); pt.frustumCulled=false; scene.add(pt); return pt; }                                              // yerleştirilen yapılar (doğrulama için)
@@ -2028,7 +2028,8 @@ function obsBox(x,z,w,d,ry){                                 // dikdörtgen yap�
 const loc=(x,z,ry,lx,lz)=>[x+lx*Math.cos(ry)+lz*Math.sin(ry), z-lx*Math.sin(ry)+lz*Math.cos(ry)];
 function placeBld(key,name,x,z,ry,s,lod,body){            // body: [lx,lz,w,d] yerel gövde kutusu (çarpışma)
   const B=BLD[key]; if(!B) return null;
-  const me=new THREE.Mesh(B.g1,B.mat); /* LOD2 yırtık yüzeyli: her yerde LOD1 */ me.position.set(x,hAt(x,z)-.03*s,z); me.rotation.y=ry; me.scale.setScalar(s); me.castShadow=!coarse||name==='Avonmere Evi'||name==='Wolfhold Kışlası'||name==='Granit Lejyon Kulesi'; me.receiveShadow=false; scene.add(me);
+  const me=new THREE.LOD(), m0=new THREE.Mesh(B.g0,B.mat), m1=new THREE.Mesh(B.g1,B.mat); m0.castShadow=!coarse||name==='Avonmere Evi'||name==='Wolfhold Kışlası'||name==='Granit Lejyon Kulesi'; m1.castShadow=false;   // yakında tam detay (LOD0), uzakta hafif model
+  me.addLevel(m0,0); me.addLevel(m1,coarse?42:70); me.position.set(x,hAt(x,z)-.03*s,z); me.rotation.y=ry; me.scale.setScalar(s); scene.add(me);
   const [bx,bz]=loc(x,z,ry,body[0]*s,body[1]*s); obsBox(bx,bz,body[2]*s,body[3]*s,ry); VLIST.push({name,x:bx,z:bz,w:body[2]*s,d:body[3]*s,ry,kind:'bld'}); return me; }
 /* ---- birleştirilmiş statik parçalar: tek malzeme, köşe rengi, 4 bölge (kamera kırpması için) ---- */
 let VBK=null; const VF=new THREE.Matrix4(), _vm=new THREE.Matrix4(), _vq=new THREE.Quaternion(), _ve=new THREE.Euler(), _vv=new THREE.Vector3(), _vs=new THREE.Vector3(), _vc=new THREE.Color(); let VFK=0;
