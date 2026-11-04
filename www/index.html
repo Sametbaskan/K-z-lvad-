@@ -279,6 +279,30 @@ body{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-c
 #miniX img{width:100%;height:auto;display:block;filter:drop-shadow(0 1px 2px #000)}
 #miniOpen{pointer-events:auto;display:none;width:40px;height:40px;border-radius:50%;border:2px solid #d3ad62;background:radial-gradient(#3a2b1b,#17100a);color:#ffe08a;font-size:20px;cursor:pointer;margin-left:auto;box-shadow:0 0 0 2px #000,0 3px 8px rgba(0,0,0,.7)}
 #mini.shut #miniBox{display:none}#mini.shut #miniOpen{display:block}
+
+/* ui3: Metin2 teması */
+#mw.fr,#shop.fr{border:2px solid #7a6a58!important;border-image:none!important;border-radius:2px;background:#0c0908!important;box-shadow:0 0 0 1px #000,0 8px 22px rgba(0,0,0,.7)!important;padding:0 6px 6px}
+#mw.fr::before,#shop.fr::before{display:none}
+.banner{display:none!important}
+#mw .mwtabs{margin:0 -6px 6px;padding:4px 6px 0;gap:3px;border-bottom:1px solid #000;background:linear-gradient(#6a2417,#2e0f09)}
+#mw .mtab{border-radius:0;border:1px solid #1a0b07;background:linear-gradient(#4a1a10,#25100a);color:#d9c0a0;padding:3px 2px}
+#mw .mtab.on{background:linear-gradient(#8a3a22,#4a1a10);color:#ffe9b8;border-color:#c9a24e;box-shadow:none}
+#mw .mclose img{filter:none}
+.doll{background:#141010;border:1px solid #6a5a48;border-radius:0}
+.dgrid{background:#1a1412 repeating-linear-gradient(45deg,#231a16 0 6px,#1a1412 6px 12px);padding:6px;border:1px solid #000}
+.eq,.icell5{--oc:polygon(16% 0,84% 0,100% 16%,100% 84%,84% 100%,16% 100%,0 84%,0 16%);border:0!important;border-radius:0!important;background:#8a6a2a!important;clip-path:var(--oc);box-shadow:none}
+.eq::before,.icell5::before{content:"";position:absolute;inset:2px;background:radial-gradient(#1c1511,#060302);clip-path:var(--oc);z-index:0}
+.eq>*,.icell5>*{position:relative;z-index:1}.eq .n,.icell5 .n,.eq .lb{position:absolute!important}
+.eq.slot{background:#5a4a38!important}
+.icell5{background:#5b4a34!important}.icell5.has{background:#c9a24e!important}
+.cells5{background:#0a0706;border:1px solid #000;border-radius:0;gap:2px}
+.ipgs button{border-radius:0;background:linear-gradient(#4a4a48,#2a2a28);border:1px solid #111;color:#ddd}.ipgs button.on{background:linear-gradient(#8a8a86,#5a5a56);color:#fff;border-color:#bbb}
+.yangbar{background:#0a0706;border:1px solid #6a5a48;border-radius:0}
+#shop.fr h2:first-of-type{justify-content:center;height:auto;margin:0 -6px 8px;padding:5px 30px;background:linear-gradient(#6a2417,#2e0f09);border-bottom:1px solid #000;position:relative;color:#ffe9b8;font-size:17px}
+#shop.fr #shopTitle{display:inline!important}
+#shop.fr h2 .x{position:absolute;right:3px;top:50%;transform:translateY(-50%);width:24px;height:24px}
+#shop.fr .row{border-radius:0;background:#141010;border:1px solid #3a2e24}
+#shop .btn{border-radius:0;background:linear-gradient(#4a4a48,#2a2a28);border:1px solid #111;color:#eee}
 </style>
 
 <canvas id="view" tabindex="0"></canvas>
