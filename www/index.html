@@ -2028,7 +2028,7 @@ function obsBox(x,z,w,d,ry){                                 // dikdörtgen yap�
 const loc=(x,z,ry,lx,lz)=>[x+lx*Math.cos(ry)+lz*Math.sin(ry), z-lx*Math.sin(ry)+lz*Math.cos(ry)];
 function placeBld(key,name,x,z,ry,s,lod,body){            // body: [lx,lz,w,d] yerel gövde kutusu (çarpışma)
   const B=BLD[key]; if(!B) return null;
-  const me=new THREE.Mesh(lod===1?B.g1:B.g2,B.mat); me.position.set(x,hAt(x,z)-.03*s,z); me.rotation.y=ry; me.scale.setScalar(s); me.castShadow=lod===1||!coarse; me.receiveShadow=false; scene.add(me);
+  const me=new THREE.Mesh(B.g1,B.mat); /* LOD2 yırtık yüzeyli: her yerde LOD1 */ me.position.set(x,hAt(x,z)-.03*s,z); me.rotation.y=ry; me.scale.setScalar(s); me.castShadow=!coarse||name==='Avonmere Evi'||name==='Wolfhold Kışlası'||name==='Granit Lejyon Kulesi'; me.receiveShadow=false; scene.add(me);
   const [bx,bz]=loc(x,z,ry,body[0]*s,body[1]*s); obsBox(bx,bz,body[2]*s,body[3]*s,ry); VLIST.push({name,x:bx,z:bz,w:body[2]*s,d:body[3]*s,ry,kind:'bld'}); return me; }
 /* ---- birleştirilmiş statik parçalar: tek malzeme, köşe rengi, 4 bölge (kamera kırpması için) ---- */
 let VBK=null; const VF=new THREE.Matrix4(), _vm=new THREE.Matrix4(), _vq=new THREE.Quaternion(), _ve=new THREE.Euler(), _vv=new THREE.Vector3(), _vs=new THREE.Vector3(), _vc=new THREE.Color(); let VFK=0;
