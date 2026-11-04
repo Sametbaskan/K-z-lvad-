@@ -1283,13 +1283,14 @@ function setupPlayer(fbxA, cj){
     COMBO={dur:comboC.duration,imps:imps.length?imps:[comboC.duration*.45]}; console.info('[Anim] combo vuruş anları (sn): '+COMBO.imps.join(', '));
     actions.idle.reset(); actions.idle.timeScale=1; actions.idle.play(); actions.idle.setEffectiveWeight(1); mixer.update(0); model.updateMatrixWorld(true); }
   // kılıç: sağ ele takılı (kabza avuç içinde, ele göre sabit)
-  if(bones.RightHand){ sword=makeSword(); sword.scale.setScalar(1/MSCALE); SWHAND=bones.RightHand; SWHAND.add(sword); placeSword(); }
+  if(bones.RightHand){ sword=makeSword(); sword.scale.setScalar(1/MSCALE); SWHAND=bones.RightHand; SWHAND.add(sword); placeSword(); try{ model.updateMatrixWorld(true); const q=new THREE.Quaternion(); SWHAND.getWorldQuaternion(q); UPL=new THREE.Vector3(0,1,0).applyQuaternion(q.invert()).normalize(); const a=new THREE.Vector3(...SWCFG.ax).normalize(); console.info('[Silah] kılıç ekseni ile dikey arası açı: '+(Math.acos(Math.max(-1,Math.min(1,a.dot(UPL))))*57.3).toFixed(0)+'°'); }catch(e){ console.warn('[Silah] dikey ölçülemedi',e); } }
   P.anim='idle'; playerGroup.userData.ready=true;
 }
 let SWHAND=null;
 /* kılıç ekseni: el yerel X ekseni = yumruk deliği (kabza ekseni); ayarlanabilir */
 const SWCFG={ax:[.948,.317,-.044], edge:[0,0,1], pos:[1.8,11.1,3.3]};   // ölçüm: parmak eklem merkezi (0,10.5,3.4) cm, işaret→serçe ekseni
-function placeSword(o){ o=o||sword; if(!o) return; const Y=new THREE.Vector3(...SWCFG.ax).normalize(), X0=new THREE.Vector3(...SWCFG.edge), Z=new THREE.Vector3().crossVectors(X0,Y).normalize(), X=new THREE.Vector3().crossVectors(Y,Z).normalize();
+let UPL=null; const WTILT=.7;   // yeni silahlar: uç, elin yerel uzayında ölçülen 'yukarı' yönüne doğru WTILT kadar kaldırılır (bekleme duruşunda yatay durmasın)
+function placeSword(o,tilt){ o=o||sword; if(!o) return; const Y=new THREE.Vector3(...SWCFG.ax).normalize(); if(tilt&&UPL) Y.lerp(UPL,tilt).normalize(); const X0=new THREE.Vector3(...SWCFG.edge), Z=new THREE.Vector3().crossVectors(X0,Y).normalize(), X=new THREE.Vector3().crossVectors(Y,Z).normalize();
   o.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(X,Y,Z)); o.position.fromArray(SWCFG.pos); }
 /* kuşanılan silahın görünümü: id değişince modeli yükler (ilk kullanımda), eskisini gizler; kılıç = yerleşik prosedürel model */
 const WCACHE={}; let curWid='sword', wantWid='sword', wLoading=null;
@@ -1303,7 +1304,7 @@ function syncWeapon(){ if(!SWHAND) return; const w=S.eq&&S.eq.w1; const id=w?w.i
   if(WCACHE[id]){ show(id); return; }
   if(wLoading===id) return; wLoading=id;
   (async()=>{ try{ const r=await fetch('models/wpn/'+id+'.b64.txt'); if(!r.ok) throw new Error(id+' yüklenemedi'); const t=(await r.text()).trim(); const bin=atob(t), u=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u[i]=bin.charCodeAt(i);
-    const glb=await new Promise((ok,no)=>new GLTFLoader().parse(u.buffer,'',ok,no)); const g=wpnObject(id,glb); SWHAND.add(g); placeSword(g); WCACHE[id]=g; if(wantWid===id) show(id); else g.visible=false;
+    const glb=await new Promise((ok,no)=>new GLTFLoader().parse(u.buffer,'',ok,no)); const g=wpnObject(id,glb); SWHAND.add(g); placeSword(g,WTILT); WCACHE[id]=g; if(wantWid===id) show(id); else g.visible=false;
   }catch(e){ console.error('[Silah] '+id,e); wantWid='sword'; if(sword) sword.visible=true; } wLoading=null; })(); }
 
 /* ---- binek (geyik): bin / in, inince sahibini takip eder ---- */
