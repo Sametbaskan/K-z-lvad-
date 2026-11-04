@@ -1241,6 +1241,7 @@ function setupPlayer(fbxA, cj){
   const walkC=idleC.clone(); walkC.name='jog';   // koşu klibi yok: hareket ederken geçici olarak bekleme klibi oynar
   actions.idle=mixer.clipAction(idleC); actions.jog=mixer.clipAction(walkC);
   for(const k of ['idle','jog']) actions[k].setLoop(THREE.LoopRepeat,Infinity);
+  if(cj.powerup){ try{ const pc2=THREE.AnimationClip.parse(cj.powerup); pc2.name='powerup'; const a=mixer.clipAction(pc2); a.setLoop(THREE.LoopOnce,1); a.clampWhenFinished=true; actions.powerup=a; console.info('[Anim] güç artırma: '+pc2.tracks.length+' kanal, süre '+pc2.duration.toFixed(2)+' sn'); }catch(e){ console.error('[Anim] güç artırma klibi işlenemedi:',e); } }
   if(cj.death){ try{ const dc=THREE.AnimationClip.parse(cj.death); dc.name='death'; const a=mixer.clipAction(dc); a.setLoop(THREE.LoopOnce,1); a.clampWhenFinished=true; actions.death=a; console.info('[Anim] ölüm: '+dc.tracks.length+' kanal, süre '+dc.duration.toFixed(2)+' sn'); }catch(e){ console.error('[Anim] ölüm klibi işlenemedi:',e); } }
   HAS3=false; REALIDLE=true; RUN_CLIP_SPEED=RUN_SPEED; tIdle=0;
   actions.idle.play(); actions.idle.time=0; actions.idle.timeScale=1; actions.idle.weight=1;
@@ -1351,6 +1352,7 @@ function setAnim(name,fade=.22){
   if(name==='idle'){ if(REALIDLE){ to.reset(); to.timeScale=1; } else { to.enabled=true; to.time=tIdle; to.timeScale=0; } to.play(); }
   else if(name==='jog'){ to.reset(); to.time=REALIDLE?0:((P.anim==='idle')?tIdle:to.time); to.timeScale=RUN_SPEED/RUN_CLIP_SPEED; to.play(); }
   else if(name==='turn'){ to.reset(); to.timeScale=1.8; to.play(); }
+  else if(name==='powerup'){ to.reset(); to.timeScale=1; to.play(); }
   else if(name==='cidle'){ to.reset(); to.timeScale=1; to.play(); }
   else if(name==='strafeL'||name==='strafeR'){ to.reset(); to.timeScale=RUN_SPEED/RUN_CLIP_SPEED; to.play(); }
   else if(name==='atkR'||name==='atkL'){ to.reset(); to.timeScale=ATK_TS; to.play(); }
@@ -1877,7 +1879,8 @@ function mobsAt(x,z,r){ const out=[]; for(const m of mobs){ if(m.dead) continue;
 /* animasyon başlat: HAS3 ise gerçek klip (atkR/atkL), yoksa elle poz */
 function startCast(skill,clip,kind,minDur){
   let dur=minDur, hitAt=minDur*.4, useClip=false;
-  if(HAS3&&clip&&actions[clip]){ const cdur=actions[clip].getClip().duration/ATK_TS; hitAt=((A3META.imp&&A3META.imp[clip])||cdur*ATK_TS*.3)/ATK_TS; dur=Math.max(minDur,cdur); useClip=true; setAnim(clip,.08); }
+  if(clip==='powerup'&&actions.powerup){ dur=Math.max(minDur,actions.powerup.getClip().duration); hitAt=.7; useClip=true; setAnim('powerup',.15); }   // Demir İrade: Sword_And_Shield_Power_Up; efekt 0.7 sn'de (kollar açıldığında)
+  else if(HAS3&&clip&&actions[clip]){ const cdur=actions[clip].getClip().duration/ATK_TS; hitAt=((A3META.imp&&A3META.imp[clip])||cdur*ATK_TS*.3)/ATK_TS; dur=Math.max(minDur,cdur); useClip=true; setAnim(clip,.08); }
   else setAnim('idle',.1);
   P.atk={t:0,dur,kind,hit:false,skill,clip:useClip,hitAt}; }
 function skillFocus(){ const t=P.target&&!P.target.dead?P.target:null; if(t&&Math.hypot(t.group.position.x-P.pos.x,t.group.position.z-P.pos.z)<22) return t; return null; }
@@ -1899,8 +1902,8 @@ function useSlot(i){
   if(sk.id==='cut') startCast('cut','atkR','swing',.5);
   else if(sk.id==='spin'){ startCast('spin','atkL','swing',.9); P.spin={t:0,dur:P.atk.dur,base:P.yaw}; }
   else if(sk.id==='fire') startCast('fire','atkR','swing',.55);
-  else startCast(sk.id,null,'thrust',.85);       // body / heal / curse / ice: kısa büyü duruşu
-  if(sk.id==='curse'||sk.id==='ice'||sk.id==='heal'||sk.id==='body'){ P.atk.hitAt=.18; }
+  else startCast(sk.id,sk.id==='body'?'powerup':null,'thrust',.85);       // body / heal / curse / ice: kısa büyü duruşu
+  if(sk.id==='curse'||sk.id==='ice'||sk.id==='heal'||sk.id==='body'){ if(!(sk.id==='body'&&P.atk.clip)) P.atk.hitAt=.18; }
 }
 function startDash(tgt){
   let dx=moveDir.x, dz=moveDir.z; if(Math.hypot(dx,dz)<.1){ dx=Math.sin(P.yaw); dz=Math.cos(P.yaw); } let dist=7.5;
@@ -2563,7 +2566,7 @@ function updatePlayer(dt){
   if(!moving&&!P.turn&&!P.turnOut&&!P.spin&&P.yawGoal!==undefined&&(P.atk||P.target)){ P.yaw+=wrap(P.yawGoal-P.yaw)*(1-Math.exp(-16*dt)); }
   if(moving&&!P.turn){ const spd=P.dash?P.dash.speed:RUN_SPEED*(P.mounted?MOUNT_MULT:1)*(S.haste>0?(S.hasteMul||1.3):1); P.pos.x+=moveDir.x*spd*dt; P.pos.z+=moveDir.z*spd*dt; if(P.mounted){ if(P.anim!=='idle') setAnim('idle',.2); } else { const mA=strafe?strafe.name:'jog'; if(P.anim!==mA) setAnim(mA,.2); actions[mA].timeScale=Math.min(2.2,(P.dash?P.dash.speed*.3:RUN_SPEED*(S.haste>0?(S.hasteMul||1.3):1))/RUN_CLIP_SPEED); } }
   else if(!P.turn&&(P.anim==='jog'||P.anim==='strafeL'||P.anim==='strafeR')&&!dead) setAnim(wantStand(),.2);
-  else if(!P.turn&&!P.atk&&!dead&&(P.anim==='combo'||P.anim==='atkR'||P.anim==='atkL'||P.anim==='death')) setAnim(wantStand(),.25);   // kombo/saldırı bitti / yeniden doğuş → bekleme (hareket varsa yukarıda koşuya geçildi)
+  else if(!P.turn&&!P.atk&&!dead&&(P.anim==='combo'||P.anim==='atkR'||P.anim==='atkL'||P.anim==='powerup'||P.anim==='death')) setAnim(wantStand(),.25);   // kombo/saldırı bitti / yeniden doğuş → bekleme (hareket varsa yukarıda koşuya geçildi)
   else if(P.anim==='dmg'&&!dead&&actions.dmg.time>=actions.dmg.getClip().duration-.03) setAnim(wantStand(),.2);
   else if(HAS3&&!moving&&!P.turn&&!P.atk&&!dead&&(P.anim==='idle'||P.anim==='cidle')&&P.anim!==wantStand()) setAnim(wantStand(),.3);   // savaş moduna giriş/çıkış   // kombo bitti / yeniden doğuş → bekleme (hareket varsa yukarıda koşuya geçildi)
   if(dead&&P.anim!=='death'){ if(actions.death) setAnim('death',.2); else if(P.anim!=='idle') setAnim('idle',.2); }
@@ -2803,7 +2806,7 @@ async function boot(){
     const dec=t=>{ const bin=atob(t.trim()); const u8=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i); return u8.buffer; };
     const glb=await new Promise((ok,no)=>new GLTFLoader().parse(dec(tg),'',ok,no));
     const b=JSON.parse(tc); try{ const t2=await get('models/frog2.glb.b64.txt',()=>{}); const g2=await new Promise((ok,no)=>new GLTFLoader().parse(dec(t2),'',ok,no)); prepFrog2(g2); }catch(e){ FROG2=null; console.error('[Kurbağa] Animasyonlu kurbağa GLB yüklenemedi, yedek model kullanılacak:',e); try{ prepFrog(JSON.parse(await get('models/frog.json',()=>{}))); }catch(e2){ FROG=null; console.error('[Kurbağa] Yedek kurbağa da yüklenemedi, kurt modeli kullanılacak:',e2); } }
-    let hero=null, HJ=null; try{ HJ=JSON.parse(await get('models/hero.json',()=>{})); try{ HJ.death=JSON.parse(await get('models/hero_death.json',()=>{})); }catch(e){ console.error('[Anim] hero_death.json yüklenemedi:',e); } hero=buildBrute(HJ); }catch(e){ console.error('[Karakter] hero.json yüklenemedi:',e); }
+    let hero=null, HJ=null; try{ HJ=JSON.parse(await get('models/hero.json',()=>{})); try{ HJ.death=JSON.parse(await get('models/hero_death.json',()=>{})); }catch(e){ console.error('[Anim] hero_death.json yüklenemedi:',e); } try{ HJ.powerup=JSON.parse(await get('models/hero_powerup.json',()=>{})); }catch(e){ console.error('[Anim] hero_powerup.json yüklenemedi:',e); } hero=buildBrute(HJ); }catch(e){ console.error('[Karakter] hero.json yüklenemedi:',e); }
     if(!hero) throw new Error('Karakter modeli yüklenemedi');
     setupPlayer(hero,HJ); try{ const th=await get('models/horse.glb.b64.txt',()=>{}); const hg=await new Promise((ok,no)=>new GLTFLoader().parse(dec(th),'',ok,no)); setupMount(hg); }catch(e){ console.error('[At] Warhorse Lite yüklenemedi, binek devre dışı:',e); MOUNT.ready=false; }
     if(tm){ try{ const mb=atob(tm.trim()); const mu=new Uint8Array(mb.length); for(let i=0;i<mb.length;i++) mu[i]=mb.charCodeAt(i); prepMaw(L.parse(mu.buffer,''),b); }catch(e){ console.warn('Maw yüklenemedi, eski ork kullanılacak',e); MAW=null; } }
