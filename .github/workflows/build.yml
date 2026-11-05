@@ -3,6 +3,8 @@ on:
   workflow_dispatch:
   push:
     branches: [main, master]
+permissions:
+  contents: write
 jobs:
   apk:
     runs-on: ubuntu-latest
@@ -44,12 +46,71 @@ jobs:
           }
           JAVA
           sed -i 's/^          //' $J
-      - name: APK derle
+      - name: Kalıcı imza anahtarını hazırla (GitHub Secrets)
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          SEC_PASS: ${{ secrets.KEYSTORE_PASSWORD }}
+          SEC_ALIAS: ${{ secrets.KEY_ALIAS }}
+          SEC_KEYPASS: ${{ secrets.KEY_PASSWORD }}
+          SELFTEST: ${{ hashFiles('signing/SELFTEST') != '' }}
+        run: |
+          KS="$RUNNER_TEMP/release.jks"
+          if [ "$SELFTEST" = "true" ]; then
+            echo "::warning::SELFTEST: geçici anahtar üretiliyor, bu APK yayınlanmaz."
+            SEC_PASS=selftest123; SEC_KEYPASS=selftest123; SEC_ALIAS=selftest
+            keytool -genkeypair -storetype PKCS12 -keystore "$KS" -alias selftest -keyalg RSA -keysize 2048 -validity 100 -storepass "$SEC_PASS" -keypass "$SEC_PASS" -dname "CN=selftest"
+          else
+            for v in KEYSTORE_BASE64 SEC_PASS SEC_ALIAS SEC_KEYPASS; do
+              if [ -z "${!v}" ]; then echo "::error::GitHub Secret eksik. Settings > Secrets and variables > Actions altında KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD tanımlayın (bkz. APK-README.md)."; exit 1; fi
+            done
+            echo "$KEYSTORE_BASE64" | base64 -d > "$KS"
+          fi
+          echo "::add-mask::$SEC_PASS"; echo "::add-mask::$SEC_KEYPASS"
+          { echo "KS_FILE=$KS"; echo "KS_ALIAS=$SEC_ALIAS"; echo "KS_PASS=$SEC_PASS"; echo "KS_KEYPASS=$SEC_KEYPASS"; } >> "$GITHUB_ENV"
+      - name: Sürüm numarası + release imzası (applicationId değişmez)
+        run: |
+          cat > patch_gradle.py <<'PY'
+          import os,re
+          p='android/app/build.gradle'; s=open(p).read()
+          n=int(os.environ['GITHUB_RUN_NUMBER']); vc=100+n; vn="1.0."+str(n)
+          s,c1=re.subn(r'versionCode\s+\d+','versionCode '+str(vc),s)
+          s,c2=re.subn(r'versionName\s+"[^"]*"','versionName "'+vn+'"',s)
+          sc='    signingConfigs {\n        release {\n            storeFile file(System.getenv("KS_FILE"))\n            storePassword System.getenv("KS_PASS")\n            keyAlias System.getenv("KS_ALIAS")\n            keyPassword System.getenv("KS_KEYPASS")\n        }\n    }\n'
+          s,c3=re.subn(r'\n(\s*)buildTypes\s*\{',lambda m:'\n'+sc+m.group(0)[1:],s,count=1)
+          s,c4=re.subn(r'(buildTypes\s*\{\s*release\s*\{)',r'\1\n            signingConfig signingConfigs.release',s,count=1)
+          assert c1==1 and c2==1 and c3==1 and c4==1,(c1,c2,c3,c4)
+          open(p,'w').write(s)
+          print('versionCode',vc,'versionName',vn)
+          PY
+          sed -i 's/^          //' patch_gradle.py
+          python3 patch_gradle.py
+          grep -n "applicationId\|versionCode\|versionName\|signingConfig" android/app/build.gradle
+      - name: Release APK derle
         working-directory: android
-        run: ./gradlew assembleDebug --no-daemon
-      - name: TEŞHİS imza parmak izi (geçici)
-        run: keytool -printcert -jarfile android/app/build/outputs/apk/debug/app-debug.apk | grep -E "Owner|SHA256|Valid"
+        run: ./gradlew assembleRelease --no-daemon
+      - name: İmzayı doğrula (debug anahtarı kabul edilmez, parmak izi sabit olmalı)
+        env:
+          SELFTEST: ${{ hashFiles('signing/SELFTEST') != '' }}
+        run: |
+          BT="$ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools | sort -V | tail -1)"
+          APK=android/app/build/outputs/apk/release/app-release.apk
+          "$BT/apksigner" verify --verbose --print-certs "$APK" | tee sig.txt
+          "$BT/aapt2" dump badging "$APK" | head -1 | tee badge.txt
+          if grep -q "Android Debug" sig.txt; then echo "::error::APK debug anahtarıyla imzalanmış!"; exit 1; fi
+          GOT=$(grep -m1 "certificate SHA-256 digest" sig.txt | sed 's/.*: //' | tr -d ':' | tr a-f A-F)
+          WANT=$(tr -d ':\n' < signing/EXPECTED_SHA256.txt | tr a-f A-F)
+          echo "APK sertifika SHA-256: $GOT"; echo "Beklenen            : $WANT"
+          if [ "$SELFTEST" != "true" ] && [ "$GOT" != "$WANT" ]; then echo "::error::İmza sertifikası beklenenden farklı: telefondaki uygulamanın üzerine kurulmaz!"; exit 1; fi
+          VN=$(sed -n "s/.*versionName='\([^']*\)'.*/\1/p" badge.txt)
+          cp "$APK" "KizilVadi-$VN.apk"; { echo "APK_FILE=KizilVadi-$VN.apk"; echo "APK_VER=$VN"; } >> "$GITHUB_ENV"
       - uses: actions/upload-artifact@v4
         with:
-          name: kizil-vadi-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: kizil-vadi-release-apk
+          path: KizilVadi-*.apk
+      - name: GitHub Release olarak yayınla
+        if: ${{ hashFiles('signing/SELFTEST') == '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete "v$APK_VER" -y --cleanup-tag 2>/dev/null || true
+          gh release create "v$APK_VER" "$APK_FILE" --title "Kızıl Vadi $APK_VER" --notes "Aynı imza anahtarıyla derlendi; telefondaki mevcut uygulamanın üzerine kurulur (veriler korunur)."
