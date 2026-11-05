@@ -576,8 +576,8 @@ function buildBrute(J,H=1.95){
   const tl=new THREE.TextureLoader(), tex={}; for(const k in J.tex){ const t=tl.load(J.tex[k]); t.colorSpace=THREE.SRGBColorSpace; tex[k]=t; }
   for(const pt of J.parts){
     const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.Float32BufferAttribute(pt.pos,3)); g.setAttribute('normal',new THREE.Float32BufferAttribute(pt.nrm,3)); g.setAttribute('uv',new THREE.Float32BufferAttribute(pt.uv,2));
-    g.setAttribute('skinIndex',new THREE.Uint16BufferAttribute(pt.si,4)); g.setAttribute('skinWeight',new THREE.Float32BufferAttribute(pt.sw,4)); g.setIndex(pt.idx); if(pt.vc) g.setAttribute('color',new THREE.Float32BufferAttribute(pt.vc,3));
-    const mat=new THREE.MeshStandardMaterial({map:pt.tex?tex[pt.tex]:null,color:pt.tex?0xffffff:pt.col,roughness:.7,metalness:.05,vertexColors:!!pt.vc,alphaTest:pt.alpha?.4:0,side:pt.alpha?THREE.DoubleSide:THREE.FrontSide});
+    g.setAttribute('skinIndex',new THREE.Uint16BufferAttribute(pt.si,4)); g.setAttribute('skinWeight',new THREE.Float32BufferAttribute(pt.sw,4)); g.setIndex(pt.idx);
+    const mat=new THREE.MeshStandardMaterial({map:pt.tex?tex[pt.tex]:null,color:pt.tex?0xffffff:pt.col,roughness:.7,metalness:.05,alphaTest:pt.alpha?.4:0,side:pt.alpha?THREE.DoubleSide:THREE.FrontSide});
     const sm=new THREE.SkinnedMesh(g,mat); sm.name=pt.n; sm.frustumCulled=false; root.add(sm); sm.bind(sk,new THREE.Matrix4()); }
   root.scale.setScalar(H/J.h);
   return {root,bones:Object.fromEntries(bn.map(b=>[b.name.replace(/^mixamorig:?/,''),b]))};
@@ -1216,7 +1216,7 @@ function paintMesh(mesh){
 }
 function styleMesh(mesh){
   const list=Array.isArray(mesh.material)?mesh.material:[mesh.material];
-  const out=list.map(mt=>{ const n=new THREE.MeshStandardMaterial({vertexColors:!!mesh.geometry.attributes.color,map:mt.map||null,normalMap:mt.normalMap||null,color:(mt.map||mesh.geometry.attributes.color)?0xffffff:(mt.color||0xcccccc),roughness:.62,metalness:.12,side:THREE.DoubleSide,alphaTest:mt.map?.35:0,envMapIntensity:.8});
+  const out=list.map(mt=>{ const n=new THREE.MeshStandardMaterial({map:mt.map||null,normalMap:mt.normalMap||null,color:mt.map?0xffffff:(mt.color||0xcccccc),roughness:.62,metalness:.12,side:THREE.DoubleSide,alphaTest:mt.map?.35:0,envMapIntensity:.8});
     if(n.map){ n.map.colorSpace=THREE.SRGBColorSpace; n.map.anisotropy=4; } return n; });
   mesh.material=Array.isArray(mesh.material)?out:out[0]; mesh.castShadow=true; mesh.frustumCulled=false;
 }
