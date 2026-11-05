@@ -1180,6 +1180,9 @@ function loadGame(){ try{ initInv(); }catch(e){} const d=safe(()=>JSON.parse(loc
 /* ============================== oyuncu karakteri (FBX) ============================== */
 const playerGroup = new THREE.Group(); scene.add(playerGroup);
 const P = { pos:playerGroup.position, yaw:Math.PI, dest:null, target:null, anim:'idle', turn:null, turnOut:null, atk:null, flinch:0, spin:null, lastAtk:0, moving:false, velKick:0 };
+/* ---- Metin2 mobil saldırı butonu: dokun = en yakın hedefi seç (pasif), basılı tut = otomatik yaklaş + saldır ---- */
+let ATK_HOLD=false, ATK_PTR=null, ATK_NOMSG=false;
+const nearMobs=rng=>mobs.filter(m=>!m.dead&&Math.hypot(m.group.position.x-P.pos.x,m.group.position.z-P.pos.z)<rng).sort((a,b)=>Math.hypot(a.group.position.x-P.pos.x,a.group.position.z-P.pos.z)-Math.hypot(b.group.position.x-P.pos.x,b.group.position.z-P.pos.z));
 let HAS3=false, A3META=null, atkAlt=0, lastDmgAnim=0; const ATK_TS=1.3;   // Human Melee Animations (retarget edilmiş): models/anim3.json
 let COMBO=null; const COMBO_TS=1.5;   // One_Hand_Club_Combo: oynatma hızı ve vuruş anları (kol hızı tepelerinden)
 let HOLDER=null, HBASE=0, model=null, mixer=null, actions={}, bones={}, tIdle=0, REALIDLE=false, TURN_DELTA=1.47, sword=null;
@@ -2111,7 +2114,7 @@ function clickAt(cx,cy){
   if(S.dead||!playerGroup.userData.ready) return;
   pointerRay(cx,cy);
   let h=ray.intersectObjects(mobHits,false).filter(i=>!i.object.userData.mob.dead||false);
-  if(h.length){ const m=h[0].object.userData.mob; if(m.type==='stone'||true){ P.target=m; P.dest=null; P.npc=null; return; } }
+  if(h.length){ const m=h[0].object.userData.mob; if(m.type==='stone'||true){ if(P.target!==m&&P.atk&&P.atk.combo&&!P.atk.skill) P.atk=null; P.target=m; P.passive=false; P.dest=null; P.npc=null; return; } }
   h=ray.intersectObjects(dropHits,false); if(h.length){ const d=h[0].object.userData.drop; P.dest=d.g.position.clone(); P.pickT=d; P.target=null; return; }
   h=MAP.id==='village'?ray.intersectObjects(npcs.map(n=>n.hit),false):[]; if(h.length){ P.npc=h[0].object.userData.npc; P.dest=P.npc.pos.clone(); P.target=null; return; }
   h=ray.intersectObject(terrain,false); if(h.length){ P.dest=h[0].point.clone(); P.target=null; P.npc=null; dest.position.copy(h[0].point).setY(h[0].point.y+.08); dest.visible=true; dest.userData.t=0; }
@@ -2200,11 +2203,17 @@ SLOT_DEF.forEach((id,i)=>{ const sk=SK[i]; const d=document.createElement('div')
   base.addEventListener('pointerdown',e=>{ e.stopPropagation(); e.preventDefault(); initAudio(); try{ base.setPointerCapture(e.pointerId); }catch(_){} joy.on=true; joy.id=e.pointerId; base.classList.add('on'); upd(e); });
   base.addEventListener('pointermove',e=>{ if(joy.on&&joy.id===e.pointerId) upd(e); });
   base.addEventListener('pointerup',off); base.addEventListener('pointercancel',off); base.addEventListener('lostpointercapture',off);
-  const near=(rng)=>mobs.filter(m=>!m.dead&&Math.hypot(m.group.position.x-P.pos.x,m.group.position.z-P.pos.z)<rng).sort((a,b)=>Math.hypot(a.group.position.x-P.pos.x,a.group.position.z-P.pos.z)-Math.hypot(b.group.position.x-P.pos.x,b.group.position.z-P.pos.z));
-  const lock=m=>{ P.target=m; P.dest=null; P.npc=null; P.pickT=null; };
-  $('atkBtn').addEventListener('pointerdown',e=>{ e.stopPropagation(); e.preventDefault(); if(!started||S.dead) return; initAudio();
+  const near=nearMobs;
+  const cancelSwing=()=>{ if(P.atk&&P.atk.combo&&!P.atk.skill) P.atk=null; };   // eski hedefe yarım kalan vuruş sürmesin
+  const lock=m=>{ if(P.target!==m) cancelSwing(); P.target=m; P.dest=null; P.npc=null; P.pickT=null; P.passive=true; faceTarget(m); };
+  const atk=$('atkBtn');
+  const atkOff=e=>{ if(e&&ATK_PTR!==null&&e.pointerId!==ATK_PTR) return; if(ATK_HOLD){ ATK_HOLD=false; ATK_PTR=null; ATK_NOMSG=false; cancelSwing(); } try{ if(e&&atk.hasPointerCapture(e.pointerId)) atk.releasePointerCapture(e.pointerId); }catch(_){} };
+  atk.addEventListener('pointerdown',e=>{ e.stopPropagation(); e.preventDefault(); if(!started||S.dead) return; initAudio();
+    try{ atk.setPointerCapture(e.pointerId); }catch(_){} ATK_HOLD=true; ATK_PTR=e.pointerId; ATK_NOMSG=false;
     const t=P.target; if(t&&!t.dead&&Math.hypot(t.group.position.x-P.pos.x,t.group.position.z-P.pos.z)<26) { lock(t); return; }
-    const l=near(24); if(l.length) lock(l[0]); else say('Yakında hedef yok.','c-sys'); });
+    const l=near(24); if(l.length) lock(l[0]); else { say('Yakında hedef yok.','c-sys'); ATK_NOMSG=true; } });
+  atk.addEventListener('pointerup',atkOff); atk.addEventListener('pointercancel',atkOff); atk.addEventListener('lostpointercapture',atkOff);
+  window.addEventListener('blur',()=>atkOff()); document.addEventListener('visibilitychange',()=>{ if(document.hidden) atkOff(); });
   $('tgtBtn').addEventListener('pointerdown',e=>{ e.stopPropagation(); e.preventDefault(); if(!started||S.dead) return;
     const l=near(30); if(!l.length){ say('Yakında hedef yok.','c-sys'); return; } const i=l.indexOf(P.target); lock(l[(i+1)%l.length]); });
   $('chatBtn').addEventListener('pointerdown',e=>{ e.stopPropagation(); e.preventDefault(); $('chat').classList.toggle('off'); });
@@ -2698,10 +2707,14 @@ function updatePlayer(dt){
     if(keys['q']) cam.yaw+=1.8*dt; if(keys['e']) cam.yaw-=1.8*dt;
     if(Math.hypot(ix,iz)>.2){ manual=true; if(P.target&&!P.target.dead) P.lockT=P.target; const f=new THREE.Vector3(-Math.sin(cam.yaw),0,-Math.cos(cam.yaw)), r=new THREE.Vector3(-f.z,0,f.x).multiplyScalar(-1); r.set(-Math.cos(cam.yaw),0,Math.sin(cam.yaw)); moveDir.copy(f).multiplyScalar(iz).addScaledVector(r,-ix).setY(0).normalize(); P.dest=null; P.target=null; P.npc=null; P.pickT=null; dest.visible=false; }
   }
+  // basılı tutma: hedef yok/öldüyse en yakın uygun canavara geç; yoksa saldırı durur (parmak basılıyken yeni canavar gelirse sürer)
+  if(ATK_HOLD){ if(dead){ ATK_HOLD=false; ATK_PTR=null; }
+    else if(!manual&&(!P.target||P.target.dead)){ const l=nearMobs(24); if(l.length){ P.target=l[0]; P.dest=null; P.npc=null; P.pickT=null; P.passive=true; ATK_NOMSG=false; } else if(!ATK_NOMSG){ ATK_NOMSG=true; say('Yakında hedef yok.','c-sys'); } } }
+  const engage=ATK_HOLD||!P.passive;   // pasif (butonla seçilmiş) hedefe yalnızca buton basılıyken saldırılır/yaklaşılır
   const busy = !!(P.atk||P.turn||P.spin||dead);
   if(!manual && !dead && !P.atk && !P.turn){
     let goal=null, stopD=.25;
-    if(P.target&&!P.target.dead){ goal=P.target.group.position; stopD=P.target.T.scale*(.7)+1.5+(P.target.type==='stone'?1.2:0); if(P.target.T.boss) stopD+=.6; }
+    if(P.target&&!P.target.dead){ if(engage){ goal=P.target.group.position; stopD=P.target.T.scale*(.7)+1.5+(P.target.type==='stone'?1.2:0); if(P.target.T.boss) stopD+=.6; } }
     else if(P.target&&P.target.dead) P.target=null;
     else if(P.dest){ goal=P.dest; stopD=P.npc?2.6:(P.pickT?.6:.25); }
     if(goal){ const dx=goal.x-P.pos.x, dz=goal.z-P.pos.z, d=Math.hypot(dx,dz);
@@ -2713,7 +2726,7 @@ function updatePlayer(dt){
   if(P.dash&&!dead){ moveDir.set(P.dash.dx,0,P.dash.dz); updateDash(dt); } else if(P.dash) P.dash=null;
   // saldırı başlat
   S.combat=Math.max(0,S.combat-dt);
-  if(!dead&&P.target&&!P.target.dead&&!P.atk&&!P.turn&&moveDir.lengthSq()===0){
+  if(!dead&&engage&&P.target&&!P.target.dead&&!P.atk&&!P.turn&&moveDir.lengthSq()===0){
     const t=P.target; faceTarget(t); const diff=Math.abs(wrap(P.yawGoal-P.yaw));
     if(diff<.35 && time-P.lastAtk>.85/aspd()){
       if(HAS3&&actions.atkR&&actions.atkL){ const nm=(atkAlt^=1)?'atkR':'atkL'; const ts=ATK_TS*aspd(), dur=actions[nm].getClip().duration/ts; P.lastAtk=time; S.combat=Math.max(S.combat,5);
@@ -3015,7 +3028,7 @@ async function boot(){
     myTag=document.createElement('div'); myTag.className='tag'; myTag.style.color='#fff'; $('pops').appendChild(myTag);
     $('loading').classList.add('hidden'); $('login').classList.remove('hidden');
     const has=loadGame(); if(has){ $('nameIn').value=S.name; document.querySelector(`input[name=king][value="${S.king}"]`).checked=true; }
-    window.__game={equipWeaponModel,WMODELS,get sword(){return sword},updateSmith,upgradeWeapon,buyStone,fixWeapon,WLV,swRoll,wAtk,wMag,aspd,swEq,applySwordLook,updateSwordFx,SEAT,yawFix,get FOREST_STATS(){return FOREST_STATS},zoneAt,updateMount,groundFix,get GOFF(){return GOFF},get S(){return S},ITEMS,EQS,registerItem,addItem,moveItem,initInv,addStat,resetStats,qOf,expNeed,get PLANT_SETS(){return PLANT_SETS},renderMenu,setTab,toggleWin,closeWins,skillUp,skPoints,skL,skv,skStats,saveGame,loadGame,renderSkillWin,gainExp,updatePlayer,updateMobs,updateProjectiles,updateSkills,updateCamera,updateHUD,SKD,SLOT_DEF,SK,cds,fx2,pt2,sched,projectiles,SHAKE,clearSkillFx,MAPS,TRAVEL,travelTo,get MAP(){return MAP;},get obstacles(){return obstacles;},get MAP(){return MAP;},get renderer(){return renderer;},npcs,vRoadD,MAPS,hAt,get HAS3(){return HAS3;},get A3META(){return A3META;},damagePlayer,get COMBO(){return COMBO;},horseRear,horseAnim,playerHit,killMob,fxPlay,fxStep,get FROG2(){return FROG2;},MOUNT,toggleMount,get mixer(){return mixer},rotW,overlayPose,S,P,mobs,cam,actions,bones,setAnim,useSlot,clickAt,THREE,scene,camera,renderer,model,get tIdle(){return tIdle;},get TURN_DELTA(){return TURN_DELTA;}};
+    window.__game={addTime:d=>{time+=d},get ATK_HOLD(){return ATK_HOLD},equipWeaponModel,WMODELS,get sword(){return sword},updateSmith,upgradeWeapon,buyStone,fixWeapon,WLV,swRoll,wAtk,wMag,aspd,swEq,applySwordLook,updateSwordFx,SEAT,yawFix,get FOREST_STATS(){return FOREST_STATS},zoneAt,updateMount,groundFix,get GOFF(){return GOFF},get S(){return S},ITEMS,EQS,registerItem,addItem,moveItem,initInv,addStat,resetStats,qOf,expNeed,get PLANT_SETS(){return PLANT_SETS},renderMenu,setTab,toggleWin,closeWins,skillUp,skPoints,skL,skv,skStats,saveGame,loadGame,renderSkillWin,gainExp,updatePlayer,updateMobs,updateProjectiles,updateSkills,updateCamera,updateHUD,SKD,SLOT_DEF,SK,cds,fx2,pt2,sched,projectiles,SHAKE,clearSkillFx,MAPS,TRAVEL,travelTo,get MAP(){return MAP;},get obstacles(){return obstacles;},get MAP(){return MAP;},get renderer(){return renderer;},npcs,vRoadD,MAPS,hAt,get HAS3(){return HAS3;},get A3META(){return A3META;},damagePlayer,get COMBO(){return COMBO;},horseRear,horseAnim,playerHit,killMob,fxPlay,fxStep,get FROG2(){return FROG2;},MOUNT,toggleMount,get mixer(){return mixer},rotW,overlayPose,S,P,mobs,cam,actions,bones,setAnim,useSlot,clickAt,THREE,scene,camera,renderer,model,get tIdle(){return tIdle;},get TURN_DELTA(){return TURN_DELTA;}};
   }catch(err){ console.error(err); $('loadTxt').textContent='Yükleme başarısız oldu.'; $('loadTxt').style.color='#ff8a80'; $('err').textContent=String(err&&err.message||err); }
 }
 $('go').onclick=()=>{
