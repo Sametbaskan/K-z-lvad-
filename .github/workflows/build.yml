@@ -27,6 +27,15 @@ jobs:
         run: |
           npx cap add android
           npx cap sync android
+      - name: Uygulama simgesi (Valkor)
+        run: |
+          R=android/app/src/main/res
+          rm -f $R/mipmap-anydpi-v26/ic_launcher.xml $R/mipmap-anydpi-v26/ic_launcher_round.xml
+          for d in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
+            mkdir -p $R/mipmap-$d
+            cp icon/mipmap-$d/ic_launcher.png icon/mipmap-$d/ic_launcher_round.png $R/mipmap-$d/
+          done
+          ls -la $R/mipmap-xxxhdpi
       - name: Yatay ekran + tam ekran
         run: |
           M=android/app/src/main/AndroidManifest.xml
