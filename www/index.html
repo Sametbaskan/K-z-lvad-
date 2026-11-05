@@ -1293,7 +1293,7 @@ function placeSword(){ if(!sword) return; const Y=new THREE.Vector3(...SWCFG.ax)
 
 /* ---- binek (geyik): bin / in, inince sahibini takip eder ---- */
 const MOUNT={ready:false,g:null,m:null,bones:null,pos:new THREE.Vector3(),yaw:0,speed:0,phase:0,blend:0,following:false,last:new THREE.Vector3()};
-const MOUNT_MULT=1.7, SEAT_ADJ=-.06, SEAT_Z=.2;
+const MOUNT_MULT=1.7;
 /* Warhorse Lite (Literock Studios): modelin kendi iskeleti + klipleri (idle_loop, walk_loop, canter_loop, rear); binici saddle_socket'e oturur */
 function setupMount(glb){
   const o=cloneSkinned(glb.scene); const g=new THREE.Group(); g.add(o); scene.add(g);
@@ -1316,7 +1316,7 @@ function horseAnim(name,fade=.25,ts=1){ if(!MOUNT.acts) return; const to=MOUNT.a
   if(MOUNT.cur!==name){ const from=MOUNT.acts[MOUNT.cur]; to.reset(); to.setEffectiveWeight(1); to.play(); if(from) from.crossFadeTo(to,fade,false); MOUNT.cur=name; }
   to.timeScale=ts; }
 function horseRear(){ if(!MOUNT.acts||!MOUNT.acts.rear||MOUNT.cur==='rear'||MOUNT.speed>.5) return; horseAnim('rear',.2); MOUNT.rearT=MOUNT.acts.rear.getClip().duration; }
-const REST={}, SEAT={spread:1.15, thigh:-.85, knee:1.2, foot:-.3}, _sq=new THREE.Quaternion();
+const REST={}, SEAT={spread:1.15, thigh:-.85, knee:1.2, foot:-.3, y:.05, z:-.2}, _sq=new THREE.Quaternion();
 /* binicilik: bacaklar animasyondan bağımsız, bağlama duruşundan mutlak kurulur (iki bacak simetrik: uyluk dışa açık+öne, diz bükük) ve k ile karıştırılır */
 const _y1=new THREE.Vector3(), _y2=new THREE.Vector3(), _yq=new THREE.Quaternion();
 /* bekleme duruşu yan (dövüşçü) durduğu için leğen/omuz hattı atın yönüne göre bükülüyor: iki hattı da ata dik (öne bakar) olacak biçimde yaw düzeltilir */
@@ -1377,7 +1377,7 @@ function updateMount(dt,time){
     if(MOUNT.hipH===undefined&&MOUNT.blend===0){ const hb=B('Hips'); if(hb){ hb.getWorldPosition(_sv); MOUNT.hipH=_sv.y-playerGroup.position.y-HOLDER.position.y; } }
     const hipH=MOUNT.hipH||.95; playerGroup.updateMatrixWorld(true); MOUNT.sock.getWorldPosition(_sv); playerGroup.worldToLocal(_sv);
     const arc=Math.sin(Math.PI*MOUNT.blend)*.3*(MOUNT.blend>0&&MOUNT.blend<1?1:0);
-    HOLDER.position.set(_sv.x*e, HBASE*(1-e)+(_sv.y-hipH+SEAT_ADJ)*e+arc, _sv.z*e+SEAT_Z*e); }
+    HOLDER.position.set(_sv.x*e, HBASE*(1-e)+(_sv.y-hipH+SEAT.y)*e+arc, _sv.z*e+SEAT.z*e); }
 }
 
 /* ---- animasyon durumları ---- */
