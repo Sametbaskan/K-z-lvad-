@@ -64,11 +64,11 @@ jobs:
               if [ -z "${!v}" ]; then echo "::error::GitHub Secret eksik. Settings > Secrets and variables > Actions altında KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD tanımlayın (bkz. APK-README.md)."; exit 1; fi
             done
             printf '%s' "$KEYSTORE_BASE64" | tr -d ' \r\n\t"' | base64 -d > "$KS" 2>/dev/null || true
-            echo "Anahtar dosyası boyutu: $(stat -c %s "$KS") bayt (beklenen: 2670)"
+            echo "Anahtar dosyası boyutu: $(stat -c %s "$KS") bayt (beklenen: 1018)"
             if ! keytool -list -keystore "$KS" -storetype PKCS12 -storepass "$SEC_PASS" -alias "$SEC_ALIAS" > ks_check.txt 2>&1; then
               if grep -qi "password was incorrect\|keystore was tampered" ks_check.txt; then echo "::error::KEYSTORE_PASSWORD yanlış (kizilvadi-sifreler.txt içindeki şifreyi, başında/sonunda boşluk olmadan girin)."
               elif grep -qi "does not exist" ks_check.txt; then echo "::error::KEY_ALIAS yanlış (kizilvadi olmalı)."
-              else echo "::error::KEYSTORE_BASE64 bozuk ya da eksik yapıştırılmış (boyut 2670 bayt olmalı). kizilvadi-release.jks.base64.txt dosyasının TÜM içeriğini yeniden yapıştırın."; fi
+              else echo "::error::KEYSTORE_BASE64 bozuk ya da eksik yapıştırılmış (boyut 1018 bayt olmalı). kizilvadi-release.jks.base64.txt dosyasının TÜM içeriğini yeniden yapıştırın."; fi
               exit 1
             fi
           fi
