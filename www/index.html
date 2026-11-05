@@ -2078,7 +2078,7 @@ function makeNPC(name,x,z,col,hat){
   g.position.set(x,hAt(x,z),z); g.rotation.y=Math.atan2(-x,-z); scene.add(g);
   const hit=new THREE.Mesh(new THREE.CylinderGeometry(.7,.7,2.4,8),new THREE.MeshBasicMaterial({visible:false})); hit.position.y=1.2; g.add(hit);
   const tag=document.createElement('div'); tag.className='tag'; tag.style.color='#9be8ff'; tag.textContent=name; $('pops').appendChild(tag);
-  const n={g,hit,tag,name,pos:g.position}; hit.userData.npc=n; npcs.push(n); addObstacle(x,z,.6); return n;
+  const n={g,hit,tag,name,pos:g.position}; hit.userData.npc=n; npcs.push(n); addObstacle(x,z,.6); n.ob=obstacles[obstacles.length-1]; return n;
 }
 let DWARF_GLB=null, smithNPC=null; const dwMix=[];
 /* Demirci Kaan: rigli cüce modeli (idle / sword_swing / wave); yüklenemezse kutu model kalır */
@@ -2093,6 +2093,27 @@ function updateSmith(dt){ for(const n of dwMix){ const d=n.dw; d.mx.update(dt); 
     const near=Math.hypot(P.pos.x-d.x,P.pos.z-d.z)<6;
     if(d.cur==='idle'){ if(near&&!d.greeted){ d.greeted=true; n.g.rotation.y=Math.atan2(P.pos.x-d.x,P.pos.z-d.z); playSmith(n,'wave'); } else if(!near) d.greeted=false; else if(d.t<=0) playSmith(n,'sword_swing'); else if(d.t<=0&&!near) playSmith(n,'sword_swing'); }
     else if(d.t<=0) playSmith(n,'idle'); } }
+
+/* Köy Nöbetçileri: rigli samuray modeli (walk). Yolları dolaşarak devriye atarlar; yüklenemezse kutu model kalır */
+let SAM_GLB=null; const guards=[];
+function dressGuard(n,route,spd){
+  const m=cloneSkinned(SAM_GLB.scene), k=1.85/1.73; const root=new THREE.Group(); root.add(m); root.scale.setScalar(k);
+  m.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.frustumCulled=false; } });
+  for(const c of [...n.g.children]) if(c!==n.hit) n.g.remove(c); n.g.add(root);
+  const mx=new THREE.AnimationMixer(m), clip=SAM_GLB.animations.find(c=>c.name==='walk')||SAM_GLB.animations[0]; const act=mx.clipAction(clip); act.play();
+  const ob=n.ob; // sabit engel, devriye boyunca nöbetçiyle birlikte taşınır
+  n.gd={mx,act,route,wi:1,spd:spd||1.5,ob,pause:0,face:n.g.rotation.y,stop:false}; n.g.position.set(route[0][0],hAt(route[0][0],route[0][1]),route[0][1]); guards.push(n); }
+function updateGuards(dt){ for(const n of guards){ const d=n.gd; if(MAP.id!=='village'){ continue; }
+    const g=n.g, px=P.pos.x-g.position.x, pz=P.pos.z-g.position.z, near=Math.hypot(px,pz)<3.2||(P.npc===n&&Math.hypot(px,pz)<5);
+    let moving=false;
+    if(near){ d.stop=true; d.face=Math.atan2(px,pz); }          // oyuncu yaklaşınca durur ve ona döner
+    else d.stop=false;
+    if(!d.stop){ const w=d.route[d.wi], dx=w[0]-g.position.x, dz=w[1]-g.position.z, dist=Math.hypot(dx,dz);
+      if(dist<.35){ d.wi=(d.wi+1)%d.route.length; d.pause=(d.route[d.wi][2]||0); }
+      if(d.pause>0){ d.pause-=dt; } else { const st=Math.min(dist,d.spd*dt); g.position.x+=dx/dist*st; g.position.z+=dz/dist*st; d.face=Math.atan2(dx,dz); moving=true; } }
+    let df=d.face-g.rotation.y; df=Math.atan2(Math.sin(df),Math.cos(df)); g.rotation.y+=df*Math.min(1,dt*7);
+    g.position.y=hAt(g.position.x,g.position.z); d.ob.x=g.position.x; d.ob.z=g.position.z;
+    d.act.paused=!moving; if(moving) d.mx.update(dt); } }
 let shopNPC=null;
 
 /* ============================== kontroller ============================== */
@@ -2942,6 +2963,7 @@ function frame(now){
     updatePlayer(dt); updateMount(dt,time); updatePlants(dt);
     if(mixer){ mixer.update(dt); model.updateMatrixWorld(true); groundFix(); overlayPose(time); updateSwordFx(dt,time); }
     if(dwMix.length) updateSmith(dt);
+    if(guards.length) updateGuards(dt);
     updateMobs(dt); updateDrops(dt); updateProjectiles(dt); updateFx(dt); updateSkills(dt);
     updateMapPrompt();
     }
@@ -3004,7 +3026,10 @@ function populateForest(){
 let FOREST_STATS=null;
 function populateVillage(){
   shopNPC=makeNPC('Tüccar Han',31.7,8.9,0x2e5f8a,0x3a2a1a); makeNPC('Eşya Satıcısı',23,28.6,0x5a3a6a,0x2a2a2a); smithNPC=makeNPC('Demirci',21.2,33.6,0x4a3a2a,0x222222); if(DWARF_GLB) dressSmith(smithNPC); makeNPC('Hancı',-24,34.2,0x6a4a2a,0x3a2a1a);
-  makeNPC('Eğitmen',-33.5,11,0x7a2a22,0x555a60); makeNPC('Nöbetçi',5,50,0x7a2a22,0x555a60); makeNPC('Nöbetçi',7.5,-52,0x7a2a22,0x555a60);
+  makeNPC('Eğitmen',-33.5,11,0x7a2a22,0x555a60); const gA=makeNPC('Nöbetçi',2.8,50,0x7a2a22,0x555a60), gB=makeNPC('Nöbetçi',0,-53,0x7a2a22,0x555a60), gC=makeNPC('Nöbetçi',44,11,0x7a2a22,0x555a60);
+  if(SAM_GLB){ dressGuard(gA,[[2.8,50,2],[2.8,13],[-5.5,5.5],[-12,1.8],[-44,1.8,2],[-12,1.8],[-5.5,5.5],[2.8,13]],1.5);
+    dressGuard(gB,[[0,-53,2],[6,-49],[10.5,-42],[10.5,-27],[8,-19],[2,-12],[2,-8],[5.5,-5.5],[12,-1.8],[44,-1.8,2],[12,-1.8],[5.5,-5.5],[2,-8],[2,-12],[8,-19],[10.5,-27],[10.5,-42],[6,-49]],1.5);
+    dressGuard(gC,[[44,11,2],[18,11,2]],1.4); }
 }
 async function boot(){
   const L=new FBXLoader(); const bar=$('loadBar'); let pa=0,pb=0; let step=0,pc=0; const setP=v=>{ pc=Math.max(pc,Math.min(100,v)); bar.style.width=pc+'%'; const pe=$('splPct'); if(pe) pe.textContent=Math.round(pc)+'%'; }; const upd=()=>setP(Math.min(97,(pa+pb)*15+step*4.2));
@@ -3020,6 +3045,7 @@ async function boot(){
     try{ const tsw=await get('models/sword10.b64.txt',()=>{}); SWORD_GLB=await new Promise((ok,no)=>new GLTFLoader().parse(dec(tsw),'',ok,no)); }catch(e){ console.error('[Kılıç] yeni kılıç modeli yüklenemedi, eski kılıç kullanılacak:',e); }
     WGLB.sword10=SWORD_GLB; try{ const tk=await get('models/kyanite.b64.txt',()=>{}); WGLB.kyanite=await new Promise((ok,no)=>new GLTFLoader().parse(dec(tk),'',ok,no)); }catch(e){ console.error('[Kılıç] Kyanite yüklenemedi, Demir Kılıç kullanılacak:',e); WMODEL='sword10'; }
     try{ const tdw=await get('models/dwarf.b64.txt',()=>{}); DWARF_GLB=await new Promise((ok,no)=>new GLTFLoader().parse(dec(tdw),'',ok,no)); }catch(e){ console.error('[Demirci] cüce modeli yüklenemedi, eski model kullanılacak:',e); }
+    try{ const tsm=await get('models/samurai.b64.txt',()=>{}); SAM_GLB=await new Promise((ok,no)=>new GLTFLoader().parse(dec(tsm),'',ok,no)); }catch(e){ console.error('[Nöbetçi] samuray modeli yüklenemedi, eski model kullanılacak:',e); }
     setupPlayer(hero,HJ); try{ const th=await get('models/horse.glb.b64.txt',()=>{}); const hg=await new Promise((ok,no)=>new GLTFLoader().parse(dec(th),'',ok,no)); setupMount(hg); }catch(e){ console.error('[At] Warhorse Lite yüklenemedi, binek devre dışı:',e); MOUNT.ready=false; }
     if(tm){ try{ const mb=atob(tm.trim()); const mu=new Uint8Array(mb.length); for(let i=0;i<mb.length;i++) mu[i]=mb.charCodeAt(i); prepMaw(L.parse(mu.buffer,''),b); }catch(e){ console.warn('Maw yüklenemedi, eski ork kullanılacak',e); MAW=null; } }
     try{ const ta=await get('models/archway.b64.txt',()=>{}); const ag=await new Promise((ok,no)=>new GLTFLoader().parse(dec(ta),'',ok,no)); ARCH=ag.scene; }catch(e){ console.error('[Geçit] kemer modeli yüklenemedi, eski kapı kullanılacak:',e); }
@@ -3032,7 +3058,7 @@ async function boot(){
     myTag=document.createElement('div'); myTag.className='tag'; myTag.style.color='#fff'; $('pops').appendChild(myTag);
     $('loading').classList.add('hidden'); $('login').classList.remove('hidden');
     const has=loadGame(); if(has){ $('nameIn').value=S.name; document.querySelector(`input[name=king][value="${S.king}"]`).checked=true; }
-    window.__game={addTime:d=>{time+=d},get ATK_HOLD(){return ATK_HOLD},equipWeaponModel,WMODELS,get sword(){return sword},updateSmith,upgradeWeapon,buyStone,fixWeapon,WLV,swRoll,wAtk,wMag,aspd,swEq,applySwordLook,updateSwordFx,SEAT,yawFix,get FOREST_STATS(){return FOREST_STATS},zoneAt,updateMount,groundFix,get GOFF(){return GOFF},get S(){return S},ITEMS,EQS,registerItem,addItem,moveItem,initInv,addStat,resetStats,qOf,expNeed,get PLANT_SETS(){return PLANT_SETS},renderMenu,setTab,toggleWin,closeWins,skillUp,skPoints,skL,skv,skStats,saveGame,loadGame,renderSkillWin,gainExp,updatePlayer,updateMobs,updateProjectiles,updateSkills,updateCamera,updateHUD,SKD,SLOT_DEF,SK,cds,fx2,pt2,sched,projectiles,SHAKE,clearSkillFx,MAPS,TRAVEL,travelTo,get MAP(){return MAP;},get obstacles(){return obstacles;},get MAP(){return MAP;},get renderer(){return renderer;},npcs,vRoadD,MAPS,hAt,get HAS3(){return HAS3;},get A3META(){return A3META;},damagePlayer,get COMBO(){return COMBO;},horseRear,horseAnim,playerHit,killMob,fxPlay,fxStep,get FROG2(){return FROG2;},MOUNT,toggleMount,get mixer(){return mixer},rotW,overlayPose,S,P,mobs,cam,actions,bones,setAnim,useSlot,clickAt,THREE,scene,camera,renderer,model,get tIdle(){return tIdle;},get TURN_DELTA(){return TURN_DELTA;}};
+    window.__game={guards,updateGuards,addTime:d=>{time+=d},get ATK_HOLD(){return ATK_HOLD},equipWeaponModel,WMODELS,get sword(){return sword},updateSmith,upgradeWeapon,buyStone,fixWeapon,WLV,swRoll,wAtk,wMag,aspd,swEq,applySwordLook,updateSwordFx,SEAT,yawFix,get FOREST_STATS(){return FOREST_STATS},zoneAt,updateMount,groundFix,get GOFF(){return GOFF},get S(){return S},ITEMS,EQS,registerItem,addItem,moveItem,initInv,addStat,resetStats,qOf,expNeed,get PLANT_SETS(){return PLANT_SETS},renderMenu,setTab,toggleWin,closeWins,skillUp,skPoints,skL,skv,skStats,saveGame,loadGame,renderSkillWin,gainExp,updatePlayer,updateMobs,updateProjectiles,updateSkills,updateCamera,updateHUD,SKD,SLOT_DEF,SK,cds,fx2,pt2,sched,projectiles,SHAKE,clearSkillFx,MAPS,TRAVEL,travelTo,get MAP(){return MAP;},get obstacles(){return obstacles;},get MAP(){return MAP;},get renderer(){return renderer;},npcs,vRoadD,MAPS,hAt,get HAS3(){return HAS3;},get A3META(){return A3META;},damagePlayer,get COMBO(){return COMBO;},horseRear,horseAnim,playerHit,killMob,fxPlay,fxStep,get FROG2(){return FROG2;},MOUNT,toggleMount,get mixer(){return mixer},rotW,overlayPose,S,P,mobs,cam,actions,bones,setAnim,useSlot,clickAt,THREE,scene,camera,renderer,model,get tIdle(){return tIdle;},get TURN_DELTA(){return TURN_DELTA;}};
   }catch(err){ console.error(err); $('loadTxt').textContent='Yükleme başarısız oldu.'; $('loadTxt').style.color='#ff8a80'; $('err').textContent=String(err&&err.message||err); }
 }
 $('go').onclick=()=>{
