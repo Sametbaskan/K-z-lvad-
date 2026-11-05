@@ -1243,6 +1243,13 @@ function makeSwordProc(){
   g.traverse(o=>{ if(o.isMesh) o.castShadow=true; }); swMat=steel; return g;
 }
 /* ---- yeni başlangıç kılıcı (Metin2 Sword, GLB) + seviyeye göre görünüm/efekt ---- */
+/* ---- silah modelleri (görsel ekipman kaydı): yeni kılıç eklemek için WMODELS'e bir kayıt + GLB dosyası yeterli ----
+   file: models/ altındaki .b64.txt GLB; scale: model ölçeği (m); grip: kabza ortasının model uzayındaki y değeri (elin içine oturan nokta) */
+const WMODELS={ sword10:{name:'Demir Kılıç',file:'models/sword10.b64.txt',scale:.75,grip:-.02},
+                kyanite:{name:'Kyanite Kılıç',file:'models/kyanite.b64.txt',scale:.8,grip:-.12} };
+const WGLB={}; let WMODEL='kyanite'; try{ const w=localStorage.getItem('kizilvadi.wm'); if(w&&WMODELS[w]) WMODEL=w; }catch(e){}
+function equipWeaponModel(id){ if(!WMODELS[id]||!WGLB[id]) return false; WMODEL=id; try{ localStorage.setItem('kizilvadi.wm',id); }catch(e){}
+  if(SWHAND){ if(sword) SWHAND.remove(sword); sword=makeSword(); sword.scale.setScalar(1/MSCALE); SWHAND.add(sword); placeSword(); swFxLv=-1; } return true; }
 let SWORD_GLB=null, swMat=null, swHalo=[], swAura=null, swFxLv=-1, swAcc=0, swRing=0;
 const SWL=[   // +0..+9: renk tonu, parlama rengi, parlama şiddeti, halo opaklığı, halo ölçeği, saniyedeki kıvılcım
   {c:0xffffff,e:0x000000,ei:0,ho:0,hs:1,pr:0},{c:0xf1f6ff,e:0x101820,ei:.04,ho:0,hs:1,pr:0},{c:0xe2eeff,e:0x182838,ei:.07,ho:0,hs:1,pr:0},{c:0xd0e6ff,e:0x203a58,ei:.10,ho:0,hs:1,pr:0},
@@ -1265,7 +1272,8 @@ function updateSwordFx(dt,time){ if(!sword) return; const eq=swEq(); sword.visib
 const _swv=new THREE.Vector3();
 function makeSword(){
   let g;
-  if(SWORD_GLB){ g=new THREE.Group(); const m=SWORD_GLB.scene.clone(true); m.scale.setScalar(.75); m.position.y=.02*.75;   // Metin2 kılıcı: kabza ortası elde, uç yukarı
+  const WM=WMODELS[WMODEL], WG=WGLB[WMODEL]||SWORD_GLB;
+  if(WG){ g=new THREE.Group(); const sc=WGLB[WMODEL]?WM.scale:.75, m=WG.scene.clone(true); m.scale.setScalar(sc); m.position.y=-(WGLB[WMODEL]?WM.grip:-.02)*sc;   // kabza ortası elde, uç yukarı
     m.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.frustumCulled=false; o.material=o.material.clone(); o.material.side=THREE.DoubleSide; swMat=o.material; } }); g.add(m); }
   else g=makeSwordProc();
   addSwordFx(g); return g; }
@@ -2990,6 +2998,7 @@ async function boot(){
     let hero=null, HJ=null; try{ HJ=JSON.parse(await get('models/hero.json',()=>{})); try{ HJ.death=JSON.parse(await get('models/hero_death.json',()=>{})); }catch(e){ console.error('[Anim] hero_death.json yüklenemedi:',e); } try{ HJ.run=JSON.parse(await get('models/hero_run.json',()=>{})); }catch(e){ console.error('[Anim] hero_run.json yüklenemedi:',e); } try{ HJ.combo=JSON.parse(await get('models/hero_combo.json',()=>{})); }catch(e){ console.error('[Anim] hero_combo.json yüklenemedi:',e); } try{ HJ.powerup=JSON.parse(await get('models/hero_powerup.json',()=>{})); }catch(e){ console.error('[Anim] hero_powerup.json yüklenemedi:',e); } hero=buildBrute(HJ); }catch(e){ console.error('[Karakter] hero.json yüklenemedi:',e); }
     if(!hero) throw new Error('Karakter modeli yüklenemedi');
     try{ const tsw=await get('models/sword10.b64.txt',()=>{}); SWORD_GLB=await new Promise((ok,no)=>new GLTFLoader().parse(dec(tsw),'',ok,no)); }catch(e){ console.error('[Kılıç] yeni kılıç modeli yüklenemedi, eski kılıç kullanılacak:',e); }
+    WGLB.sword10=SWORD_GLB; try{ const tk=await get('models/kyanite.b64.txt',()=>{}); WGLB.kyanite=await new Promise((ok,no)=>new GLTFLoader().parse(dec(tk),'',ok,no)); }catch(e){ console.error('[Kılıç] Kyanite yüklenemedi, Demir Kılıç kullanılacak:',e); WMODEL='sword10'; }
     try{ const tdw=await get('models/dwarf.b64.txt',()=>{}); DWARF_GLB=await new Promise((ok,no)=>new GLTFLoader().parse(dec(tdw),'',ok,no)); }catch(e){ console.error('[Demirci] cüce modeli yüklenemedi, eski model kullanılacak:',e); }
     setupPlayer(hero,HJ); try{ const th=await get('models/horse.glb.b64.txt',()=>{}); const hg=await new Promise((ok,no)=>new GLTFLoader().parse(dec(th),'',ok,no)); setupMount(hg); }catch(e){ console.error('[At] Warhorse Lite yüklenemedi, binek devre dışı:',e); MOUNT.ready=false; }
     if(tm){ try{ const mb=atob(tm.trim()); const mu=new Uint8Array(mb.length); for(let i=0;i<mb.length;i++) mu[i]=mb.charCodeAt(i); prepMaw(L.parse(mu.buffer,''),b); }catch(e){ console.warn('Maw yüklenemedi, eski ork kullanılacak',e); MAW=null; } }
@@ -3003,7 +3012,7 @@ async function boot(){
     myTag=document.createElement('div'); myTag.className='tag'; myTag.style.color='#fff'; $('pops').appendChild(myTag);
     $('loading').classList.add('hidden'); $('login').classList.remove('hidden');
     const has=loadGame(); if(has){ $('nameIn').value=S.name; document.querySelector(`input[name=king][value="${S.king}"]`).checked=true; }
-    window.__game={updateSmith,upgradeWeapon,buyStone,fixWeapon,WLV,swRoll,wAtk,wMag,aspd,swEq,applySwordLook,updateSwordFx,SEAT,yawFix,get FOREST_STATS(){return FOREST_STATS},zoneAt,updateMount,groundFix,get GOFF(){return GOFF},get S(){return S},ITEMS,EQS,registerItem,addItem,moveItem,initInv,addStat,resetStats,qOf,expNeed,get PLANT_SETS(){return PLANT_SETS},renderMenu,setTab,toggleWin,closeWins,skillUp,skPoints,skL,skv,skStats,saveGame,loadGame,renderSkillWin,gainExp,updatePlayer,updateMobs,updateProjectiles,updateSkills,updateCamera,updateHUD,SKD,SLOT_DEF,SK,cds,fx2,pt2,sched,projectiles,SHAKE,clearSkillFx,MAPS,TRAVEL,travelTo,get MAP(){return MAP;},get obstacles(){return obstacles;},get MAP(){return MAP;},get renderer(){return renderer;},npcs,vRoadD,MAPS,hAt,get HAS3(){return HAS3;},get A3META(){return A3META;},damagePlayer,get COMBO(){return COMBO;},horseRear,horseAnim,playerHit,killMob,fxPlay,fxStep,get FROG2(){return FROG2;},MOUNT,toggleMount,get mixer(){return mixer},rotW,overlayPose,S,P,mobs,cam,actions,bones,setAnim,useSlot,clickAt,THREE,scene,camera,renderer,model,get tIdle(){return tIdle;},get TURN_DELTA(){return TURN_DELTA;}};
+    window.__game={equipWeaponModel,WMODELS,get sword(){return sword},updateSmith,upgradeWeapon,buyStone,fixWeapon,WLV,swRoll,wAtk,wMag,aspd,swEq,applySwordLook,updateSwordFx,SEAT,yawFix,get FOREST_STATS(){return FOREST_STATS},zoneAt,updateMount,groundFix,get GOFF(){return GOFF},get S(){return S},ITEMS,EQS,registerItem,addItem,moveItem,initInv,addStat,resetStats,qOf,expNeed,get PLANT_SETS(){return PLANT_SETS},renderMenu,setTab,toggleWin,closeWins,skillUp,skPoints,skL,skv,skStats,saveGame,loadGame,renderSkillWin,gainExp,updatePlayer,updateMobs,updateProjectiles,updateSkills,updateCamera,updateHUD,SKD,SLOT_DEF,SK,cds,fx2,pt2,sched,projectiles,SHAKE,clearSkillFx,MAPS,TRAVEL,travelTo,get MAP(){return MAP;},get obstacles(){return obstacles;},get MAP(){return MAP;},get renderer(){return renderer;},npcs,vRoadD,MAPS,hAt,get HAS3(){return HAS3;},get A3META(){return A3META;},damagePlayer,get COMBO(){return COMBO;},horseRear,horseAnim,playerHit,killMob,fxPlay,fxStep,get FROG2(){return FROG2;},MOUNT,toggleMount,get mixer(){return mixer},rotW,overlayPose,S,P,mobs,cam,actions,bones,setAnim,useSlot,clickAt,THREE,scene,camera,renderer,model,get tIdle(){return tIdle;},get TURN_DELTA(){return TURN_DELTA;}};
   }catch(err){ console.error(err); $('loadTxt').textContent='Yükleme başarısız oldu.'; $('loadTxt').style.color='#ff8a80'; $('err').textContent=String(err&&err.message||err); }
 }
 $('go').onclick=()=>{
