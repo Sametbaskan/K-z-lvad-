@@ -1,3 +1,7 @@
 node_modules/
 android/
 www/lib/
+*.jks
+*.keystore
+*.p12
+keystore*
