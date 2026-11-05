@@ -2083,7 +2083,7 @@ function makeNPC(name,x,z,col,hat){
 let DWARF_GLB=null, smithNPC=null; const dwMix=[];
 /* Demirci Kaan: rigli cüce modeli (idle / sword_swing / wave); yüklenemezse kutu model kalır */
 function dressSmith(n){
-  const m=cloneSkinned(DWARF_GLB.scene), H=.81, k=1.55/H; const root=new THREE.Group(); root.add(m); root.scale.setScalar(k); root.position.y=.41*k;
+  const m=cloneSkinned(DWARF_GLB.scene), H=1.4, k=1.5/H; const root=new THREE.Group(); root.add(m); root.scale.setScalar(k); root.position.y=0;
   m.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.frustumCulled=false; } });
   for(const c of [...n.g.children]) if(c!==n.hit) n.g.remove(c); n.g.add(root);
   const mx=new THREE.AnimationMixer(m), A={}; for(const c of DWARF_GLB.animations){ if(['idle','sword_swing','wave'].includes(c.name)){ A[c.name]=mx.clipAction(c); } }
