@@ -3025,7 +3025,7 @@ function populateForest(){
 }
 let FOREST_STATS=null;
 function populateVillage(){
-  shopNPC=makeNPC('Tüccar Han',31.7,8.9,0x2e5f8a,0x3a2a1a); makeNPC('Eşya Satıcısı',23,28.6,0x5a3a6a,0x2a2a2a); smithNPC=makeNPC('Demirci',21.2,33.6,0x4a3a2a,0x222222); if(DWARF_GLB) dressSmith(smithNPC); makeNPC('Hancı',-24,34.2,0x6a4a2a,0x3a2a1a);
+  shopNPC=makeNPC('Tüccar Han',31.7,8.9,0x2e5f8a,0x3a2a1a); const itemNPC=makeNPC('Eşya Satıcısı',-8.2,49,0x5a3a6a,0x2a2a2a); itemNPC.g.rotation.y=Math.PI/2; smithNPC=makeNPC('Demirci',8.2,49,0x4a3a2a,0x222222); smithNPC.g.rotation.y=-Math.PI/2; if(DWARF_GLB) dressSmith(smithNPC); makeNPC('Hancı',-24,34.2,0x6a4a2a,0x3a2a1a);
   makeNPC('Eğitmen',-33.5,11,0x7a2a22,0x555a60); const gA=makeNPC('Nöbetçi',2.8,50,0x7a2a22,0x555a60), gB=makeNPC('Nöbetçi',0,-53,0x7a2a22,0x555a60), gC=makeNPC('Nöbetçi',44,11,0x7a2a22,0x555a60);
   if(SAM_GLB){ dressGuard(gA,[[2.8,50,2],[2.8,13],[-5.5,5.5],[-12,1.8],[-44,1.8,2],[-12,1.8],[-5.5,5.5],[2.8,13]],1.5);
     dressGuard(gB,[[0,-53,2],[6,-49],[10.5,-42],[10.5,-27],[8,-19],[2,-12],[2,-8],[5.5,-5.5],[12,-1.8],[44,-1.8,2],[12,-1.8],[5.5,-5.5],[2,-8],[2,-12],[8,-19],[10.5,-27],[10.5,-42],[6,-49]],1.5);
