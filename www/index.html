@@ -1341,8 +1341,8 @@ let SWHAND=null;
 /* kılıç ekseni: el yerel X ekseni = yumruk deliği (kabza ekseni); ayarlanabilir */
 /* tutuş noktası (GripPoint) + yön: tek yapı. pos: el kemiği yerel uzayında kabza ortası (cm); q: kılıç yerel eksenleri -> el kemiği.
    Hizalama (bekleme pozunda, modelin kendi eksenlerinde): kılıç Y (sivri uç) = karakterin ileri +Z yönü (hafif yukarı eğimli, +.18),
-   kılıç X (genişlik/ağız ekseni) = yukarı, Z = X×Y. q = inv(el_dünya) · model_dünya · R(X,Y,Z). */
-const SWCFG={pos:[1.8,11.1,3.3], q:[0.38523927186779344,0.1977141589531976,-0.2850931990885196,0.8551150201472244]};
+   kılıç X (genişlik/ağız ekseni) = yukarı, Z = X×Y. q = inv(el_dünya) · model_dünya · R(X,Y,Z) · Rx(180°) (kılıcın yerel X ekseninde 180°: kabza noktası sabit; model geometrisinde sivri/ince uç -Y tarafında olduğu için o uç ileri bakar). */
+const SWCFG={pos:[1.8,11.1,3.3], q:[0.8551150201472244,-0.2850931990885196,-0.1977141589531976,-0.38523927186779344]};
 function placeSword(){ if(!sword) return; sword.quaternion.fromArray(SWCFG.q).normalize(); sword.position.fromArray(SWCFG.pos); }
 
 
