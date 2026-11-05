@@ -2083,6 +2083,7 @@ function makeNPC(name,x,z,col,hat){
 let DWARF_GLB=null, smithNPC=null; const dwMix=[];
 /* Demirci Kaan: rigli cüce modeli (idle / sword_swing / wave); yüklenemezse kutu model kalır */
 function dressSmith(n){
+  if(!DWARF_GLB.vcDone){ fixVC(DWARF_GLB,1); DWARF_GLB.vcDone=true; }
   const m=cloneSkinned(DWARF_GLB.scene), H=1.4, k=1.5/H; const root=new THREE.Group(); root.add(m); root.scale.setScalar(k); root.position.y=0;
   m.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.frustumCulled=false; } });
   for(const c of [...n.g.children]) if(c!==n.hit) n.g.remove(c); n.g.add(root);
@@ -2095,8 +2096,12 @@ function updateSmith(dt){ for(const n of dwMix){ const d=n.dw; d.mx.update(dt); 
     else if(d.t<=0) playSmith(n,'idle'); } }
 
 /* Köy Nöbetçileri: rigli samuray modeli (walk). Yolları dolaşarak devriye atarlar; yüklenemezse kutu model kalır */
+/* Köşe renkleri sRGB olarak pişirildi: doğrusala çevrilir (aksi halde soluk/parlak görünür) ve biraz kısılır */
+function fixVC(glb,mul){ glb.scene.traverse(o=>{ if(!o.isMesh) return; const g=o.geometry, c=g.attributes.color; if(c&&!g.userData.vcFixed){ const a=new Float32Array(c.count*3); for(let i=0;i<c.count;i++) for(let k=0;k<3;k++){ a[i*3+k]=Math.pow(c.getComponent(i,k),1.7)*mul; } g.setAttribute('color',new THREE.BufferAttribute(a,3)); g.userData.vcFixed=true; }
+    const ms=Array.isArray(o.material)?o.material:[o.material]; for(const m of ms){ m.roughness=1; m.metalness=0; m.envMapIntensity=.3; } }); }
 let SAM_GLB=null; const guards=[];
 function dressGuard(n,route,spd){
+  if(!SAM_GLB.vcDone){ fixVC(SAM_GLB,1); SAM_GLB.vcDone=true; }
   const m=cloneSkinned(SAM_GLB.scene), k=1.85/1.73; const root=new THREE.Group(); root.add(m); root.scale.setScalar(k);
   m.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.frustumCulled=false; } });
   for(const c of [...n.g.children]) if(c!==n.hit) n.g.remove(c); n.g.add(root);
