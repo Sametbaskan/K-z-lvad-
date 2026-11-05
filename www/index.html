@@ -1316,9 +1316,16 @@ function horseAnim(name,fade=.25,ts=1){ if(!MOUNT.acts) return; const to=MOUNT.a
   if(MOUNT.cur!==name){ const from=MOUNT.acts[MOUNT.cur]; to.reset(); to.setEffectiveWeight(1); to.play(); if(from) from.crossFadeTo(to,fade,false); MOUNT.cur=name; }
   to.timeScale=ts; }
 function horseRear(){ if(!MOUNT.acts||!MOUNT.acts.rear||MOUNT.cur==='rear'||MOUNT.speed>.5) return; horseAnim('rear',.2); MOUNT.rearT=MOUNT.acts.rear.getClip().duration; }
-const REST={}, SEAT={spread:.85, thigh:-.85, knee:1.2, foot:-.3}, _sq=new THREE.Quaternion();
+const REST={}, SEAT={spread:1.15, thigh:-.85, knee:1.2, foot:-.3}, _sq=new THREE.Quaternion();
 /* binicilik: bacaklar animasyondan bağımsız, bağlama duruşundan mutlak kurulur (iki bacak simetrik: uyluk dışa açık+öne, diz bükük) ve k ile karıştırılır */
+const _y1=new THREE.Vector3(), _y2=new THREE.Vector3(), _yq=new THREE.Quaternion();
+/* bekleme duruşu yan (dövüşçü) durduğu için leğen/omuz hattı atın yönüne göre bükülüyor: iki hattı da ata dik (öne bakar) olacak biçimde yaw düzeltilir */
+function yawFix(bone,A,Bn,k,from){ const a=B(A),b=B(Bn); if(!bone||!a||!b) return; (from||bone).updateWorldMatrix(true,true); a.getWorldPosition(_y1); b.getWorldPosition(_y2); _y2.sub(_y1); _yq.copy(playerGroup.quaternion).invert(); _y2.applyQuaternion(_yq);
+  // beklenen: sol->sağ = -X (model +Z'ye bakar). Y etrafında işaretli açı
+  const cx=_y2.z*(-1)-_y2.x*0, dt=_y2.x*(-1)+_y2.z*0, ang=Math.atan2(cx,dt); rotW(bone,0,1,0,ang*k); }
 function sitPose(k){
+  { const h=B('Hips'); if(h&&REST.Hips) h.quaternion.slerp(REST.Hips,k); }   // leğen: dövüşçü eğimi/dönüşü gider, dik ve öne bakar
+  yawFix(B('Spine1'),'LeftArm','RightArm',k,B('Hips'));
   for(const [s,UL,LG,FT] of [[1,'LeftUpLeg','LeftLeg','LeftFoot'],[-1,'RightUpLeg','RightLeg','RightFoot']]){
     const bu=B(UL),bl=B(LG),bf=B(FT); if(!bu||!bl||!bf||!REST[UL]) continue;
     const a0=bu.quaternion.clone(), b0=bl.quaternion.clone(), c0=bf.quaternion.clone();
@@ -2867,7 +2874,7 @@ async function boot(){
     myTag=document.createElement('div'); myTag.className='tag'; myTag.style.color='#fff'; $('pops').appendChild(myTag);
     $('loading').classList.add('hidden'); $('login').classList.remove('hidden');
     const has=loadGame(); if(has){ $('nameIn').value=S.name; document.querySelector(`input[name=king][value="${S.king}"]`).checked=true; }
-    window.__game={SEAT,get FOREST_STATS(){return FOREST_STATS},zoneAt,updateMount,groundFix,get GOFF(){return GOFF},get S(){return S},ITEMS,EQS,registerItem,addItem,moveItem,initInv,addStat,resetStats,qOf,expNeed,get PLANT_SETS(){return PLANT_SETS},renderMenu,setTab,toggleWin,closeWins,skillUp,skPoints,skL,skv,skStats,saveGame,loadGame,renderSkillWin,gainExp,updatePlayer,updateMobs,updateProjectiles,updateSkills,updateCamera,updateHUD,SKD,SLOT_DEF,SK,cds,fx2,pt2,sched,projectiles,SHAKE,clearSkillFx,MAPS,TRAVEL,travelTo,get MAP(){return MAP;},get obstacles(){return obstacles;},get MAP(){return MAP;},get renderer(){return renderer;},npcs,vRoadD,MAPS,hAt,get HAS3(){return HAS3;},get A3META(){return A3META;},damagePlayer,get COMBO(){return COMBO;},horseRear,horseAnim,playerHit,killMob,fxPlay,fxStep,get FROG2(){return FROG2;},MOUNT,toggleMount,get mixer(){return mixer},rotW,overlayPose,S,P,mobs,cam,actions,bones,setAnim,useSlot,clickAt,THREE,scene,camera,renderer,model,get tIdle(){return tIdle;},get TURN_DELTA(){return TURN_DELTA;}};
+    window.__game={SEAT,yawFix,get FOREST_STATS(){return FOREST_STATS},zoneAt,updateMount,groundFix,get GOFF(){return GOFF},get S(){return S},ITEMS,EQS,registerItem,addItem,moveItem,initInv,addStat,resetStats,qOf,expNeed,get PLANT_SETS(){return PLANT_SETS},renderMenu,setTab,toggleWin,closeWins,skillUp,skPoints,skL,skv,skStats,saveGame,loadGame,renderSkillWin,gainExp,updatePlayer,updateMobs,updateProjectiles,updateSkills,updateCamera,updateHUD,SKD,SLOT_DEF,SK,cds,fx2,pt2,sched,projectiles,SHAKE,clearSkillFx,MAPS,TRAVEL,travelTo,get MAP(){return MAP;},get obstacles(){return obstacles;},get MAP(){return MAP;},get renderer(){return renderer;},npcs,vRoadD,MAPS,hAt,get HAS3(){return HAS3;},get A3META(){return A3META;},damagePlayer,get COMBO(){return COMBO;},horseRear,horseAnim,playerHit,killMob,fxPlay,fxStep,get FROG2(){return FROG2;},MOUNT,toggleMount,get mixer(){return mixer},rotW,overlayPose,S,P,mobs,cam,actions,bones,setAnim,useSlot,clickAt,THREE,scene,camera,renderer,model,get tIdle(){return tIdle;},get TURN_DELTA(){return TURN_DELTA;}};
   }catch(err){ console.error(err); $('loadTxt').textContent='Yükleme başarısız oldu.'; $('loadTxt').style.color='#ff8a80'; $('err').textContent=String(err&&err.message||err); }
 }
 $('go').onclick=()=>{
