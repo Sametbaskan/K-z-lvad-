@@ -2427,7 +2427,7 @@ function vTrainingYard(){ const X0=-37,Z0=11;   // Wolfhold Kışlası eğitim a
   for(const [x,z] of [[-32,5.5],[-47,3.5],[-29,21],[-46,21]]){ vFrame(x,z,R()*6); vCyl(0,.35,0,.62,.7,C.hay,{rx:0}); addObstacle(x,z,.7); }
   VLIST.push({name:'eğitim alanı',x:-39,z:13,w:16,d:14,ry:0,kind:'yard',soft:true}); }
 function vMarketExtras(){ for(const [x,z] of [[22,2.3],[32,2.3],[41,2.3],[24,19.8],[34,19.8],[44,19.8]]){ vFrame(x,z,R()*6); vBox(0,.5,0,.9,1,.9,C.woodL); vBox(.9,.35,.3,.7,.7,.7,C.wood); vCyl(-.9,.5,.2,.4,1,C.wood); addObstacle(x,z,1.3); } }
-function vSmithy(){ vHouse({name:'demirci',x:24,z:38,ry:Math.PI,w:9,d:6.4,h:3.4,floors:1,chim:[-1],wall:C.plasD});
+function vSmithy(){ if(!placeBld('av','Demirci Evi',24,38,Math.PI,1.1,1,[0,-.7,8.2,5.4])) vHouse({name:'demirci',x:24,z:38,ry:Math.PI,w:9,d:6.4,h:3.4,floors:1,chim:[-1],wall:C.plasD});   // Avonmere modeli; yüklenemezse eski prosedürel ev
   const sx=32.6, sz=37, y=hAt(sx,sz); vFrame(sx,sz,0); vBox(0,.1,0,6.4,.2,6.4,C.stoneD); for(const a of [-1,1]) for(const b of [-1,1]) vCyl(a*2.9,1.6,b*2.9,.14,3.2,C.wood);
   vRoof(0,3.2,0,7.4,1.4,7.2,C.roof,{ry:0}); vBox(-1.6,.6,-1.8,2.2,1.2,1.6,C.stone); vBox(-1.6,1.25,-1.8,1.6,.12,1.0,0xd0501a,{e:1}); vBox(-1.6,2.6,-2.9,1.2,3.6,.9,C.stone);
   vBox(1.4,.7,.5,.9,.9,.6,C.iron); vBox(1.4,1.2,.5,1.5,.18,.5,C.iron); vCyl(2.3,.5,-1.8,.45,1,C.wood); vBox(-2.3,.35,1.2,1.2,.7,.5,C.woodL);
