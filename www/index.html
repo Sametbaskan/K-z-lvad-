@@ -2397,7 +2397,7 @@ const vRoof=(x,y,z,w,h,d,c,o)=>vP(GG,x,y,z,c,Object.assign({sx:w,sy:h,sz:d},o||{
 function vEnd(){ const mm=new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.DoubleSide}), me=new THREE.MeshBasicMaterial({vertexColors:true}); let tris=0;
   for(let k=0;k<4;k++){ for(const [arr,mat,sh] of [[VBK.m[k],mm,true],[VBK.e[k],me,false]]){ if(!arr.length) continue; const g=mergeGeometries(arr,false); arr.forEach(a=>a.dispose()); const m=new THREE.Mesh(g,mat); m.castShadow=sh&&!coarse; m.receiveShadow=false; scene.add(m); tris+=g.index?g.index.count/3:g.attributes.position.count/3; } }
   VBK=null; return tris; }
-const C={stone:0x666870,stoneD:0x4a4c53,stoneL:0x82848a,wood:0x4a3626,woodL:0x5f4631,roof:0x25242a,roofB:0x28262c,plas:0xa29a85,plasD:0x8d8470,iron:0x26262a,gold:0x9a7a30,red:0x7a1b16,redB:0xa3281e,hay:0x8a7440,lamp:0xe0381f,flame:0xffa040,win:0xe0a24a};
+const C={stone:0x756e62,stoneD:0x544e44,stoneL:0x8f8878,wood:0x4a3626,woodL:0x5f4631,roof:0x25242a,roofB:0x28262c,plas:0xa29a85,plasD:0x8d8470,iron:0x26262a,gold:0x9a7a30,red:0x7a1b16,redB:0xa3281e,hay:0x8a7440,lamp:0xe0381f,flame:0xffa040,win:0xe0a24a};
 /* ---- meşale / fener ---- */
 function vTorch(x,z,h){ h=h||2.3; const y=hAt(x,z); vFrame(x,z,0); vCyl(0,h/2,0,.07,h,C.wood); vCyl(0,h+.05,0,.22,.2,C.iron); vP(GC,0,h+.1,0,0x7a3010,{sx:.17,sy:.05,sz:.17,e:1});
   VLT.t.push(x,y+h+.35,z); addObstacle(x,z,.28); }
@@ -2461,10 +2461,50 @@ function lampsAlong(road,step,kind){   // yol kenarına meşale / kırmızı fen
       if(kind==='torch') vTorch(px,pz,2.3); else vLantern(px,pz,2.8,(n++%2)===0); }
     acc=((acc-L)%step+step)%step; }
 }
+/* ---- Castle Siege (CC0) sur kiti: kavisli sur, yuvarlak kuleler, kapı ---- */
+let CASTLE=null;
+function prepCastle(parts){   // parts: {ad: gltf}
+  const geo={}, mats=new THREE.MeshLambertMaterial({side:THREE.DoubleSide}); let map=null;
+  for(const k in parts){ parts[k].scene.updateMatrixWorld(true); const gs=[]; parts[k].scene.traverse(o=>{ if(o.isMesh){ if(!map&&o.material.map) map=o.material.map; const g=o.geometry.clone(); g.applyMatrix4(o.matrixWorld); for(const a of Object.keys(g.attributes)) if(!['position','normal','uv'].includes(a)) g.deleteAttribute(a); gs.push(g.index?g.toNonIndexed():g); } }); geo[k]=mergeGeometries(gs); }
+  map.colorSpace=THREE.SRGBColorSpace; map.magFilter=map.minFilter=THREE.NearestFilter; map.generateMipmaps=false; map.needsUpdate=true; mats.map=map; mats.color.setScalar(1.5);   // evlerle (Avonmere) aynı parlaklık
+  // uzak LOD için taş rengi: duvarın düz yüzünden bir üçgenin UV'si
+  let uv=[.5,.5]; { const g=geo.curtain_01, P=g.attributes.position, N=g.attributes.normal, U=g.attributes.uv; for(let i=0;i<P.count;i+=3){ const cy=(P.getY(i)+P.getY(i+1)+P.getY(i+2))/3; if(N.getZ(i)>.9&&cy>1.2&&cy<2.6){ uv=[U.getX(i),U.getY(i)]; break; } } }
+  CASTLE={geo,mat:mats,uv}; }
+const _cm=new THREE.Matrix4(), _cq=new THREE.Quaternion(), _cy=new THREE.Vector3(0,1,0), _cp=new THREE.Vector3(), _cs=new THREE.Vector3(1,1,1);
+function castleMesh(list,far){   // list: [{k,x,y,z,ry}] → tek birleştirilmiş geometri
+  const gs=[]; for(const it of list){ let g=far?farBay():CASTLE.geo[it.k].clone(); _cq.setFromAxisAngle(_cy,it.ry); _cm.compose(_cp.set(it.x,it.y,it.z),_cq,_cs); g.applyMatrix4(_cm); gs.push(g); }
+  const m=new THREE.Mesh(mergeGeometries(gs),CASTLE.mat); m.frustumCulled=true; return m; }
+function farBay(){ const g=new THREE.BoxGeometry(2,4.8,1.7).toNonIndexed(); g.translate(1,2.4,-.8); const U=g.attributes.uv; for(let i=0;i<U.count;i++) U.setXY(i,CASTLE.uv[0],CASTLE.uv[1]); return g; }
+function buildCastleWall(){
+  const rho=VR+.8, NB=184, step=Math.PI*2/NB, G=new THREE.Group(); let nW=0;
+  const gateA=[Math.PI/2,3*Math.PI/2], flank=5*step, towerA=[...TAs()];
+  function TAs(){ const o=[Math.PI/4,3*Math.PI/4,5*Math.PI/4,7*Math.PI/4]; for(const g of [Math.PI/2,3*Math.PI/2]) o.push(g+flank,g-flank); return o; }
+  const bayAt=(am,k)=>{ const ox=Math.cos(am), oz=Math.sin(am), tx=Math.sin(am), tz=-Math.cos(am), cx=ox*rho, cz=oz*rho; return {k,x:cx-tx,z:cz-tz,y:hAt(cx,cz)-.3,ry:Math.PI/2-am,cx,cz}; };
+  const near=(a,arr,d)=>arr.some(t=>Math.abs(wrap(a-t))<d*step);
+  const bays=[];
+  for(let i=0;i<NB;i++){ const am=(i+.5)*step; if(near(am,gateA,1.01)||near(am,towerA,1.01)) continue; const b=bayAt(am,i%9===4?'curtain_slit_01':'curtain_01'); bays.push(b); addObstacle(b.cx-Math.cos(am)*.7,b.cz-Math.sin(am)*.7,1.15); nW++;
+    if(i%11===5) vTorch(Math.cos(am)*(VR-2.1),Math.sin(am)*(VR-2.1),2.2); }
+  // gruplar: 6 bölme, yakında tam ayrıntı / uzakta sade kutu
+  for(let g0=0;g0<bays.length;g0+=6){ const grp=bays.slice(g0,g0+6); if(!grp.length) continue; let sx=0,sz=0; for(const b of grp){ sx+=b.cx; sz+=b.cz; } sx/=grp.length; sz/=grp.length;
+    const lod=new THREE.LOD(); const n=castleMesh(grp,false), f=castleMesh(grp,true); lod.addLevel(n,0); lod.addLevel(f,coarse?36:56); lod.position.set(0,0,0); G.add(lod); lod.userData.c=[sx,sz]; lod.position.set(0,0,0); lod.updateMatrixWorld(); n.geometry.computeBoundingSphere(); f.geometry.computeBoundingSphere(); }
+  // LOD mesafesi nesne orijininden ölçülür; orijin 0,0 olduğundan her grubu kendi merkezine taşı
+  G.children.forEach(l=>{ const [cx,cz]=l.userData.c; l.position.set(cx,0,cz); l.children.forEach(m=>m.position.set(-cx,0,-cz)); });
+  // kapılar
+  for(const ga of gateA){ const b=bayAt(ga,'curtain_gate_01'); const ox=Math.cos(ga), oz=Math.sin(ga), tx=Math.sin(ga), tz=-Math.cos(ga); const cx=ox*rho, cz=oz*rho;
+    const it={k:'curtain_gate_01',x:cx-tx*2,z:cz-tz*2,y:hAt(cx,cz)-.3,ry:Math.PI/2-ga}; const m=castleMesh([it],false); G.add(m);
+    for(const s of [-1,1]) addObstacle(cx+tx*s*2.8-ox*.7,cz+tz*s*2.8-oz*.7,1.55);
+    vLabel('KIZIL VADİ',0,7.6+hAt(cx,cz),cz+Math.sign(oz)*1.2,4.2); }
+  // kuleler: taban + kapılı gövde + üst + külah (merkez dış yüzde)
+  for(const ta of towerA){ const cx=Math.cos(ta)*rho, cz=Math.sin(ta)*rho, y0=hAt(cx,cz)-.4, ry=Math.PI/2-ta;
+    const tw=castleMesh([{k:'tower_round_base_01',x:cx,y:y0,z:cz,ry},{k:'tower_round_door_01',x:cx,y:y0+2.4,z:cz,ry},{k:'tower_round_top_01',x:cx,y:y0+7.2,z:cz,ry},{k:'tower_round_roof_01',x:cx,y:y0+9.2,z:cz,ry}],false); tw.castShadow=!coarse; G.add(tw);
+    addObstacle(cx-Math.cos(ta)*.9,cz-Math.sin(ta)*.9,2.2); VLIST.push({name:'sur kulesi',x:cx,z:cz,w:4.2,d:4.2,ry,kind:'bld'}); }
+  scene.add(G); world.castle=G; return nW; }
 function buildVillage(){
   world.torches=[]; VLIST.length=0; VLT={t:[],l:[]}; vBegin();
   // --- surlar ---
-  const nSeg=Math.round(2*Math.PI*VR/3.5), TA=[Math.PI/4,3*Math.PI/4,5*Math.PI/4,7*Math.PI/4]; let nW=0;
+  const TA=[Math.PI/4,3*Math.PI/4,5*Math.PI/4,7*Math.PI/4]; let nW=0;
+  if(CASTLE){ nW=buildCastleWall(); } else {
+  const nSeg=Math.round(2*Math.PI*VR/3.5);
   for(let i=0;i<nSeg;i++){ const a=i/nSeg*Math.PI*2, x=Math.cos(a)*VR, z=Math.sin(a)*VR;
     if(Math.abs(x)<13.6&&Math.abs(z)>VR-16) continue; if(TA.some(t=>Math.abs(wrap(a-t))*VR<2.1)) continue;
     vFrame(x,z,-a-Math.PI/2); const L=3.6; vBox(0,1.2,0,L,4.8,1.7,C.stone); vBox(0,-.2,0,L+.2,1.1,2.1,C.stoneD); vBox(0,3.75,0,L+.1,.3,2.0,C.stoneL); for(const s of [-.9,.9]) vBox(s,4.3,0,.95,.8,1.2,C.stone);
@@ -2473,6 +2513,7 @@ function buildVillage(){
   vGatehouse(1); vGatehouse(-1);
   for(const sg of [1,-1]) for(const sx of [-1,1]){ const tx=sx*9.8, tz=sg*Math.sqrt(VR*VR-tx*tx); placeBld('gl','kapı kulesi',tx,tz,sg>0?0:Math.PI,.92,2,[0,0,7.4,6.4]); }
   for(const a of TA){ const x=Math.cos(a)*(VR-.6), z=Math.sin(a)*(VR-.6); placeBld('gl','sur kulesi',x,z,Math.PI/2-a,.92,2,[0,0,7.4,6.4]); }
+  }
   // --- ana yapılar ---
   placeBld('av','Avonmere Evi',0,-30,0,1.2,1,[0,-.8,8.6,5.8]);
   placeBld('wh','Wolfhold Kışlası',-38,-16,Math.PI/2,1,1,[1.2,-4,14.5,9]);
@@ -2953,6 +2994,7 @@ async function boot(){
     setupPlayer(hero,HJ); try{ const th=await get('models/horse.glb.b64.txt',()=>{}); const hg=await new Promise((ok,no)=>new GLTFLoader().parse(dec(th),'',ok,no)); setupMount(hg); }catch(e){ console.error('[At] Warhorse Lite yüklenemedi, binek devre dışı:',e); MOUNT.ready=false; }
     if(tm){ try{ const mb=atob(tm.trim()); const mu=new Uint8Array(mb.length); for(let i=0;i<mb.length;i++) mu[i]=mb.charCodeAt(i); prepMaw(L.parse(mu.buffer,''),b); }catch(e){ console.warn('Maw yüklenemedi, eski ork kullanılacak',e); MAW=null; } }
     try{ const ta=await get('models/archway.b64.txt',()=>{}); const ag=await new Promise((ok,no)=>new GLTFLoader().parse(dec(ta),'',ok,no)); ARCH=ag.scene; }catch(e){ console.error('[Geçit] kemer modeli yüklenemedi, eski kapı kullanılacak:',e); }
+    try{ const cj=JSON.parse(await get('models/castle.json',()=>{})), parts={}; for(const k in cj) parts[k]=await new Promise((ok,no)=>new GLTFLoader().parse(dec(cj[k]),'',ok,no)); prepCastle(parts); }catch(e){ CASTLE=null; console.error('[Sur] Castle Siege kiti yüklenemedi, eski sur kullanılacak:',e); }
     try{ for(const [k,n] of [['av','Avonmere_House_II'],['wh','Wolfhold_Barracks_II'],['gl','Granite_Legion_Watchtower_III']]){ const tb=await get('models/'+n+'.b64.txt',()=>{}); prepBuilding(k,await new Promise((ok,no)=>new GLTFLoader().parse(dec(tb),'',ok,no))); } }catch(e){ console.error('[Köy] bina modelleri yüklenemedi:',e); }
     try{ const tmg=await get('models/mage.json',()=>{}); prepMage(JSON.parse(tmg),b); }catch(e){ console.error('[Gölge Elfi] model yüklenemedi, yedek kullanılacak:',e); }
     try{ const [tdp,tst]=await Promise.all([get('models/deadpine.b64.txt',()=>{}),get('models/stone.b64.txt',()=>{})]); const [gp,gs]=await Promise.all([new Promise((ok,no)=>new GLTFLoader().parse(dec(tdp),'',ok,no)),new Promise((ok,no)=>new GLTFLoader().parse(dec(tst),'',ok,no))]); NATURE_PENDING=[gp,gs]; }catch(e){ console.error('[Doğa] kuru ağaç/kaya modeli yüklenemedi, eski ağaçlar kullanılacak:',e); }
