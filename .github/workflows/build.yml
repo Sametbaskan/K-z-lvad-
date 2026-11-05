@@ -42,7 +42,7 @@ jobs:
           sed -i 's#<activity#<activity android:screenOrientation="sensorLandscape"#' $M
           J=$(find android/app/src/main/java -name MainActivity.java)
           cat > $J <<'JAVA'
-          package com.kizilvadi.game;
+          package com.valkor.game;
           import android.os.Bundle;
           import android.view.View;
           import android.view.WindowManager;
@@ -75,9 +75,9 @@ jobs:
             printf '%s' "$KEYSTORE_BASE64" | tr -d ' \r\n\t"' | base64 -d > "$KS" 2>/dev/null || true
             echo "Anahtar dosyası boyutu: $(stat -c %s "$KS") bayt (beklenen: 1018)"
             if ! keytool -list -keystore "$KS" -storetype PKCS12 -storepass "$SEC_PASS" -alias "$SEC_ALIAS" > ks_check.txt 2>&1; then
-              if grep -qi "password was incorrect\|keystore was tampered" ks_check.txt; then echo "::error::KEYSTORE_PASSWORD yanlış (kizilvadi-sifreler.txt içindeki şifreyi, başında/sonunda boşluk olmadan girin)."
-              elif grep -qi "does not exist" ks_check.txt; then echo "::error::KEY_ALIAS yanlış (kizilvadi olmalı)."
-              else echo "::error::KEYSTORE_BASE64 bozuk ya da eksik yapıştırılmış (boyut 1018 bayt olmalı). kizilvadi-release.jks.base64.txt dosyasının TÜM içeriğini yeniden yapıştırın."; fi
+              if grep -qi "password was incorrect\|keystore was tampered" ks_check.txt; then echo "::error::KEYSTORE_PASSWORD yanlış (şifreler dosyasındaki şifreyi, başında/sonunda boşluk olmadan girin)."
+              elif grep -qi "does not exist" ks_check.txt; then echo "::error::KEY_ALIAS yanlış (şifreler dosyasında yazan takma adı girin)."
+              else echo "::error::KEYSTORE_BASE64 bozuk ya da eksik yapıştırılmış (boyut 1018 bayt olmalı). anahtar dosyasının .base64.txt halinin TÜM içeriğini yeniden yapıştırın."; fi
               exit 1
             fi
           fi
@@ -118,15 +118,15 @@ jobs:
           echo "APK sertifika SHA-256: $GOT"; echo "Beklenen            : $WANT"
           if [ "$SELFTEST" != "true" ] && [ "$GOT" != "$WANT" ]; then echo "::error::İmza sertifikası beklenenden farklı: telefondaki uygulamanın üzerine kurulmaz!"; exit 1; fi
           VN=$(sed -n "s/.*versionName='\([^']*\)'.*/\1/p" badge.txt)
-          cp "$APK" "KizilVadi-$VN.apk"; { echo "APK_FILE=KizilVadi-$VN.apk"; echo "APK_VER=$VN"; } >> "$GITHUB_ENV"
+          cp "$APK" "Valkor-$VN.apk"; { echo "APK_FILE=Valkor-$VN.apk"; echo "APK_VER=$VN"; } >> "$GITHUB_ENV"
       - uses: actions/upload-artifact@v4
         with:
-          name: kizil-vadi-release-apk
-          path: KizilVadi-*.apk
+          name: valkor-release-apk
+          path: Valkor-*.apk
       - name: GitHub Release olarak yayınla
         if: ${{ hashFiles('signing/SELFTEST') == '' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete "v$APK_VER" -y --cleanup-tag 2>/dev/null || true
-          gh release create "v$APK_VER" "$APK_FILE" --title "Kızıl Vadi $APK_VER" --notes "Aynı imza anahtarıyla derlendi; telefondaki mevcut uygulamanın üzerine kurulur (veriler korunur)."
+          gh release create "v$APK_VER" "$APK_FILE" --title "Valkor $APK_VER" --notes "Aynı imza anahtarıyla derlendi; telefondaki mevcut uygulamanın üzerine kurulur (veriler korunur)."

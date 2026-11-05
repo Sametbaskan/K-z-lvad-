@@ -1,6 +1,6 @@
 {
-  "appId": "com.kizilvadi.game",
-  "appName": "Kızıl Vadi",
+  "appId": "com.valkor.game",
+  "appName": "Valkor",
   "webDir": "www",
   "backgroundColor": "#000000",
   "android": { "allowMixedContent": false }

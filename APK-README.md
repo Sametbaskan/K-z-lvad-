@@ -1,16 +1,16 @@
-# Kızıl Vadi APK
+# Valkor APK
 
 APK'lar her derlemede **aynı kalıcı release anahtarıyla** imzalanır; telefondaki uygulamanın üzerine silmeden kurulur
-(paket adı `com.kizilvadi.game` hiç değişmez, oyun kayıtları korunur).
+(paket adı `com.valkor.game` bundan sonra hiç değişmez, oyun kayıtları korunur).
 
 ## Bir kereye mahsus kurulum: GitHub Secrets
 Depoda **Settings > Secrets and variables > Actions > New repository secret** ile şu 4 secret'ı ekle:
 
 | Secret | Değer |
 |---|---|
-| `KEYSTORE_BASE64` | `kizilvadi-release.jks.base64.txt` dosyasının tüm içeriği |
+| `KEYSTORE_BASE64` | anahtar dosyasının `.base64.txt` halinin tüm içeriği (1360 karakter) |
 | `KEYSTORE_PASSWORD` | keystore şifresi |
-| `KEY_ALIAS` | `kizilvadi` |
+| `KEY_ALIAS` | anahtarın takma adı (şifreler dosyasında yazar) |
 | `KEY_PASSWORD` | anahtar şifresi (keystore şifresiyle aynı) |
 
 Anahtarın beklenen sertifika parmak izi `signing/EXPECTED_SHA256.txt` içindedir (gizli değildir).
@@ -18,12 +18,13 @@ Derleme, APK'nın sertifikası bununla eşleşmezse **başarısız olur** (yanl�
 
 ## Derleme ve indirme
 - `main`'e her push (veya Actions > "APK derle" > Run workflow) yeni APK üretir.
-- APK, deponun **Releases** bölümünde `KizilVadi-1.0.N.apk` olarak yayınlanır (ayrıca Actions artifact'ı olarak da).
+- APK, deponun **Releases** bölümünde `Valkor-1.0.N.apk` olarak yayınlanır (ayrıca Actions artifact'ı olarak da).
 - `versionCode = 100 + çalışma numarası`, `versionName = 1.0.<çalışma numarası>`: her derleme otomatik artar.
 - Sadece **release** derlenir; debug imzası kullanılmaz (debug APK'lar her derlemede farklı geçici anahtarla imzalanır ve güncellemeyi bozar).
+- Simge: `icon/` klasöründeki mipmap'ler derlemede uygulamaya konur.
 
 ## Anahtar yedeği (ÇOK ÖNEMLİ)
-`kizilvadi-release.jks` dosyasını ve şifresini **depoya yükleme**; parola yöneticisi / kişisel bulut / USB gibi
+Anahtar dosyasını (`.jks`) ve şifresini **depoya yükleme**; parola yöneticisi / kişisel bulut / USB gibi
 iki ayrı güvenli yere kaydet. Bu anahtar kaybolursa mevcut uygulamanın üzerine güncelleme kurulamaz
 (Android farklı imzayı reddeder) ve yalnızca silip yeniden kurma kalır. Anahtar depoda tutulmaz (`.gitignore` engeller).
 
