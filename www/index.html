@@ -176,23 +176,35 @@ body{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-c
 #splPct{position:absolute;left:66.9%;top:87.6%;font:700 12px/2.2 var(--body,serif);color:#e9c98a;text-shadow:0 1px 2px #000;width:5%}
 #loadTxt{position:absolute;left:0;right:0;top:94.4%;margin:0;text-align:center;font:13px var(--body,serif);color:transparent}
 #err{position:absolute;left:10%;right:10%;top:80%;text-align:center;color:#ff8a80;font:13px var(--body,sans-serif);text-shadow:0 1px 3px #000}
+#authOut{position:fixed;top:max(6px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:21;pointer-events:auto;font:700 12px var(--body);color:#d8c79e;background:rgba(15,8,5,.55);border:1px solid rgba(124,98,52,.7);border-radius:12px;padding:3px 10px;opacity:.6}#authOut:active,#authOut.arm{opacity:1;background:#5a1410;color:#fff}
 .screen{position:fixed;inset:0;display:grid;place-items:center;z-index:20;padding:16px;pointer-events:auto;
   background:radial-gradient(ellipse at 50% 30%,#3a1a12 0%,#150d09 60%,#0a0605 100%)}
 .card{width:min(420px,100%);padding:22px 22px 20px;text-align:center}
 .logo{font:700 clamp(40px,11vw,60px)/1 var(--display);letter-spacing:.07em;color:#f4d58a;text-shadow:0 0 22px rgba(255,120,40,.45),0 3px 0 #5c1d10;margin:0}
 .sub{color:var(--mut);margin:6px 0 16px;font-size:15px}
 .field{text-align:left;margin:12px 0 4px;font:700 13px var(--body);color:var(--gold);letter-spacing:.08em;text-transform:uppercase}
-#nameIn{width:100%;padding:9px 10px;font:500 18px var(--body);background:#0f0a06;color:var(--ink);border:1px solid var(--gold-d);border-radius:3px}
-.kings{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
-.kings label{cursor:pointer;border:1px solid var(--gold-d);border-radius:3px;padding:8px 4px;font-weight:700;background:#150e09}
-.kings input{position:absolute;opacity:0;pointer-events:none}
-.kings label:has(input:checked){background:#3b2a16;box-shadow:inset 0 0 0 1px var(--gold)}
-.kings .dot{display:block;width:16px;height:16px;border-radius:50%;margin:0 auto 4px;border:1px solid #000}
 .prog{height:10px;background:#0b0705;border:1px solid var(--gold-d);margin:14px 0 6px}
 .prog i{display:block;height:100%;width:0;background:linear-gradient(#f7d869,#a8841c);transition:width .2s}
 .help{margin-top:14px;font-size:13px;color:var(--mut);line-height:1.45;text-align:left}
 .help b{color:var(--ink)}
-#death{background:rgba(60,0,0,.55);z-index:15}
+/* ---- Ölüm ekranı (Metin2 tarzı: ortada kırmızı yazı, altında iki seçenek; oyun görünür kalır) ---- */
+#death{position:fixed;inset:0;z-index:25;pointer-events:none;display:grid;place-items:center;padding:12px}
+#death .dvig{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 46%,rgba(40,0,0,0) 12%,rgba(70,0,0,.32) 55%,rgba(18,0,0,.88) 100%);opacity:0;transition:opacity 1.8s ease}
+#death.show .dvig{opacity:1}
+#death .dbox{position:relative;text-align:center;transform:translateY(-3vh)}
+#death h1{margin:0;font:700 clamp(34px,min(13vw,19vh),96px)/1 var(--display);letter-spacing:.14em;padding-left:.14em;color:#b01410;text-shadow:0 0 14px rgba(255,40,16,.55),0 0 44px rgba(140,0,0,.7),0 3px 0 #2a0403,0 0 2px #000;opacity:0;transform:scale(1.18);filter:blur(7px);transition:opacity 1.5s ease-out,transform 1.7s cubic-bezier(.2,.7,.2,1),filter 1.5s ease-out}
+#death.show h1{opacity:1;transform:scale(1);filter:blur(0);animation:dthPulse 3.2s ease-in-out 1.8s infinite}
+@keyframes dthPulse{0%,100%{text-shadow:0 0 14px rgba(255,40,16,.5),0 0 44px rgba(140,0,0,.65),0 3px 0 #2a0403,0 0 2px #000}50%{text-shadow:0 0 22px rgba(255,60,30,.8),0 0 60px rgba(170,0,0,.85),0 3px 0 #2a0403,0 0 2px #000}}
+#death .dline{height:2px;width:0;margin:clamp(8px,2vh,16px) auto clamp(10px,2.6vh,22px);background:linear-gradient(90deg,transparent,#a37d3a 30%,#e6c273 50%,#a37d3a 70%,transparent);transition:width 1.4s ease .5s}
+#death.show .dline{width:min(380px,72vw)}
+#death .dbtns{display:flex;flex-direction:column;align-items:center;gap:clamp(6px,1.6vh,11px);opacity:0;transform:translateY(8px);transition:opacity .6s ease,transform .6s ease}
+#death.btns .dbtns{opacity:1;transform:none}
+#death .dbtn{pointer-events:none;width:min(310px,78vw);padding:clamp(7px,1.8vh,12px) 14px;cursor:pointer;font:700 clamp(15px,min(4.4vw,3.6vh),21px) var(--display);letter-spacing:.07em;color:#ead6a4;text-shadow:0 1px 2px #000;
+  background:radial-gradient(circle at 20% 30%,rgba(255,255,255,.05) 0 1px,transparent 2px) 0 0/7px 7px,radial-gradient(circle at 70% 60%,rgba(0,0,0,.25) 0 1px,transparent 2px) 0 0/5px 5px,linear-gradient(180deg,#4b4640,#2c2926 55%,#211f1c);
+  border:1px solid #8c6f39;border-radius:2px;box-shadow:inset 0 0 0 1px #14100c,inset 0 1px 0 rgba(255,236,190,.18),inset 0 -8px 14px rgba(0,0,0,.35),0 2px 9px rgba(0,0,0,.8)}
+#death.btns .dbtn{pointer-events:auto}
+#death .dbtn:hover,#death .dbtn:focus-visible{color:#fff3d0;border-color:#e0bb6a;outline:0;background:radial-gradient(circle at 20% 30%,rgba(255,255,255,.07) 0 1px,transparent 2px) 0 0/7px 7px,linear-gradient(180deg,#5d564c,#37322c 55%,#2a2723);box-shadow:inset 0 0 0 1px #14100c,inset 0 1px 0 rgba(255,236,190,.25),0 0 14px rgba(214,160,70,.35),0 2px 9px #000}
+#death .dbtn:active{transform:translateY(1px);filter:brightness(.9)}
 #err{color:#ff9a8a;margin-top:10px;font-size:14px}
 @media (max-height:520px){
   :root{--slot:clamp(30px,10.5vh,42px)}
@@ -445,7 +457,7 @@ body{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-c
     <h2 style="margin-top:14px;font-size:18px">Demirci Kaan</h2>
     <div class="row"><span>Silah <b id="shopWeap"></b><br><small id="shopOdds"></small></span><button class="btn" id="upg">Yükselt</button></div>
     <div class="row"><span>Yükseltme Taşı <small id="shopStone"></small></span><button class="btn" data-sbuy="1">Satın Al</button></div>
-    <h2 style="margin-top:14px;font-size:18px;color:#ffb84a">Efsanevi Kılıçlar</h2>
+    <h2 style="margin-top:14px;font-size:18px;color:#ffb84a">Efsanevi Kılıç ve Zırhlar</h2>
     <div id="legShop"></div>
     <div class="row"><span>Yang</span><b id="shopYang"></b></div></div>
 </div>
@@ -456,20 +468,10 @@ body{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-c
     <div id="splTrack"><i id="loadBar"></i></div><div id="splPct">0%</div>
     <p id="loadTxt">Valkor Dünyasına Hoş Geldin…</p><div id="err"></div></div>
 </div>
-<div id="login" class="screen hidden">
-  <div class="card panel"><h1 class="logo">Valkor</h1><p class="sub">Savaşçı yolu seni bekliyor.</p>
-    <div class="field">Karakter adı</div><input id="nameIn" maxlength="14" value="Yiğit" autocomplete="off" spellcheck="false">
-    <div class="field">Krallık</div>
-    <div class="kings">
-      <label><input type="radio" name="king" value="0" checked><span class="dot" style="background:#d33"></span>Kızıl</label>
-      <label><input type="radio" name="king" value="1"><span class="dot" style="background:#e3b52b"></span>Altın</label>
-      <label><input type="radio" name="king" value="2"><span class="dot" style="background:#3a7be0"></span>Mavi</label>
-    </div>
-    <p style="margin:18px 0 0"><button class="btn" id="go" style="font-size:19px;padding:10px 34px;font-family:var(--display)">Oyuna Gir</button></p>
-    <div class="help"><b>Dokunmatik:</b> sol alttaki joystick ile yürü, boş ekranı sürükleyerek kamerayı çevir, iki parmakla yakınlaştır. Sağ alttaki büyük tuş saldırır; çevresindeki yuvarlak tuşlar beceriler (Sv.5'te açılır), altındakiler iksirler.</div>
-  </div>
-</div>
-<div id="death" class="screen hidden"><div class="card panel"><h1 class="logo" style="font-size:42px;color:#ff8b7a">Öldün</h1><p class="sub">Canavarlar seni yendi. Köyde yeniden doğabilirsin.</p><button class="btn" id="respawn" style="font-size:18px;padding:9px 26px">Köyde Yeniden Başla</button></div></div>
+<link rel="stylesheet" href="auth/auth.css">
+<div id="auth" class="pre"></div>
+<button id="authOut" class="hidden" type="button" aria-label="Çıkış yap">⎋ Çıkış</button>
+<div id="death" class="hidden"><div class="dvig"></div><div class="dbox"><h1>ÖLDÜNÜZ</h1><div class="dline"></div><div class="dbtns"><button class="dbtn" id="reHere" type="button">Burada Yeniden Başla</button><button class="dbtn" id="reCity" type="button">Şehirde Yeniden Başla</button></div></div></div>
 
 <script type="importmap">
 {"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
@@ -637,6 +639,14 @@ const FCAMPS=[[0,-42],[38,34],[-52,28],[-30,-70],[70,-70],[-90,-90],[90,-92],[-9
 const F_RUINS=[[48,-12,.5],[-36,50,.5],[30,70,.5]];            // harabeler
 const F_CAVE={x:-58,z:-20,h:6.0};                              // mağara girişi (tepenin yamacında düzlük)
 const FHILLS=[[-70,-20,22,10],[62,12,20,8],[-20,62,18,7],[10,-96,16,7],[-92,60,22,9],[88,-34,18,7],[-8,18,14,3.5],[40,90,14,6]];   // x,z,yarıçap,yükseklik (+ tepe, − çukur)
+/* ---- Kara Göl: göl + bataklık (Kurbağa Bataklığı bölgesinin içinde; Kızıl Orman'ın kuzeydoğusunda) ---- */
+const LAKE_B=[[30,-38,11],[41,-31,6.5],[23,-30,5.2],[38,-46,5.5]];   // x, z, yarıçap: birleşik düzensiz göl gövdesi
+const LAKE_WL=-.30;            // su yüzeyi yüksekliği
+const LAKE_SWAMP=16;           // kıyıdan itibaren çamurlu bataklık kuşağı genişliği (m)
+const LAKE_ZONE=14;            // avlak bölgesi etiketi için kıyıdan uzaklık
+function lakeE(x,z){ if(x<-2||x>68||z>-4||z<-72) return 99; let e=1e9; for(const b of LAKE_B){ const dx=x-b[0], dz=z-b[1], th=Math.atan2(dz,dx); e=Math.min(e,Math.hypot(dx,dz)-b[2]*(1+.06*Math.sin(3*th+b[0]*.37)+.04*Math.sin(5*th+b[1]*.21))); } return e; }   // <0: gölün içi
+const FROG_SPOTS=[[13,-31,4,[1,2]],[14,-46,3,[2,3]],[24,-57,4,[3,5]],[28,-22,3,[3,4]]];   // x,z,sayı,seviye aralığı
+const CROC_SPOTS=[[48,-40,2,[7,8]],[41,-55,1,[8,9]],[53,-31,2,[8,9]],[53,-47,1,[9,10]]];   // x,z,sayı,seviye aralığı
 const FPITS=[[30,-25,10,-4],[-45,-52,12,-4.5],[55,60,11,-4],[-82,-70,10,-4],[12,38,8,-3]];
 /* ---- Valkor Kalesi: köy düzeni sabitleri (yalnız köy haritası; Kızıl Orman VILL_R'yi kullanmaya devam eder) ---- */
 const VR=58;                                         // sur yarıçapı
@@ -674,6 +684,7 @@ function hForest(x,z){
   for(const c of FCAMPS){ const w=1-smooth(5,15,Math.hypot(x-c[0],z-c[1])); if(w>0) h=h*(1-w); }
   for(const c of F_RUINS){ const w=1-smooth(6,15,Math.hypot(x-c[0],z-c[1])); if(w>0) h=h*(1-w)+c[2]*w; }
   { const w=1-smooth(4,9,Math.hypot(x-F_CAVE.x,z-F_CAVE.z)); if(w>0) h=h*(1-w)+F_CAVE.h*w; }
+  { const e=lakeE(x,z); if(e<LAKE_SWAMP){ const ws=1-smooth(3,LAKE_SWAMP,Math.max(e,0)), flat=.1+h*.1+.06*Math.sin(x*.5+z*.4); h=h*(1-ws)+flat*ws; if(e>0) h=Math.max(h,LAKE_WL+.2-8*smooth(4,10,e)); h-=3.4*smooth(1.5,-7,e); } }   // bataklık düzlüğü + göl yatağı
   return h*k;
 }
 function hAt(x,z){ return MAP.id==='forest'?hForest(x,z):hVillage(x,z); }
@@ -722,7 +733,7 @@ function makeTerrain(kind){
   const geo = new THREE.PlaneGeometry(size,size,seg,seg); geo.rotateX(-Math.PI/2);
   const p = geo.attributes.position, col = new Float32Array(p.count*3), c = new THREE.Color();
   const grassA = new THREE.Color(F?(NATURE?0x3f6030:0x4d7c32):0x5d7f40), grassB = new THREE.Color(F?(NATURE?0x233d1f:0x2c5424):0x3a5530), dirt = new THREE.Color(F?0x7a6040:0x8a7658), rock = new THREE.Color(0x7d7a6c), moss=new THREE.Color(0x35602a), cob=new THREE.Color(0x85847d);
-  const rn = rng(F?11:7);
+  const rn = rng(F?11:7); const swampG=new THREE.Color(0x2c4524), mud=new THREE.Color(0x4a3b29), wetMud=new THREE.Color(0x2a2218), bedC=new THREE.Color(0x1b231f);
   for(let i=0;i<p.count;i++){
     const x=p.getX(i), z=p.getZ(i), h=hf(x,z); p.setY(i,h);
     const d=Math.hypot(x,z), n=(Math.sin(x*.21)+Math.cos(z*.17)+Math.sin((x+z)*.09))/3;
@@ -738,6 +749,8 @@ function makeTerrain(kind){
       c.lerp(moss, .35*(.5+.5*Math.sin(x*.05+z*.07)));
       c.lerp(dirt, smooth(-1.2,-3.2,h)*.8 + (1-smooth(FOREST_CLEAR-3,FOREST_CLEAR+1,d))*.9);   // çukurlar ve açıklık toprak
       c.lerp(rock, smooth(.55,1.1,sl)*.75);                                                    // dik yamaçlar kaya
+      { const le=lakeE(x,z); if(le<LAKE_SWAMP){ const ws=1-smooth(3,LAKE_SWAMP,Math.max(le,0));   // bataklık: yosunlu çamur → ıslak çamur → göl yatağı
+          c.lerp(swampG, ws*.5*(.6+.4*n)); c.lerp(mud, smooth(10,2,le)*.7*(.75+.25*n)); c.lerp(wetMud, smooth(2.5,-.5,le)*.9); c.lerp(bedC, smooth(-.3,-2.5,le)); } }
     }
     col[i*3]=c.r; col[i*3+1]=c.g; col[i*3+2]=c.b;
   }
@@ -754,6 +767,7 @@ const villageTerrain=makeTerrain('village'); let terrain=villageTerrain; scene.a
 /* ---- engeller (ağaç, kaya, ev) ---- */
 let obstacles = []; const OBS={village:obstacles,forest:[]}; // {x,z,r} — aktif haritanın engelleri
 function addObstacle(x,z,r){ obstacles.push({x,z,r}); }
+function addLakeObstacles(){ for(const b of LAKE_B){ addObstacle(b[0],b[1],b[2]*.86); obstacles[obstacles.length-1].lake=true; } }
 
 (function buildWorld(){
   const Y = new THREE.Object3D();
@@ -1115,7 +1129,7 @@ let bannerT=0; function banner(t){ const b=$('banner'); b.textContent=t; b.class
 const CORE=(()=>{
   const RANK_MIN=-20000, RANK_MAX=20000, RANK_LVGAP=9;
   const RANKS=[[0,'Gezgin','#A9A9A9'],[1000,'İzci','#8BD66B'],[4000,'Avcı','#35C96B'],[8000,'Muhafız','#36C9C5'],[12000,'Şövalye','#70B9F5'],[15000,'Fatih','#4285E8'],[17000,'Hükümdar','#AD75E8'],[18500,'Efsanevi','#E7B84B'],[19500,'Ölümsüz','#FFD700']];
-  const RANK_REWARD={wolf:[2,.4],mage:[3,.5],orc:[3,.5],fboss:[40,4],mboss:[45,4],boss:[50,5],stone:[25,2]};   // tür: [taban puan, seviye başına ek]
+  const RANK_REWARD={wolf:[2,.4],croc:[4,.6],mage:[3,.5],orc:[3,.5],fboss:[40,4],mboss:[45,4],boss:[50,5],stone:[25,2]};   // tür: [taban puan, seviye başına ek]
   const RANK_DEFAULT=[2,.4];
   const rankIdx=p=>{ let r=0; for(let i=0;i<RANKS.length;i++) if(p>=RANKS[i][0]) r=i; return r; };
   const rankOf=p=>{ const i=rankIdx(p), r=RANKS[i]; return {idx:i,name:r[1],color:r[2],min:r[0]}; };
@@ -1148,7 +1162,7 @@ const CORE=(()=>{
   return {RANK_MIN,RANK_MAX,RANK_LVGAP,RANKS,RANK_REWARD,rankIdx,rankOf,rankReward,rankSum,rankGain,expNeed,maxHP,maxSP,defPow,dodgeCh,hitCh,critCh,mobBase,mobHP,mobExp,mobDamage,playerAttack,damageToPlayer,killRewards};
 })();
 /*CORE-END*/
-const S = { name:'Yiğit', king:0, rp:0, guild:'', lvl:1, exp:0, yang:0, pts:0, qd:0, rst:0, inv:null, eq:null, st:5, vit:5, int:4, dex:4, weap:0, wr:{a:0,m:0}, red:5, blue:5, hp:1, sp:1, buff:0, buffAtk:1.3, buffRed:.75, haste:0, hasteMul:1.3, sk:{cut:0,spin:0,fire:0,body:0,heal:0,dash:0,curse:0,ice:0}, shield:0, shieldT:0, regenT:0, regenAmt:0, dead:false, combat:0 };
+const S = { name:'Yiğit', king:0, rp:0, guild:'', pt:0, lvl:1, exp:0, yang:0, pts:0, qd:0, rst:0, inv:null, eq:null, st:5, vit:5, int:4, dex:4, weap:0, wr:{a:0,m:0}, red:5, blue:5, hp:1, sp:1, buff:0, buffAtk:1.3, buffRed:.75, haste:0, hasteMul:1.3, sk:{cut:0,spin:0,fire:0,body:0,heal:0,dash:0,curse:0,ice:0}, shield:0, shieldT:0, regenT:0, regenAmt:0, dead:false, combat:0 };
 
 /* ============================== DERECE SİSTEMİ ==============================
    Puan yalnızca canavar öldürerek kazanılır (grantRank). PvP, ölüm, zaman ve bölge puanı değiştirmez.
@@ -1269,6 +1283,24 @@ for(const [id,L] of Object.entries(LEGEND_WEAPONS)){
     info:()=>[`<span style="color:#ffb84a">${L.name}</span>`,`${L.cls} · <span style="color:#ffb84a">${L.rarity}</span> · Sv.${L.reqLv}${S.lvl<L.reqLv?' <span style="color:#f88">(seviyen yetmiyor)</span>':''}`,
       `Saldırı: ${L.atk} · Büyü saldırısı: ${L.mag}`,`Saldırı hızı: +${L.aspd} · Kritik: +%${L.crit}`,`<i style="color:#cdbb9a">${L.desc}</i>`]});
 }
+/* ===================== ZIRH SETLERİ (merkezi tanım) =====================
+   Her set ayrı GLB parçalarından oluşur: models/armor/<set>/<parça>.glb.b64.txt (savaşçının bağlama pozunda, cm, aynı Mixamo kemik adları).
+   Parçalar oyuncunun kendi iskeletine bağlanır (SkinnedMesh), yani her animasyonla birlikte bükülür. Eşya → parça listesi buradan değiştirilir;
+   ileride ayrı slotlar (omuz, eldiven, bacak) eklenince yalnızca bu tablo bölünür. def: savunma bonusu. */
+const ARMOR_PIECES={gogusluk:'Göğüslük',sirt:'Sırt zırhı + pelerin',omuzluk_l:'Sol omuzluk',omuzluk_r:'Sağ omuzluk',kol_l:'Sol kol koruması',kol_r:'Sağ kol koruması',
+  eldiven:'Eldivenler',bel:'Bel zırhı',bacak_l:'Sol bacak zırhı',bacak_r:'Sağ bacak zırhı',botlar:'Botlar'};
+const ARMOR_ITEMS={
+  kanli_kral_zirh:{name:'Kanlı Kral Zırhı',slot:'armor',set:'kanli_kral',reqLv:20,price:150000,def:22,
+    pieces:['gogusluk','sirt','omuzluk_l','omuzluk_r','kol_l','kol_r','eldiven','bel','bacak_l','bacak_r'],
+    desc:'Kafataslarıyla süslü kara çelik plakalar, kızıl damarlı işlemeler ve yırtık kızıl pelerin. Göğüslük, sırt, omuzluklar, kol korumaları, eldivenler, bel ve bacak zırhları.'},
+  kanli_kral_bot:{name:'Kanlı Kral Botları',slot:'boots',set:'kanli_kral',reqLv:20,price:40000,def:7,pieces:['botlar'],
+    desc:'Topuk mahmuzlu, burnu zırhlı kara çelik botlar.'}
+};
+for(const [id,A] of Object.entries(ARMOR_ITEMS)){ A.id=id; A.icon=A.icon||`img/armor/${id}.webp`;
+  registerItem(id,{name:A.name,img:'ar_'+id,icon:A.icon,slot:A.slot,kind:'zırh',leg:true,reqLv:A.reqLv,desc:A.desc,
+    info:()=>[`<span style="color:#ffb84a">${A.name}</span>`,`${A.slot==='boots'?'Bot':'Zırh'} · <span style="color:#ffb84a">Efsanevi</span> · Sv.${A.reqLv}${S.lvl<A.reqLv?' <span style="color:#f88">(seviyen yetmiyor)</span>':''}`,
+      `Savunma: +${A.def}`,`Parçalar: ${A.pieces.map(p=>ARMOR_PIECES[p]).join(', ')}`,`<i style="color:#cdbb9a">${A.desc}</i>`]}); }
+const armorDef=()=>{ let d=0; for(const e of EQS){ const it=S.eq&&S.eq[e.id], A=it&&ARMOR_ITEMS[it.id]; if(A) d+=A.def; } return d; };
 const swEq=()=>!!(S.eq&&S.eq.w1&&S.eq.w1.id==='sword');   // Demir Kılıç sağ el slotunda takılı mı
 const legEq=()=>{ const it=S.eq&&S.eq.w1; return it&&LEGEND_WEAPONS[it.id]?LEGEND_WEAPONS[it.id]:null; };   // sağ elde (w1) efsanevi silah
 const wAtk=()=>{ const L=legEq(); return L?L.atk:swEq()?S.wr.a:0; }, wMag=()=>{ const L=legEq(); return L?L.mag:swEq()?S.wr.m:0; },
@@ -1283,7 +1315,7 @@ function takeStones(n){ for(let i=0;i<S.inv.length&&n>0;i++){ const it=S.inv[i];
 const weapMul = () => 1;   // eski çarpan kaldırıldı: silah gücü artık düz saldırı değeri (wAtk/wMag)
 const atkPow = () => (10+S.lvl*3+S.st*1.5+wAtk())*(S.buff>0?(S.buffAtk||1.3):1);
 const magPow = () => (10+S.lvl*3+S.st*1.5+wMag())*magMul()*(S.buff>0?(S.buffAtk||1.3):1);
-const defPow = () => CORE.defPow(S.lvl,S.vit);
+const defPow = () => CORE.defPow(S.lvl,S.vit)+armorDef();
 const dodgeCh = () => CORE.dodgeCh(S.dex), hitCh = () => CORE.hitCh(S.dex), magMul = () => 1+S.int*.006, critCh = () => CORE.critCh(S.dex)+wCrit();
 const MAGCOL=new Set([0xff8a2a,0xbfeaff,0x9be4ff]);
 const qOf = () => S.lvl>=30?3:Math.min(3,Math.floor(S.exp/expNeed(S.lvl)*4));
@@ -1291,9 +1323,9 @@ const qOf = () => S.lvl>=30?3:Math.min(3,Math.floor(S.exp/expNeed(S.lvl)*4));
 function addStat(k){ if(!(k in BASESTAT)) return; if(S.pts<=0){ say('Stat puanın yok.','c-bad'); return; } if(S[k]>=STATCAP){ say(STATD[k][0]+' en yüksek değerde ('+STATCAP+').','c-bad'); return; } S.pts--; S[k]++; if(k==='vit') S.hp+=8; if(k==='int') S.sp+=5; saveGame(); renderMenu(true); }
 /* ileride NPC / özel eşya için: tüm dağıtılan stat puanlarını iade eder */
 function resetStats(){ let refund=0; for(const k in BASESTAT){ refund+=S[k]-BASESTAT[k]; S[k]=BASESTAT[k]; } S.pts+=refund; S.rst=(S.rst|0)+1; S.hp=Math.min(S.hp,maxHP()); S.sp=Math.min(S.sp,maxSP()); saveGame(); renderMenu(true); return refund; }
-const LEGACY_SAVE=['kizil','vadi'].join('')+'.v1', LEGACY_WM=['kizil','vadi'].join('')+'.wm';   // eski sürümlerden kayıt taşıma (adlar parçalı: dosyada eski ad kalmasın)
-function saveGame(){ safe(()=>localStorage.setItem('valkor.v1',JSON.stringify({name:S.name,king:S.king,lvl:S.lvl,exp:S.exp,yang:S.yang,pts:S.pts,qd:S.qd,rst:S.rst,inv:S.inv,eq:S.eq,st:S.st,vit:S.vit,int:S.int,dex:S.dex,weap:S.weap,wr:S.wr,red:S.red,blue:S.blue,sk:S.sk,rp:S.rp,rk:rankSum(S.rp),guild:S.guild}))); }
-function loadGame(){ try{ initInv(); }catch(e){} const d=safe(()=>JSON.parse(localStorage.getItem('valkor.v1')||localStorage.getItem(LEGACY_SAVE)||'null')); if(d&&typeof d==='object'){ for(const k of Object.keys(d)) if(k!=='sk'&&k in S && typeof d[k]===typeof S[k]) S[k]=d[k]; sanitizeSkills(d.sk); initInv(); for(const k in BASESTAT) S[k]=Math.max(BASESTAT[k],Math.min(STATCAP,Math.floor(S[k])||BASESTAT[k])); S.pts=Math.max(0,Math.floor(S.pts)||0); if(d.qd===undefined) S.qd=qOf(); S.qd=Math.max(0,Math.min(3,S.qd|0)); S.rp=(typeof d.rp==='number'&&isFinite(d.rp)&&d.rk===rankSum(d.rp))?Math.max(RANK_MIN,Math.min(RANK_MAX,Math.round(d.rp))):0; S.guild=typeof d.guild==='string'?d.guild.slice(0,16):''; fixWeapon(); return true; } fixWeapon(); return false; }
+let SAVEKEY='valkor.v1.guest'; const LEGACY_SAVE=['kizil','vadi'].join('')+'.v1', LEGACY_WM=['kizil','vadi'].join('')+'.wm';   // eski sürümlerden kayıt taşıma (adlar parçalı: dosyada eski ad kalmasın)
+function saveGame(){ safe(()=>localStorage.setItem(SAVEKEY,JSON.stringify({name:S.name,king:S.king,pt:Math.floor(S.pt),lvl:S.lvl,exp:S.exp,yang:S.yang,pts:S.pts,qd:S.qd,rst:S.rst,inv:S.inv,eq:S.eq,st:S.st,vit:S.vit,int:S.int,dex:S.dex,weap:S.weap,wr:S.wr,red:S.red,blue:S.blue,sk:S.sk,rp:S.rp,rk:rankSum(S.rp),guild:S.guild}))); }
+function loadGame(){ try{ initInv(); }catch(e){} const d=safe(()=>JSON.parse(localStorage.getItem(SAVEKEY)||'null')); if(d&&typeof d==='object'){ for(const k of Object.keys(d)) if(k!=='sk'&&k in S && typeof d[k]===typeof S[k]) S[k]=d[k]; sanitizeSkills(d.sk); initInv(); for(const k in BASESTAT) S[k]=Math.max(BASESTAT[k],Math.min(STATCAP,Math.floor(S[k])||BASESTAT[k])); S.pts=Math.max(0,Math.floor(S.pts)||0); if(d.qd===undefined) S.qd=qOf(); S.qd=Math.max(0,Math.min(3,S.qd|0)); S.rp=(typeof d.rp==='number'&&isFinite(d.rp)&&d.rk===rankSum(d.rp))?Math.max(RANK_MIN,Math.min(RANK_MAX,Math.round(d.rp))):0; S.guild=typeof d.guild==='string'?d.guild.slice(0,16):''; fixWeapon(); return true; } fixWeapon(); return false; }
 
 /* ============================== oyuncu karakteri (FBX) ============================== */
 const playerGroup = new THREE.Group(); scene.add(playerGroup);
@@ -1382,7 +1414,7 @@ function addSwordFx(g){ swHalo=[]; for(const y of [.3,.75,1.15]){ const sp=new T
 function applySwordLook(n){ n=Math.max(0,Math.min(9,n|0)); const L=SWL[n]; swFxLv=n;
   if(swMat){ swMat.color.setHex(L.c); swMat.emissive.setHex(L.e); swMat.emissiveIntensity=L.ei; if(swMat.map&&!swMat.emissiveMap) swMat.emissiveMap=swMat.map; swMat.needsUpdate=true; }
   swHalo.forEach(s=>s.material.color.setHex(SWHC[n])); if(swAura) swAura.material.color.setHex(n>=9?0xff6a10:0xffffff); }
-function updateSwordFx(dt,time){ const want=handWant(); if(want!==SWKEY) swapHandWeapon(want); if(!sword) return;
+function updateSwordFx(dt,time){ syncArmor(); const want=handWant(); if(want!==SWKEY) swapHandWeapon(want); if(!sword) return;
   if(SWKEY!=='base'){ updateLegendFx(dt,time); return; } sword.visible=true;
   const n=Math.max(0,Math.min(9,S.weap|0)); if(n!==swFxLv) applySwordLook(n);
   const L=SWL[n], pul=.5+.5*Math.sin(time*(n>=9?5.5:3));
@@ -1392,6 +1424,33 @@ function updateSwordFx(dt,time){ const want=handWant(); if(want!==SWKEY) swapHan
   if(n>=7){ swAcc+=dt*L.pr; while(swAcc>=1){ swAcc-=1; _swv.set((Math.random()-.5)*.08,.25+Math.random()*.95,(Math.random()-.5)*.08); sword.localToWorld(_swv); burst(_swv,n>=9?(Math.random()<.5?0xffc040:0xff6a20):n>=8?0xffd070:0xc090ff,1,n>=9?1.6:1,.55,.16,n>=9?-2:-.5); } }
   if(n>=9){ swRing-=dt; if(swRing<=0){ swRing=2.6; ringFx(P.pos,1.5,0xffc050,.8,.15); } } }
 const _swv=new THREE.Vector3();
+
+/* ===================== zırh parçaları: yükle / oyuncu iskeletine bağla / çıkar =====================
+   İstenen parça kümesi ekipmandan (S.eq) hesaplanır; eksik parça ayrı GLB olarak yüklenir, fazla parça kaldırılır.
+   Bağlama: GLB'deki kemik indeksleri adla oyuncu iskeletine eşlenir ve gövde parçalarıyla aynı bind() kullanılır. */
+const ARMOR={on:{},glb:{},pend:{},fail:{},mats:{}};
+function armorWant(){ const w=new Set(); if(!S.eq) return w; for(const e of EQS){ const it=S.eq[e.id], A=it&&ARMOR_ITEMS[it.id]; if(A) A.pieces.forEach(p=>w.add(A.set+'/'+p)); } return w; }
+function loadArmor(k){ if(ARMOR.pend[k]||ARMOR.glb[k]||ARMOR.fail[k]) return; const [set,p]=k.split('/'), url=`models/armor/${set}/${p}.glb.b64.txt`;
+  ARMOR.pend[k]=fetch(url).then(r=>{ if(!r.ok) throw new Error(url+' ('+r.status+')'); return r.text(); })
+    .then(t=>{ const b=atob(t.trim()), u=new Uint8Array(b.length); for(let i=0;i<b.length;i++) u[i]=b.charCodeAt(i); return new Promise((ok,no)=>new GLTFLoader().parse(u.buffer,'',ok,no)); })
+    .then(g=>{ ARMOR.glb[k]=g; }).catch(e=>{ ARMOR.fail[k]=true; console.error('[Zırh] parça yüklenemedi: '+k,e); }).finally(()=>{ delete ARMOR.pend[k]; }); }
+function armorMat(mt){ let m=ARMOR.mats[mt.name]; if(m) return m;   // aynı ad = aynı malzeme (parçalar arasında doku paylaşılır)
+  m=mt; m.envMap=weaponEnv(); m.envMapIntensity=/cloth|tabard|bone|eye|void/.test(mt.name)?.25:.55; if(/metal|tabard|eye/.test(mt.name)) m.emissiveIntensity=1.6; m.side=THREE.DoubleSide; m.needsUpdate=true;
+  if(m.map) m.map.anisotropy=4; ARMOR.mats[mt.name]=m; return m; }
+function attachArmor(k){ let hs=null; model.traverse(o=>{ if(!hs&&o.isSkinnedMesh&&!o.userData.armor) hs=o; }); if(!hs) return;
+  const sk=hs.skeleton, idx=new Map(sk.bones.map((b,i)=>[b.name,i])), list=[];
+  ARMOR.glb[k].scene.traverse(o=>{ if(!o.isSkinnedMesh) return;
+    const g=o.geometry.clone(), si=g.attributes.skinIndex, map=o.skeleton.bones.map(b=>idx.has(b.name)?idx.get(b.name):-1);
+    if(map.includes(-1)) console.warn('[Zırh] '+k+': eşleşmeyen kemik var');
+    const arr=new Uint16Array(si.count*4); for(let i=0;i<si.count;i++) for(let c=0;c<4;c++) arr[i*4+c]=Math.max(0,map[si.getComponent(i,c)]);
+    g.setAttribute('skinIndex',new THREE.Uint16BufferAttribute(arr,4));
+    const mats=(Array.isArray(o.material)?o.material:[o.material]).map(armorMat);
+    const m=new THREE.SkinnedMesh(g,mats.length>1?mats:mats[0]); m.name='armor:'+k; m.userData.armor=k; m.frustumCulled=false; m.castShadow=true;
+    hs.parent.add(m); m.bind(sk,hs.bindMatrix.clone()); list.push(m); });
+  ARMOR.on[k]=list; }
+function syncArmor(){ if(!model) return; const want=armorWant();
+  for(const k in ARMOR.on) if(!want.has(k)){ for(const m of ARMOR.on[k]){ m.parent&&m.parent.remove(m); m.geometry.dispose(); } delete ARMOR.on[k]; }
+  for(const k of want){ if(ARMOR.on[k]||ARMOR.fail[k]) continue; if(ARMOR.glb[k]) attachArmor(k); else loadArmor(k); } }
 
 /* ===================== ortak silah soketi: sağ el (SWHAND = RightHand) + SWCFG tutuş noktası =====================
    Elde gösterilecek model sağ el slotundan (w1) belirlenir: efsanevi silah → kendi GLB'si, Demir Kılıç → WMODELS görünümü, boş → el boş.
@@ -1690,6 +1749,7 @@ function grassDensity(x,z){
   let dn=.12+.78*n*n; let cd=1e9; for(const c of camps) cd=Math.min(cd,Math.hypot(x-c[0],z-c[1])-c[2]);
   if(cd<18) dn+=.5*(1-Math.max(0,cd)/18);
   const d=Math.hypot(x,z); if(d<cr+5) dn*=Math.max(0,(d-cr-1.5)/3.5);
+  if(F){ const le=lakeE(x,z); if(le<LAKE_SWAMP) dn*=.12+.88*smooth(0,LAKE_SWAMP,Math.max(le,0)); }
   return Math.min(1,dn);
 }
 /* ---- Shapespark Low Poly Plants Kit (FBX): ağaç / çalı / çit / ot / çiçek ---- */
@@ -1701,6 +1761,7 @@ function forestKeep(x,z,pad=0){
   for(const c of F_RUINS) if(Math.hypot(x-c[0],z-c[1])<10+pad) return true;
   if(Math.hypot(x-F_CAVE.x,z-F_CAVE.z)<14+pad) return true;
   for(const e of FPITS) if(Math.hypot(x-e[0],z-e[1])<e[2]*1.35+pad) return true;
+  if(lakeE(x,z)<5+pad) return true;
   return false; }
 function groundMin(x,z,rad){ let m=hForest(x,z); for(let i=0;i<6;i++){ const a=i*1.0472; m=Math.min(m,hForest(x+Math.cos(a)*rad,z+Math.sin(a)*rad)); } return m; }
 function groundSlope(x,z,rad){ let lo=1e9,hi=-1e9; for(let i=0;i<6;i++){ const a=i*1.0472, h=hForest(x+Math.cos(a)*rad,z+Math.sin(a)*rad); lo=Math.min(lo,h); hi=Math.max(hi,h); } return hi-lo; }
@@ -1873,12 +1934,13 @@ function fxPlay(fx,name,fade=.15){
   if(from&&from!==to) from.crossFadeTo(to,fade,false); else to.fadeIn(fade);
   fx.cur=name; fx.curA=to; if(fx.tongue) fx.tongue.visible=(name==='tongue'||name==='catchfly'); return true;
 }
-function fxCanAtk(fx){ return !fx.dead&&fx.atkT<=0&&fx.lockT<=0&&fx.cur!=='hop'&&!!fx.acts.tongue; }
-function fxAttack(fx){ if(!fxCanAtk(fx)) return; fxPlay(fx,'tongue',.1); fx.atkT=fx.atkDur; fx.lockT=0; }
+function fxCanAtk(fx){ return !fx.dead&&fx.atkT<=0&&fx.lockT<=0&&fx.cur!=='hop'&&!!fx.acts[fx.atkName||'tongue']; }
+function fxAttack(fx){ if(!fxCanAtk(fx)) return; fxPlay(fx,fx.atkName||'tongue',.1); fx.atkT=fx.atkDur; fx.lockT=0; }
 function fxDeath(fx){ if(fx.dead) return; for(const k in fx.acts){ if(k!==fx.cur&&k!=='death') fx.acts[k].stop(); } fxPlay(fx,'death',.12); fx.dead=true; fx.atkT=0; fx.lockT=0; }
 function fxReset(fx){ for(const k in fx.acts) fx.acts[k].stop(); fx.dead=false; fx.atkT=0; fx.lockT=0; fx.sinceHit=9; fx.cur='idle'; fx.curA=fx.acts.idle||null; if(fx.curA){ fx.curA.reset(); fx.curA.setEffectiveWeight(1); fx.curA.play(); } }
 // her kare: kurbağa durum makinesi; geri dönen değer = o karedeki fiili yürüme hızı (zıplarken havadayken ilerler)
 function fxStep(m,fx,mvIn,dt){
+  if(fx.kind==='croc') return crocStep(m,fx,mvIn,dt);
   if(fx.dead) return 0;
   fx.sinceHit+=dt; fx.lockT=Math.max(0,fx.lockT-dt); fx.atkT=Math.max(0,fx.atkT-dt);
   if(fx.atkT>0) return 0;                                                     // saldırı sürerken kıpırdama / başka animasyon başlatma
@@ -1917,6 +1979,37 @@ function makeFrog(){
   const mat=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.35,metalness:0,side:THREE.DoubleSide});
   const me=new THREE.Mesh(FROG.geo,mat); me.castShadow=true; me.frustumCulled=false; hop.add(me); head.add(hop); g.add(head);
   return {g,legs:[],head,tail:null,arms:[],hop,frog:true,h:FROG.h+.2};
+}
+/* ---- Timsah (crocodile-light.fbx → iskeletlendirilmiş GLB): Idle · Walk · Attack · Hit · Death ---- */
+let CROC=null; const CROC_SCALE=.8;   // model 4.5 m → oyunda ~3.6 m (Nil timsahı)
+function prepCroc(glb){
+  const clips={}, report=[]; for(const c of glb.animations){ const k=c.name.toLowerCase(); clips[k]=c; report.push(c.name); }
+  let sk=false; glb.scene.traverse(o=>{ if(o.isSkinnedMesh) sk=true; }); if(!sk) throw new Error('GLB içinde iskeletli mesh bulunamadı');
+  for(const need of ['idle','walk','attack','hit','death']) if(!clips[need]) console.error('[Timsah] gerekli animasyon yok: '+need+' (mevcut: '+report.join(', ')+')');
+  fixVC(glb,1.3); CROC={scene:glb.scene,clips,h:.9};
+  console.info('[Timsah] klipler: '+report.join(', '));
+}
+function makeCroc(){
+  const root=cloneSkinned(CROC.scene); root.scale.setScalar(CROC_SCALE); const g=new THREE.Group(); g.add(root);
+  root.traverse(o=>{ if(o.isSkinnedMesh){ o.material=o.material.clone(); o.castShadow=!coarse; o.frustumCulled=false; } });
+  const mixer=new THREE.AnimationMixer(root), acts={};
+  for(const k in CROC.clips){ const a=mixer.clipAction(CROC.clips[k]); acts[k]=a; if(k!=='idle'&&k!=='walk'){ a.setLoop(THREE.LoopOnce,1); a.clampWhenFinished=true; } }
+  const dur=k=>acts[k]?acts[k].getClip().duration:0;
+  const fx={kind:'croc',atkName:'attack',mixer,acts,cur:'idle',curA:acts.idle||null,lockT:0,atkT:0,dead:false,sinceHit:9,ts:{idle:1,walk:1,attack:1,hit:1,death:1},atkDur:dur('attack')||1,atkImpact:.42};
+  if(acts.idle){ acts.idle.play(); acts.idle.time=R()*dur('idle'); }
+  return {g,legs:[],arms:[],head:null,tail:null,h:CROC.h,fx,root};
+}
+function crocStep(m,fx,mvIn,dt){
+  if(fx.dead) return 0;
+  fx.sinceHit+=dt; fx.lockT=Math.max(0,fx.lockT-dt); fx.atkT=Math.max(0,fx.atkT-dt);
+  if(fx.atkT>0) return 0;                                             // ısırma sürerken yürüme / başka klip yok
+  if(fx.cur==='attack') fxPlay(fx,'idle',.2);
+  if(m.hitReq){ m.hitReq=false; if(fx.sinceHit>.9&&fx.acts.hit){ fx.sinceHit=0; fxPlay(fx,'hit',.08); fx.lockT=fx.acts.hit.getClip().duration; } }
+  if(fx.lockT>0) return 0;
+  if(fx.cur==='hit') fxPlay(fx,'idle',.15);
+  if(mvIn>0&&fx.acts.walk){ if(fx.cur!=='walk') fxPlay(fx,'walk',.15); fx.acts.walk.timeScale=clamp(mvIn/1.15,.7,2.3); return mvIn; }
+  if(fx.cur!=='idle') fxPlay(fx,'idle',.25);
+  return 0;
 }
 function makeWolf(){
   if(FROG2) return makeFrog2();
@@ -2015,6 +2108,7 @@ function makeFrogBoss(){ const b=makeWolf(); if(b.root) b.root.traverse(o=>{ if(
 /* Kızıl Orman seviye aralığı 1-15: Kurbağa 1-5 · Gölge Elfi 5-10 · Ork 10-15; her türün kendi bölgesi ve bossu var */
 const TYPES={
   wolf:{name:'Kurbağa',mk:makeWolf,hp:1,atk:1.15,exp:1,speed:3.1,aggro:8,range:1.5,cd:1.4,scale:1,hit:.85},
+  croc:{name:'Timsah',mk:()=>CROC?makeCroc():makeWolf(),hp:1.5,atk:1.4,exp:1.45,speed:2.2,aggro:9,range:2.7,cd:1.9,scale:1,hit:1.3},
   mage:{name:'Gölge Elfi',mk:()=>MAGE?makeMage(false):(MAW?makeMaw(false):makeOrc(false)),hp:1.25,atk:1.55,exp:1.2,speed:2.6,aggro:11,range:8,cd:2.7,scale:1,hit:.8,ranged:true},
   orc:{name:'Ork Savaşçısı',mk:()=>MAW?makeMaw(false):makeOrc(false),hp:1.35,atk:1.0,exp:1.3,speed:2.5,aggro:9,range:2.1,cd:1.8,scale:1,hit:1.1},
   fboss:{name:'Dev Kurbağa',mk:makeFrogBoss,hp:10.7,atk:2.0,exp:11,speed:3.0,aggro:12,range:2.2,cd:1.7,scale:2.5,hit:.85,boss:true,aura:0x9a4cff},
@@ -2090,13 +2184,37 @@ function playerHit(m,mul,crit=false,quiet=false,col=0){
   if(m.type==='stone'){ const frac=m.hp/m.maxHp; const stage=frac<.25?3:frac<.5?2:frac<.75?1:0; while(m.spawned<stage){ m.spawned++; banner('Mühür Taşı canavar çağırdı!'); for(let i=0;i<3;i++){ const a=R()*6.28; const zt=zoneTypeAt(m.group.position.x,m.group.position.z), w=spawnMob(zt.type,clamp(m.lvl-1,zt.l0,zt.l1),m.group.position.x+Math.cos(a)*4,m.group.position.z+Math.sin(a)*4,true); w.state='chase'; } } }
   if(m.hp<=0) killMob(m);
 }
+/* ---- Ölüm / yeniden doğma: tek seferlik tetik, harita bazlı doğma noktası (MAPS[id].spawn) ---- */
+const DEATH={t:0,busy:false,grace:0,count:0};
+function killPlayer(){
+  if(S.dead) return;                                                  // yalnız bir kez tetiklenir
+  S.hp=0; S.dead=true; S.shield=0; S.shieldT=0; S.haste=0; S.regenT=0; S.combat=0; P.dash=null; P.target=null; P.dest=null; P.atk=null; P.flinch=0; DEATH.count++;
+  for(const k in keys) keys[k]=false; joy.on=false; joy.x=joy.y=0;
+  const d=$('death'); clearTimeout(DEATH.t); d.classList.remove('hidden','show','btns'); void d.offsetWidth; d.classList.add('show'); DEATH.t=setTimeout(()=>d.classList.add('btns'),1800);
+  SFX.die(); say('Öldünüz.','c-bad');
+}
+async function respawnPlayer(mode){                                    // mode: 'here' | 'city'
+  if(!S.dead||DEATH.busy||TRAVEL.busy) return; DEATH.busy=true; const d=$('death'); clearTimeout(DEATH.t); d.classList.remove('btns');
+  try{
+    mapFadeTxt.textContent=''; mapFadeSub.textContent=''; mapFadeEl.style.pointerEvents='auto'; mapFadeEl.style.opacity='1'; await wait(380);
+    if(!S.dead) return;
+    if(mode==='city'){ const sp=MAPS[MAP.id].spawn; placePlayer(sp.x,sp.z,sp.yaw); }          // bulunduğu haritanın tanımlı doğma noktası
+    else { P.pos.y=hAt(P.pos.x,P.pos.z); }                                                       // öldüğü yerde
+    const k=mode==='city'?1:.5; S.dead=false; S.hp=Math.max(1,Math.round(maxHP()*k)); S.sp=Math.round(maxSP()*k);
+    S.shield=0; S.shieldT=0; S.haste=0; S.regenT=0; S.combat=0; P.dest=null; P.target=null; P.atk=null; P.dash=null; P.flinch=0; P.deadAt=0; P.deadT=0; P.mounted=false;
+    HOLDER.rotation.set(0,0,0); HOLDER.position.y=HBASE; try{ setAnim('idle',.1); }catch(e){}
+    DEATH.grace=performance.now()+2500;                                                           // kısa süreli koruma: anında tekrar öldürülmesin
+    d.classList.remove('show','btns'); d.classList.add('hidden');
+    say(mode==='city'?'Şehirde yeniden doğdunuz.':'Öldüğünüz yerde yeniden doğdunuz.','c-sys');
+  } finally { await wait(260); mapFadeEl.style.opacity='0'; await wait(380); if(!TRAVEL.busy) mapFadeEl.style.pointerEvents='none'; DEATH.busy=false; }
+}
 function damagePlayer(n,src){
-  if(S.dead) return; if(R()<dodgeCh()){ popup('KAÇTI',P.pos.clone().setY(P.pos.y+2.1),'heal'); return; } const red=(S.buff>0?(S.buffRed||.75):1); n=CORE.damageToPlayer(n,defPow(),red); S.combat=6;
+  if(S.dead||performance.now()<DEATH.grace) return; if(R()<dodgeCh()){ popup('KAÇTI',P.pos.clone().setY(P.pos.y+2.1),'heal'); return; } const red=(S.buff>0?(S.buffRed||.75):1); n=CORE.damageToPlayer(n,defPow(),red); S.combat=6;
   if(S.shield>0){ const ab=Math.min(S.shield,n); S.shield-=ab; n-=ab; popup('Emildi '+ab,P.pos.clone().setY(P.pos.y+2.1),'heal'); iceHitFx(ab); if(S.shield<=0){ S.shield=0; S.shieldT=0; iceBreakFx(); say('Buz Kalkanı kırıldı.','c-sys'); } if(n<=0) return; }
   S.hp-=n; P.flinch=.25;
   popup(String(n),P.pos.clone().setY(P.pos.y+2.1),'me'); SFX.hurt();
   if(HAS3&&actions.dmg&&S.hp>0&&!P.atk&&!P.mounted&&(P.anim==='idle'||P.anim==='cidle')&&performance.now()-lastDmgAnim>1200){ lastDmgAnim=performance.now(); setAnim('dmg',.08); }
-  if(S.hp<=0){ S.hp=0; S.dead=true; S.shield=0; S.shieldT=0; S.haste=0; S.regenT=0; P.dash=null; P.target=null; P.dest=null; P.atk=null; $('death').classList.remove('hidden'); SFX.die(); say('Öldün.','c-bad'); }
+  if(S.hp<=0) killPlayer();
 }
 /* ============================== SKİLLER (8 skill + 2 iksir, 10 slot) ============================== */
 const SKD={
@@ -2351,11 +2469,12 @@ canvas.addEventListener('wheel',e=>{ e.preventDefault(); cam.dist=clamp(cam.dist
 function toggleWin(id){ if(id==='sta') id='chr'; const mw=$('mw'); if(!mw.classList.contains('hidden')&&MTAB===id){ closeWins(); return; } $('shop').classList.add('hidden'); mw.classList.remove('hidden'); setTab(id); }
 function closeWins(){ $('mw').classList.add('hidden'); $('shop').classList.add('hidden'); }
 document.addEventListener('click',e=>{
-  const t=e.target.closest('[data-win],[data-close],[data-buy],[data-sbuy],[data-stat],[data-skup],[data-tab],[data-use],[data-ipg],[data-sksel],[data-lbuy],#upg'); if(!t) return;
+  const t=e.target.closest('[data-win],[data-close],[data-buy],[data-sbuy],[data-stat],[data-skup],[data-tab],[data-use],[data-ipg],[data-sksel],[data-lbuy],[data-abuy],#upg'); if(!t) return;
   if(t.dataset.win) toggleWin(t.dataset.win); else if(t.dataset.close) $(t.dataset.close).classList.add('hidden');
   else if(t.dataset.buy){ if(S.yang>=40){ S.yang-=40; S[t.dataset.buy]++; SFX.buy(); say(`${t.dataset.buy==='red'?'Kırmızı':'Mavi'} İksir satın aldın.`,'c-yang'); saveGame(); refreshWins(); } else say('Yeterli Yang yok.','c-bad'); }
   else if(t.dataset.sbuy){ buyStone(); }
   else if(t.dataset.lbuy){ buyLegend(t.dataset.lbuy); }
+  else if(t.dataset.abuy){ buyArmor(t.dataset.abuy); }
   else if(t.dataset.stat){ addStat(t.dataset.stat); }
   else if(t.dataset.sksel){ SKSEL=t.dataset.sksel; renderSkillWin(true); }
   else if(t.dataset.skup){ skillUp(t.dataset.skup); }
@@ -2379,6 +2498,9 @@ function upgradeWeapon(){
 function buyLegend(id){ const L=LEGEND_WEAPONS[id]; if(!L) return; if(hasItem(id)){ say(`${L.name} zaten sende.`,'c-sys'); return; }
   if(S.yang<L.price){ say(`Yeterli Yang yok (${fmt(L.price)} gerekli).`,'c-bad'); return; } if(!addItem(id,1)) return; S.yang-=L.price; SFX.buy();
   say(`${L.name} satın aldın! Envanterden kuşanabilirsin`+(S.lvl<L.reqLv?` (Sv.${L.reqLv} gerekli).`:'.'),'c-yang'); saveGame(); refreshWins(); }
+function buyArmor(id){ const A=ARMOR_ITEMS[id]; if(!A) return; if(hasItem(id)){ say(`${A.name} zaten sende.`,'c-sys'); return; }
+  if(S.yang<A.price){ say(`Yeterli Yang yok (${fmt(A.price)} gerekli).`,'c-bad'); return; } if(!addItem(id,1)) return; S.yang-=A.price; SFX.buy();
+  say(`${A.name} satın aldın! Envanterden kuşanabilirsin`+(S.lvl<A.reqLv?` (Sv.${A.reqLv} gerekli).`:'.'),'c-yang'); saveGame(); refreshWins(); }
 function buyStone(){ if(S.yang<STONE_PRICE){ say('Yeterli Yang yok.','c-bad'); return; } if(!addItem('ustone',1)) return; S.yang-=STONE_PRICE; SFX.buy(); say('Yükseltme Taşı satın aldın.','c-yang'); saveGame(); refreshWins(); }
 const ICON={ red:'<svg viewBox="0 0 24 24"><circle cx="12" cy="15" r="6" fill="#e03a30"/><rect x="10" y="4" width="4" height="6" fill="#ddd"/></svg>', blue:'<svg viewBox="0 0 24 24"><circle cx="12" cy="15" r="6" fill="#3a78ee"/><rect x="10" y="4" width="4" height="6" fill="#ddd"/></svg>',
   sword:'<svg viewBox="0 0 24 24"><path d="M12 2l2 12h-4z" fill="#dfe6ee"/><rect x="7" y="14" width="10" height="2" fill="#d3ad62"/><rect x="11" y="16" width="2" height="5" fill="#6a4026"/></svg>',
@@ -2446,10 +2568,12 @@ SLOT_DEF.forEach((id,i)=>{ const sk=SK[i]; const d=document.createElement('div')
   const hideTip=()=>{ tip.style.display='none'; };
   mwEl.addEventListener('click',e=>{ if(MTAB!=='inv'){ hideTip(); return; } const el=e.target.closest('.m2c.has,.m2s.has'); if(!el||el.dataset.use!==undefined){ hideTip(); return; } const rf=refOf(el), it=rf&&slotAt(rf), d=itemOf(it); if(!d){ hideTip(); return; }
     const lines=d.info?d.info():[d.name+(d.badge?' '+d.badge():''),d.desc||'']; tip.innerHTML='<b>'+lines[0]+'</b>'+lines.slice(1).map(l=>'<div>'+l+'</div>').join('');
-    if(d.slot==='weapon'){ const on=rf.k==='eq'&&rf.id==='w1'; tip.dataset.ref=JSON.stringify(rf); tip.innerHTML+=`<button class="btn" data-weq="${on?'off':'on'}" style="margin-top:6px;padding:3px 14px">${on?'Çıkar':'Kuşan'}</button>`; }
+    if(d.slot==='armor'||d.slot==='boots'){ const on=rf.k==='eq'; tip.dataset.ref=JSON.stringify(rf); tip.dataset.slot=d.slot; tip.innerHTML+=`<button class="btn" data-weq="${on?'off':'on'}" style="margin-top:6px;padding:3px 14px">${on?'Çıkar':'Kuşan'}</button>`; }
+    if(d.slot==='weapon'){ tip.dataset.slot='weapon'; const on=rf.k==='eq'&&rf.id==='w1'; tip.dataset.ref=JSON.stringify(rf); tip.innerHTML+=`<button class="btn" data-weq="${on?'off':'on'}" style="margin-top:6px;padding:3px 14px">${on?'Çıkar':'Kuşan'}</button>`; }
     tip.style.display='block'; clearTimeout(tipT); tipT=setTimeout(hideTip,5000); });
   tip.addEventListener('click',e=>{ const b=e.target.closest('[data-weq]'); if(!b) return; const rf=JSON.parse(tip.dataset.ref||'null'); hideTip(); if(!rf) return;
-    if(b.dataset.weq==='on') moveItem(rf,{k:'eq',id:'w1'}); else { const f=firstEmpty(); if(f<0) say('Envanter dolu.','c-bad'); else moveItem(rf,{k:'inv',i:f}); } });
+    const sl=tip.dataset.slot||'weapon', dest=sl==='weapon'?'w1':sl==='boots'?'boots':(S.eq.armor1&&!S.eq.armor2?'armor2':'armor1');
+    if(b.dataset.weq==='on') moveItem(rf,{k:'eq',id:dest}); else { const f=firstEmpty(); if(f<0) say('Envanter dolu.','c-bad'); else moveItem(rf,{k:'inv',i:f}); } });
   document.addEventListener('pointerdown',e=>{ if(!e.target.closest('#itemTip,.m2c.has,.m2s.has')) hideTip(); },true);
 })();
 let skSig='', SKSEL='cut';
@@ -2486,8 +2610,9 @@ function refreshWins(){
   const has=hasItem('sword'), n=S.weap, L=WLV[n], N=WLV[Math.min(9,n+1)], st=upgStones(), have=stoneCount();
   $('shopWeap').textContent='Demir Kılıç +'+n+(has?'':' (yok)');
   $('shopOdds').innerHTML=`Şimdi: Saldırı ${S.wr.a} · Büyü ${S.wr.m} · Hız +${SW_ASPD}`+(n>=9?'<br>En yüksek seviye':`<br>+${n+1}: Saldırı ${N.a[0]}–${N.a[1]} · Büyü ${N.m[0]}–${N.m[1]}<br>Gerekli: <b style="color:${S.yang>=upgCost()?'#9f9':'#f88'}">${fmt(upgCost())} Yang</b> · <b style="color:${have>=st?'#9f9':'#f88'}">${st} Yükseltme Taşı (${have})</b><br>Başarı %${Math.round(upgOdds()*100)} · Başarısızlıkta kılıç korunur, taşlar iade edilir`);
-  const lsig=S.lvl+'|'+Object.values(LEGEND_WEAPONS).map(L=>hasItem(L.id)?1:0).join('');   // dükkân açıkken her kare çağrılır: yalnız değişince yeniden kur
-  if(lsig!==LSHOPSIG){ LSHOPSIG=lsig; $('legShop').innerHTML=Object.values(LEGEND_WEAPONS).map(L=>{ const own=hasItem(L.id); return `<div class="row lw"><img src="${L.icon}" alt=""><span><b style="color:#ffb84a">${L.name}</b> <small style="color:${S.lvl>=L.reqLv?'#9f9':'#f88'}">Sv.${L.reqLv}</small><br><small>Saldırı ${L.atk} · Büyü ${L.mag} · Hız +${L.aspd} · Kritik +%${L.crit}</small></span><button class="btn" data-lbuy="${L.id}"${own?' disabled':''}>${own?'Sende':fmt(L.price)+' Yang'}</button></div>`; }).join(''); }
+  const lsig=S.lvl+'|'+Object.values(LEGEND_WEAPONS).map(L=>hasItem(L.id)?1:0).join('')+Object.keys(ARMOR_ITEMS).map(id=>hasItem(id)?1:0).join('');   // dükkân açıkken her kare çağrılır: yalnız değişince yeniden kur
+  if(lsig!==LSHOPSIG){ LSHOPSIG=lsig; $('legShop').innerHTML=Object.values(LEGEND_WEAPONS).map(L=>{ const own=hasItem(L.id); return `<div class="row lw"><img src="${L.icon}" alt=""><span><b style="color:#ffb84a">${L.name}</b> <small style="color:${S.lvl>=L.reqLv?'#9f9':'#f88'}">Sv.${L.reqLv}</small><br><small>Saldırı ${L.atk} · Büyü ${L.mag} · Hız +${L.aspd} · Kritik +%${L.crit}</small></span><button class="btn" data-lbuy="${L.id}"${own?' disabled':''}>${own?'Sende':fmt(L.price)+' Yang'}</button></div>`; }).join('')+
+    Object.values(ARMOR_ITEMS).map(A=>{ const own=hasItem(A.id); return `<div class="row lw"><img src="${A.icon}" alt=""><span><b style="color:#ffb84a">${A.name}</b> <small style="color:${S.lvl>=A.reqLv?'#9f9':'#f88'}">Sv.${A.reqLv}</small><br><small>Savunma +${A.def} · ${A.pieces.length} parça</small></span><button class="btn" data-abuy="${A.id}"${own?' disabled':''}>${own?'Sende':fmt(A.price)+' Yang'}</button></div>`; }).join(''); }
   $('shopStone').textContent=`${STONE_PRICE} Yang · sende ${have}`; $('shopYang').textContent=fmt(S.yang)+' Yang'; $('upg').disabled=n>=9||!has;
 }
 /* ---- ana pencere: sekmeler (Envanter / Karakter / Yetenekler / Statü) ---- */
@@ -2537,7 +2662,7 @@ function renderMenu(force){
   el.innerHTML=h;
 }
 
-$('respawn').onclick=()=>{ $('death').classList.add('hidden'); S.dead=false; S.hp=maxHP()*.5; S.sp=maxSP()*.5; P.pos.set(0,0,7); P.yaw=Math.PI; P.dest=null; P.target=null; say('Köyde yeniden doğdun.','c-sys'); if(MAP.id!=='village') travelTo('village',{respawn:true}); };
+$('reHere').onclick=()=>respawnPlayer('here'); $('reCity').onclick=()=>respawnPlayer('city');
 
 /* ============================== haritalar: Köy ↔ Kızıl Orman ============================== */
 /* Her harita ayrı nesne kümesi (MAPS[id].objs), kendi arazisi/yüksekliği (hAt), engelleri (OBS), bitki setleri ve canavarları ile yönetilir.
@@ -2802,6 +2927,57 @@ function initVillageMap(){
   MAPS.village.objs=[...(world.villageObjs||[]),...scene.children.filter(c=>!b0.has(c))];
   console.info('[Harita] Köy hazır: '+MAPS.village.objs.length+' nesne, sınır yarıçapı '+MAPS.village.bound+' m, canavar yok');
 }
+/* ---- Kara Göl: su yüzeyi, sazlık, kuru ağaç ve taşlar ---- */
+let LAKE_WATER=null, LAKE_NRM=null, REED_TEX=null;
+function lakeNormalTex(){ if(LAKE_NRM) return LAKE_NRM; const N=128, c=document.createElement('canvas'); c.width=c.height=N; const g=c.getContext('2d'), im=g.createImageData(N,N), H=new Float32Array(N*N);
+  const vn=(cells,seed)=>{ const r=rng(seed), L=Array.from({length:cells*cells},()=>r()), at=(a,b)=>L[(((b%cells)+cells)%cells)*cells+(((a%cells)+cells)%cells)];
+    return (x,y)=>{ const fx=x*cells, fy=y*cells, ix=Math.floor(fx), iy=Math.floor(fy), tx=fx-ix, ty=fy-iy, sx=tx*tx*(3-2*tx), sy=ty*ty*(3-2*ty); return lerp(lerp(at(ix,iy),at(ix+1,iy),sx),lerp(at(ix,iy+1),at(ix+1,iy+1),sx),sy); }; };
+  const n1=vn(6,3), n2=vn(11,7), n3=vn(23,13);
+  for(let y=0;y<N;y++) for(let x=0;x<N;x++){ const u=x/N, v=y/N; H[y*N+x]=n1(u,v)*1+n2(u,v)*.55+n3(u,v)*.25; }
+  for(let y=0;y<N;y++) for(let x=0;x<N;x++){ const hx=H[y*N+(x+1)%N]-H[y*N+(x+N-1)%N], hy=H[((y+1)%N)*N+x]-H[((y+N-1)%N)*N+x], nx=-hx*2.2, ny=-hy*2.2, nz=1, l=Math.hypot(nx,ny,nz), i=(y*N+x)*4; im.data[i]=(nx/l*.5+.5)*255; im.data[i+1]=(ny/l*.5+.5)*255; im.data[i+2]=(nz/l*.5+.5)*255; im.data[i+3]=255; }
+  g.putImageData(im,0,0); const t=new THREE.CanvasTexture(c); t.wrapS=t.wrapT=THREE.RepeatWrapping; t.repeat.set(7,7); LAKE_NRM=t; return t; }
+function reedTexture(){ if(REED_TEX) return REED_TEX; const c=document.createElement('canvas'); c.width=128; c.height=256; const g=c.getContext('2d'); const rg=rng(5); g.lineCap='round';
+  const cols=['#4d5a26','#66723a','#3f4c22','#7a8444','#58662f'];
+  for(let i=0;i<11;i++){ const x0=14+rg()*100, h=120+rg()*130, bend=(rg()-.5)*46, x1=x0+bend; g.strokeStyle=cols[i%5]; g.lineWidth=2.4+rg()*2.2; g.beginPath(); g.moveTo(x0,256); g.quadraticCurveTo(x0+bend*.15,256-h*.6,x1,256-h); g.stroke(); }
+  for(const [x,h] of [[40,200],[86,228],[64,170]]){ g.strokeStyle='#5b5a2c'; g.lineWidth=2.2; g.beginPath(); g.moveTo(x,256); g.lineTo(x+(x>64?4:-3),256-h); g.stroke(); g.fillStyle='#4a2f1a'; g.beginPath(); g.ellipse(x+(x>64?4:-3),256-h+14,5.2,19,0,0,6.283); g.fill(); g.strokeStyle='#3a2414'; g.lineWidth=1.4; g.beginPath(); g.moveTo(x+(x>64?4:-3),256-h-6); g.lineTo(x+(x>64?4:-3),256-h-18); g.stroke(); }
+  const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; t.anisotropy=2; REED_TEX=t; return t; }
+function buildLake(){
+  const bx0=10, bx1=56, bz0=-60, bz1=-18, W=bx1-bx0, D=bz1-bz0;
+  // --- su yüzeyi: tek ağ, derinliğe göre saydamlık/renk (kıyıda berrak ve açık, derinde koyu)
+  const sx=Math.round(W*1.7), sz=Math.round(D*1.7), geo=new THREE.PlaneGeometry(W,D,sx,sz); geo.rotateX(-Math.PI/2); geo.translate((bx0+bx1)/2,LAKE_WL,(bz0+bz1)/2);
+  const P3=geo.attributes.position, wd=new Float32Array(P3.count); for(let i=0;i<P3.count;i++){ const wx=P3.getX(i), wz=P3.getZ(i); wd[i]=lakeE(wx,wz)<1.2?Math.max(0,LAKE_WL-hForest(wx,wz)):0; }
+  geo.setAttribute('wd',new THREE.BufferAttribute(wd,1));
+  const mat=new THREE.MeshStandardMaterial({color:0x1d302b,roughness:.16,metalness:.05,transparent:true,opacity:.92,normalMap:lakeNormalTex(),normalScale:new THREE.Vector2(.3,.3),envMapIntensity:.85,depthWrite:false});
+  mat.onBeforeCompile=sh=>{ sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nattribute float wd; varying float vWd;').replace('#include <begin_vertex>','#include <begin_vertex>\nvWd=wd;');
+    sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying float vWd;').replace('#include <opaque_fragment>','diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.5,.55,.42),(1.-smoothstep(0.,.4,vWd))*.4); diffuseColor.rgb*=mix(1.,.5,smoothstep(.3,2.6,vWd)); diffuseColor.a*=clamp(.05+vWd*1.8,0.,1.);\n#include <opaque_fragment>'); };
+  const water=new THREE.Mesh(geo,mat); water.frustumCulled=false; water.renderOrder=2; scene.add(water); LAKE_WATER=water;
+  // --- sazlık: çapraz iki yüzeyli, tek InstancedMesh (tek çizim çağrısı)
+  const rg=new THREE.BufferGeometry(); const pv=[], uvs=[], ix=[]; for(let q=0;q<2;q++){ const a=q*Math.PI/2, cx=Math.cos(a)*.5, sz2=Math.sin(a)*.5, o=q*4; pv.push(-cx,0,-sz2, cx,0,sz2, cx,1,sz2, -cx,1,-sz2); uvs.push(0,0,1,0,1,1,0,1); ix.push(o,o+1,o+2,o,o+2,o+3); }
+  rg.setAttribute('position',new THREE.Float32BufferAttribute(pv,3)); rg.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2)); rg.setIndex(ix); rg.computeVertexNormals();
+  const rmat=new THREE.MeshLambertMaterial({map:reedTexture(),alphaTest:.42,side:THREE.DoubleSide,color:0xffffff});
+  const NR=coarse?230:380, reeds=[]; let tries=0; const Yo=new THREE.Object3D(), rc=new THREE.Color();
+  while(reeds.length<NR&&tries++<9000){ const b=LAKE_B[(R()*LAKE_B.length)|0], a=R()*6.283, e0=rr(-.9,6.5), r=b[2]*(1+.06*Math.sin(3*a+b[0]*.37)+.04*Math.sin(5*a+b[1]*.21))+e0, x=b[0]+Math.cos(a)*r, z=b[1]+Math.sin(a)*r, e=lakeE(x,z);
+    if(e<-.9||e>6.5) continue; const patch=Math.sin(x*.31+1.7)*Math.cos(z*.27-.6)+Math.sin((x+z)*.17); if(patch<(e>3?.35:-.25)) continue;
+    if(plantBlocked(x,z,.4)&&!obstacles.some(o=>o.lake&&Math.hypot(x-o.x,z-o.z)<o.r+.2)) continue;
+    if(reeds.some(q=>Math.hypot(q.x-x,q.z-z)<.8)) continue;
+    reeds.push({x,z,s:rr(1.3,2.3),w:rr(1.0,1.5),r:R()*6.283}); }
+  const im=new THREE.InstancedMesh(rg,rmat,reeds.length); reeds.forEach((q,i)=>{ Yo.position.set(q.x,hForest(q.x,q.z)-.12,q.z); Yo.rotation.set(0,q.r,0); Yo.scale.set(q.w,q.s,q.w); Yo.updateMatrix(); im.setMatrixAt(i,Yo.matrix); rc.setHSL(rr(.14,.2),rr(.25,.4),rr(.62,.95)); im.setColorAt(i,rc); });
+  im.frustumCulled=false; scene.add(im);
+  // --- kuru ağaç ve taşlar (varsa yerel paket modelleri)
+  let nPine=0, nStone=0;
+  if(NATURE&&PLANTS){ const pines=[], stones=[]; tries=0;
+    while(pines.length<(coarse?10:16)&&tries++<3000){ const b=LAKE_B[(R()*LAKE_B.length)|0], a=R()*6.283, r=b[2]+rr(5.5,13), x=b[0]+Math.cos(a)*r, z=b[1]+Math.sin(a)*r, e=lakeE(x,z); if(e<5||e>14||Math.abs(x)>HALF-6||Math.abs(z)>HALF-6) continue;
+      if(plantBlocked(x,z,2.2)||pines.some(q=>Math.hypot(q.x-x,q.z-z)<6)||FROG_SPOTS.concat(CROC_SPOTS).some(f=>Math.hypot(f[0]-x,f[1]-z)<5.5)) continue; const sc=rr(3.4,4.8), gm=groundMin(x,z,.35*sc);
+      pines.push({x,y:gm+.952*sc-.12*sc,z,r:R()*6.283,s:sc,sy:rr(.92,1.1),tx:rr(-.06,.06),tz:rr(-.06,.06),c:new THREE.Color().setHSL(rr(.05,.1),rr(.03,.1),rr(.4,.6)),q:R()}); addObstacle(x,z,.55); }
+    tries=0; while(stones.length<(coarse?14:22)&&tries++<3000){ const b=LAKE_B[(R()*LAKE_B.length)|0], a=R()*6.283, r=b[2]+rr(.2,9), x=b[0]+Math.cos(a)*r, z=b[1]+Math.sin(a)*r, e=lakeE(x,z); if(e<.4||e>9) continue;
+      const sc=rr(.45,1.25); if(plantBlocked(x,z,sc*.9)||stones.some(q=>Math.hypot(q.x-x,q.z-z)<(q.rad+sc*.86))||FROG_SPOTS.concat(CROC_SPOTS).some(f=>Math.hypot(f[0]-x,f[1]-z)<3.2)) continue; const sy=rr(.75,1.05), gm=groundMin(x,z,.86*sc*.8);
+      const rad=.86*sc; stones.push({x,y:gm+.673*sc*sy-.16*sc*sy-.04,z,r:R()*6.283,s:sc,sy,tx:rr(-.09,.09),tz:rr(-.09,.09),c:new THREE.Color().setHSL(rr(.07,.12),rr(.03,.08),rr(.38,.6)),q:sc>1?1:R()*.45,rad}); if(sc>=1.0) addObstacle(x,z,rad*.82); }
+    addPlantSet('DeadPine',pines,coarse?58:90,false); addPlantSet('Stone',stones,coarse?66:95,false); nPine=pines.length; nStone=stones.length; }
+  LAKE_STATS={reeds:reeds.length,pines:nPine,stones:nStone,waterVerts:P3.count};
+  console.info('[Göl] Kara Göl kuruldu: '+reeds.length+' sazlık öbeği, '+nPine+' kuru ağaç, '+nStone+' taş, su ağı '+P3.count+' köşe');
+}
+let LAKE_STATS=null;
+function updateLake(dt){ if(MAP.id!=='forest'||!LAKE_NRM) return; LAKE_NRM.offset.x+=dt*.012; LAKE_NRM.offset.y+=dt*.007; }
 /* ---- Kızıl Orman: harabeler + mağara girişi ---- */
 function buildForestExtras(){
   const Yo=new THREE.Object3D(), boxes=[], cyls=[], rc=new THREE.Color();
@@ -2833,10 +3009,12 @@ const rnd01=()=>R();
 function buildForestMap(){
   const b0=new Set(scene.children);
   terrain=makeTerrain('forest'); scene.add(terrain);
+  addLakeObstacles();
   world.buildFieldDecor();
   if(PLANTS) buildPlantWorld('forest'); else console.warn('[Harita] bitki paketi yok: yedek koni ağaçlar kullanılıyor');
   MAPS.forest.sets=PLANT_SETS;
   buildForestExtras();
+  try{ buildLake(); }catch(e){ console.error('[Göl] göl kurulamadı:',e); }
   MAPS.forest.objs=scene.children.filter(c=>!b0.has(c)&&c!==terrain);
   populateForest();
   console.info('[Harita] Kızıl Orman kuruldu: '+MAPS.forest.objs.length+' nesne, '+obstacles.length+' engel, '+mobs.length+' canavar');
@@ -3013,6 +3191,7 @@ function updateMobs(dt){
     }
     if(m.dead){
       m.st+=dt; const k=clamp(m.st/.5,0,1);
+      if(b.fx&&b.fx.kind==='croc'&&b.root) b.root.rotation.x*=.9;
       if(b.fx){ if(!b.fx.dead) fxDeath(b.fx); if(m.st<4&&dPlayer<75) b.fx.mixer.update(dt); g.rotation.z=0; g.position.y=hAt(g.position.x,g.position.z); for(const mt of m.mats){ mt.emissive.setHex(m.flash>0?0xff3322:0); mt.emissiveIntensity=m.flash>0?.9:0; } }
       else { g.rotation.z=k*1.45; g.position.y=hAt(g.position.x,g.position.z)-k*.05; }
       if(m.st>3){ const f=clamp((m.st-3)/1,0,1); g.scale.setScalar(T.scale*(1-f)); }
@@ -3050,6 +3229,7 @@ function updateMobs(dt){
     collide(g.position,.5*T.scale);
     if(MAP.id==='forest'){ const L=HALF-2; g.position.x=clamp(g.position.x,-L,L); g.position.z=clamp(g.position.z,-L,L); }
     g.position.y=hAt(g.position.x,g.position.z); g.rotation.y=m.yaw; g.rotation.z=0;
+    if(b.fx&&b.fx.kind==='croc'){ const fh=hAt(g.position.x+Math.sin(m.yaw)*1.5,g.position.z+Math.cos(m.yaw)*1.5), bh=hAt(g.position.x-Math.sin(m.yaw)*1.5,g.position.z-Math.cos(m.yaw)*1.5); b.root.rotation.x=lerp(b.root.rotation.x,-Math.atan2(fh-bh,3)*.9,1-Math.exp(-8*dt)); }   // gövde eğime paralel
     // animasyon
     if(b.mixer){
       b.wk=lerp(b.wk,mv>0?1:0,1-Math.exp(-8*dt)); b.walk.timeScale=Math.max(.25,mv/(2.7*T.scale));
@@ -3114,7 +3294,8 @@ function drawMini(){ if($("mini").classList.contains("shut")) return;
   if(MAP.id==='forest'){ c.fillStyle='#8a6e44'; c.beginPath(); c.arc(X(0),Z(0),FOREST_CLEAR*sc,0,6.283); c.fill(); } else { c.fillStyle='#34452a'; c.beginPath(); c.arc(X(0),Z(0),VR*sc,0,6.283); c.fill(); c.strokeStyle='#8a6e44'; c.lineCap='round'; for(const r of VROADS){ c.lineWidth=r.w*sc; c.beginPath(); r.p.forEach((q,i)=>i?c.lineTo(X(q[0]),Z(q[1])):c.moveTo(X(q[0]),Z(q[1]))); c.stroke(); } c.fillStyle='#7a7468'; c.beginPath(); c.arc(X(0),Z(0),15*sc,0,6.283); c.fill(); c.strokeStyle='#555a60'; c.lineWidth=4; c.beginPath(); c.arc(X(0),Z(0),VR*sc,0,6.283); c.stroke(); }
   c.strokeStyle='rgba(0,0,0,.35)'; c.lineWidth=2; if(MAP.id==='forest') c.strokeRect(X(-HALF),Z(-HALF),HALF*2*sc,HALF*2*sc); else { c.beginPath(); c.arc(X(0),Z(0),MAP.bound*sc,0,6.283); c.stroke(); }
   c.fillStyle=MAP.id==='forest'?'#ffb050':'#66ffa0'; c.fillRect(X(MAP.gate.x)-5,Z(MAP.gate.z)-5,10,10);
-  c.fillStyle='#c9bfa0'; for(const o of obstacles){ if(o.r>2){ c.fillRect(X(o.x)-o.r*sc*.7,Z(o.z)-o.r*sc*.7,o.r*sc*1.4,o.r*sc*1.4); } }
+  if(MAP.id==='forest'){ c.fillStyle='#2f5a63'; for(const b of LAKE_B){ c.beginPath(); c.arc(X(b[0]),Z(b[1]),b[2]*sc,0,6.283); c.fill(); } }
+  c.fillStyle='#c9bfa0'; for(const o of obstacles){ if(o.r>2&&!o.lake){ c.fillRect(X(o.x)-o.r*sc*.7,Z(o.z)-o.r*sc*.7,o.r*sc*1.4,o.r*sc*1.4); } }
   for(const m of mobs){ if(m.dead) continue; c.fillStyle=m.type==='stone'?'#c28bff':m.T.boss?'#ff2a2a':'#ff7a5a'; c.beginPath(); c.arc(X(m.group.position.x),Z(m.group.position.z),m.type==='stone'||m.T.boss?8:4,0,6.283); c.fill(); }
   c.fillStyle='#7fe5ff'; if(MAP.id==='village') for(const n of npcs){ c.beginPath(); c.arc(X(n.pos.x),Z(n.pos.z),6,0,6.283); c.fill(); }
   c.fillStyle='#ffd24a'; for(const d of drops){ c.fillRect(X(d.g.position.x)-3,Z(d.g.position.z)-3,6,6); }
@@ -3127,7 +3308,7 @@ function updateCamera(dt){
   const tx=P.pos.x, ty=P.pos.y+1.55, tz=P.pos.z; const k=1-Math.exp(-12*dt);
   cam.tx=lerp(cam.tx,tx,k); cam.ty=lerp(cam.ty,ty,k); cam.tz=lerp(cam.tz,tz,k);
   const cp=Math.cos(cam.pitch), x=cam.tx+Math.sin(cam.yaw)*cp*cam.dist, z=cam.tz+Math.cos(cam.yaw)*cp*cam.dist; let y=cam.ty+Math.sin(cam.pitch)*cam.dist;
-  let cx=x,cz=z; for(const o of obstacles){ if(o.r>1.8){ const dx=cx-o.x,dz=cz-o.z,d=Math.hypot(dx,dz),m=o.r+.8; if(d<m&&y<6.2&&d>1e-4){ cx=o.x+dx/d*m; cz=o.z+dz/d*m; } } }
+  let cx=x,cz=z; for(const o of obstacles){ if(o.r>1.8&&!o.lake){ const dx=cx-o.x,dz=cz-o.z,d=Math.hypot(dx,dz),m=o.r+.8; if(d<m&&y<6.2&&d>1e-4){ cx=o.x+dx/d*m; cz=o.z+dz/d*m; } } }
   y=Math.max(y,hAt(cx,cz)+.7); camera.position.set(cx,y,cz); if(SHAKE.v>.004){ camera.position.x+=(Math.random()-.5)*SHAKE.v; camera.position.y+=(Math.random()-.5)*SHAKE.v; } camera.lookAt(cam.tx,cam.ty,cam.tz);
   sun.position.set(P.pos.x+30,P.pos.y+48,P.pos.z+18); sun.target.position.copy(P.pos);
 }
@@ -3140,15 +3321,40 @@ function adaptRes(ms){ if(ms>250||ms<=0) return; adSum+=ms; adN++; if(ms>adWorst
     const f=document.getElementById('fpsInfo'); if(f) f.textContent=`${adFps} fps · ${Math.round(PR*100)}%`;
     adN=0; adSum=0; adWorst=0; } }
 let lastFT=0;
+/* Karakter seçim ekranı için canlı 3D önizleme (auth/ arayüzü bunu yalnızca bu küçük API ile kullanır) */
+const PREV={on:false,t:0};
+function previewStep(dt){
+  PREV.t+=dt; time+=dt;
+  if(!playerGroup.userData.ready||!mixer) return;
+  P.pos.set(0,hAt(0,12),12); P.yaw=.42+Math.sin(PREV.t*.5)*.1; playerGroup.rotation.y=P.yaw;
+  try{ setAnim('idle',.1); }catch(e){}
+  mixer.update(dt); model.updateMatrixWorld(true); groundFix(); overlayPose(time); updateSwordFx(dt,time);
+  world.windU.value=time; if(world.flag) world.flag.rotation.y=Math.sin(time*2)*.12;
+  if(world.torchPts) world.torchPts.material.size=1.9+Math.sin(time*11)*.16;
+  if(world.torches) world.torches.forEach((t,i)=>{ t.scale.setScalar(1.4+Math.sin(time*13+i*3)*.15); });
+  if(world.clouds) world.clouds.forEach(c=>{ c.position.x+=dt*.8; if(c.position.x>190) c.position.x=-190; });
+  cam.yaw=.1+Math.sin(PREV.t*.2)*.06; cam.pitch=.07; cam.dist=PREV.dist||3.7; cam.tx=P.pos.x; cam.ty=P.pos.y+.95; cam.tz=P.pos.z; updateCamera(1);
+  const W=innerWidth,H=innerHeight; camera.setViewOffset(W,H,-W*.13,H*.02,W,H);   // karakteri ekranın sağ-ortasına al
+}
+const PREV_HIDE=()=>[...guards.map(n=>n.g),...dwMix.map(n=>n.g||n)].filter(Boolean);
+function charPreview(on,show,ch,uid){
+  const was=PREV.on; PREV.on=!!on&&!started; playerGroup.visible=!!show||!on;
+  if(PREV.on){ if(!was) PREV.t=0; for(const g of PREV_HIDE()){ if(g.userData._pv===undefined) g.userData._pv=g.visible; g.visible=false; }
+    if(ch&&uid&&SAVEKEY!=='valkor.v1.'+uid+'.'+ch.id){ SAVEKEY='valkor.v1.'+uid+'.'+ch.id; try{ loadGame(); }catch(e){} } }
+  else { camera.clearViewOffset(); camera.updateProjectionMatrix(); for(const g of PREV_HIDE()){ if(g.userData._pv!==undefined){ g.visible=g.userData._pv; delete g.userData._pv; } } }
+}
+function charInfo(c,uid){ try{ const d=JSON.parse(localStorage.getItem('valkor.v1.'+uid+'.'+c.id)||'null')||{}; const n=(k,b)=>Math.max(b,d[k]|0||b); return {lvl:Math.max(1,d.lvl|0||1),guild:typeof d.guild==='string'?d.guild:'',min:Math.floor((d.pt|0)/60),vit:n('vit',BASESTAT.vit),int:n('int',BASESTAT.int),st:n('st',BASESTAT.st),dex:n('dex',BASESTAT.dex),cap:STATCAP}; }catch(e){ return {lvl:1,guild:'',min:0,vit:5,int:4,st:5,dex:4,cap:90}; } }
+function charPurge(c,uid){ try{ localStorage.removeItem('valkor.v1.'+uid+'.'+c.id); }catch(e){} }
 function frame(now){
   requestAnimationFrame(frame);
   if(now-lastFT<15.2&&!window.__freeze) return; lastFT=now;   // en fazla ~60 fps: 120 Hz ekranda telefon ısınmasın
   if(started&&!window.__freeze) adaptRes(now-last);
   let dt=Math.min(.05,(now-last)/1000); last=now; if(window.__freeze) dt=0; time+=dt;
   if(started){
+    S.pt+=dt;
     for(let i=0;i<cds.length;i++) if(cds[i]>0) cds[i]=Math.max(0,cds[i]-dt);
     if(!TRAVEL.busy){
-    updatePlayer(dt); updateMount(dt,time); updatePlants(dt);
+    updatePlayer(dt); updateMount(dt,time); updatePlants(dt); updateLake(dt);
     if(mixer){ mixer.update(dt); model.updateMatrixWorld(true); groundFix(); overlayPose(time); updateSwordFx(dt,time); }
     if(dwMix.length) updateSmith(dt);
     if(guards.length) updateGuards(dt);
@@ -3167,7 +3373,7 @@ function frame(now){
     hudT+=dt; if(hudT>.08){ hudT=0; updateHUD(); } mmT+=dt; if(mmT>.1){ mmT=0; drawMini(); }
     if(bannerT>0){ bannerT-=dt; if(bannerT<=0) $('banner').classList.remove('on'); }
     tAcc+=dt; if(tAcc>10){ tAcc=0; saveGame(); }
-  }
+  } else if(PREV.on){ previewStep(dt); }
   renderer.render(scene,camera);
 }
 
@@ -3179,7 +3385,8 @@ const ZONES=[
   {id:'mage', name:'Gölge Elfi Ormanı',   type:'mage', r0:60, r1:84,  l0:5,  l1:10},
   {id:'orc',  name:'Ork Toprakları',      type:'orc',  r0:84, r1:HALF+8, l0:10, l1:15}];
 /* bölgeler artık kare halkalar (merkezden Chebyshev uzaklığı): köşeler ve kenarlar da avlak bölgesi */
-function zoneAt(x,z){ if(Math.hypot(x,z)<FOREST_CLEAR) return ZONES[0]; const c=Math.max(Math.abs(x),Math.abs(z)); for(let i=3;i>=2;i--) if(c>=ZONES[i].r0) return ZONES[i]; return ZONES[1]; }
+const ZONE_LAKE={id:'lake',name:'Kara Göl Bataklığı',type:'wolf',r0:0,r1:0,l0:1,l1:5}, ZONE_CROC={id:'croc',name:'Timsah Bataklığı',type:'croc',r0:0,r1:0,l0:7,l1:10};
+function zoneAt(x,z){ if(Math.hypot(x,z)<FOREST_CLEAR) return ZONES[0]; if(MAP.id==='forest'){ const le=lakeE(x,z); if(le<LAKE_ZONE){ for(const c of CROC_SPOTS) if(Math.hypot(x-c[0],z-c[1])<11) return ZONE_CROC; return ZONE_LAKE; } } const c=Math.max(Math.abs(x),Math.abs(z)); for(let i=3;i>=2;i--) if(c>=ZONES[i].r0) return ZONES[i]; return ZONES[1]; }
 function zoneTypeAt(x,z){ const zn=zoneAt(x,z); return zn.type?{type:zn.type,l0:zn.l0,l1:zn.l1}:{type:'wolf',l0:1,l1:5}; }
 const FMOB={sepMob:4.2, sepCamp:25, wander:[1.5,4.5]};   // mob-mob en az mesafe, kamp-kamp en az mesafe, dolaşma yarıçapı
 function populateForest(){
@@ -3190,9 +3397,21 @@ function populateForest(){
     for(const o of obstacles) if(Math.hypot(o.x-x,o.z-z)<o.r+1.3) return false;
     for(const c of F_RUINS) if(Math.hypot(x-c[0],z-c[1])<9) return false; if(Math.hypot(x-F_CAVE.x,z-F_CAVE.z)<13) return false;
     for(const e of FPITS) if(Math.hypot(x-e[0],z-e[1])<e[2]*1.3) return false;
+    if(lakeE(x,z)<LAKE_SWAMP+3) return false;   // göl ve bataklık kuşağı özel doğma noktalarına ayrılmıştır
     for(const f of fixed) if(Math.hypot(x-f[0],z-f[1])<6) return false;
     if(groundSlope(x,z,1.5)>1.1) return false; return true; };
   const roomFor=(x,z)=>{ for(const h of homes) if(Math.hypot(h[0]-x,h[1]-z)<FMOB.sepMob) return false; return true; };
+  // 0) Kara Göl: kıyıda kurbağa grupları, bataklığın uzak/derin kısımlarında timsahlar (her mobun sabit doğma noktası)
+  const lakeSpawn=(type,spots,gap,eMin,eMax)=>{ let n=0; for(const [cx,cz,cnt,lv] of spots){ let k=0;
+      for(let pass=0;pass<3&&k<cnt;pass++){ const rl=[1,1.35,1.7][pass], gp=gap*[1,.9,.78][pass], em=eMin-[0,.3,.6][pass];   // yer bulunamazsa koşullar kademeli gevşer
+        for(let t=0;t<cnt*120&&k<cnt;t++){ const a=R()*6.283, rad=rr(1.2,7.5*rl), x=cx+Math.cos(a)*rad, z=cz+Math.sin(a)*rad, e=lakeE(x,z);
+          if(e<em||e>eMax+pass*2||Math.abs(x)>HALF-5||Math.abs(z)>HALF-5||groundSlope(x,z,1.5)>1.1+pass*.2) continue;
+          if(obstacles.some(o=>Math.hypot(o.x-x,o.z-z)<o.r+(type==='croc'?2.2:1.3)-pass*.3)) continue;
+          if(homes.some(h=>Math.hypot(h[0]-x,h[1]-z)<gp)) continue;
+          const lvl=Math.round(lv[0]+(lv[1]-lv[0])*(k/Math.max(1,cnt-1))); spawnMob(type,clamp(lvl,lv[0],lv[1]),x,z); homes.push([x,z]); k++; n++; } }
+    } return n; };
+  const nFrog=lakeSpawn('wolf',FROG_SPOTS,4.4,4.6,13), nCroc=lakeSpawn('croc',CROC_SPOTS,6.5,4.6,14);
+  LAKE_MOBS={frogs:nFrog,crocs:nCroc};
   // 1) kamp merkezleri: köşe/kenar çapaları + tüm kareye eşit aralıklı serpilmiş noktalar (Poisson-disk benzeri)
   const camps=FCAMPS.slice(5).map(c=>[c[0],c[1]]); let tries=0; const target=coarse?30:38;
   // en iyi aday yöntemi: her yeni kamp, mevcut kamplardan en uzak (boş kalan) noktaya konur → harita eşit kaplanır
@@ -3211,7 +3430,7 @@ function populateForest(){
   FOREST_STATS={camps:camps.length,mobs:total,perType,minGap:homes.length>1?Math.min(...homes.flatMap((h,i)=>homes.slice(i+1).map(o=>Math.hypot(h[0]-o[0],h[1]-o[1])))):0};
   console.info('[Orman] '+camps.length+' avlak kampı, '+total+' mob; türler '+JSON.stringify(perType)+'; en yakın iki mob arası '+FOREST_STATS.minGap.toFixed(1)+' m');
 }
-let FOREST_STATS=null;
+let FOREST_STATS=null, LAKE_MOBS=null;
 function populateVillage(){
   shopNPC=makeNPC('Tüccar Han',31.7,8.9,0x2e5f8a,0x3a2a1a); const itemNPC=makeNPC('Eşya Satıcısı',-8.2,49,0x5a3a6a,0x2a2a2a); itemNPC.g.rotation.y=Math.PI/2; if(WITCH_GLB) dressSmith(itemNPC,WITCH_GLB,1.68,1.62); smithNPC=makeNPC('Demirci',8.2,49,0x4a3a2a,0x222222); smithNPC.g.rotation.y=-Math.PI/2; if(DWARF_GLB) dressSmith(smithNPC); makeNPC('Hancı',-24,34.2,0x6a4a2a,0x3a2a1a);
   makeNPC('Eğitmen',-33.5,11,0x7a2a22,0x555a60); const gA=makeNPC('Nöbetçi',2.8,50,0x7a2a22,0x555a60), gB=makeNPC('Nöbetçi',0,-53,0x7a2a22,0x555a60), gC=makeNPC('Nöbetçi',44,11,0x7a2a22,0x555a60);
@@ -3234,6 +3453,7 @@ async function boot(){
     WGLB.sword10=SWORD_GLB; try{ const tk=await get('models/kyanite.b64.txt',()=>{}); WGLB.kyanite=await new Promise((ok,no)=>new GLTFLoader().parse(dec(tk),'',ok,no)); }catch(e){ console.error('[Kılıç] Kyanite yüklenemedi, Demir Kılıç kullanılacak:',e); WMODEL='sword10'; }
     try{ const tdw=await get('models/dwarf.b64.txt',()=>{}); DWARF_GLB=await new Promise((ok,no)=>new GLTFLoader().parse(dec(tdw),'',ok,no)); }catch(e){ console.error('[Demirci] cüce modeli yüklenemedi, eski model kullanılacak:',e); }
     try{ const tsm=await get('models/samurai.b64.txt',()=>{}); SAM_GLB=await new Promise((ok,no)=>new GLTFLoader().parse(dec(tsm),'',ok,no)); }catch(e){ console.error('[Nöbetçi] samuray modeli yüklenemedi, eski model kullanılacak:',e); }
+    try{ const tcr=await get('models/croc.glb.b64.txt',()=>{}); prepCroc(await new Promise((ok,no)=>new GLTFLoader().parse(dec(tcr),'',ok,no))); }catch(e){ CROC=null; console.error('[Timsah] model yüklenemedi, timsahlar yerine kurbağa kullanılacak:',e); }
     try{ const twc=await get('models/witch.b64.txt',()=>{}); WITCH_GLB=await new Promise((ok,no)=>new GLTFLoader().parse(dec(twc),'',ok,no)); }catch(e){ console.error('[Satıcı] cadı modeli yüklenemedi, eski model kullanılacak:',e); }
     setupPlayer(hero,HJ); try{ const th=await get('models/horse.glb.b64.txt',()=>{}); const hg=await new Promise((ok,no)=>new GLTFLoader().parse(dec(th),'',ok,no)); setupMount(hg); }catch(e){ console.error('[At] Warhorse Lite yüklenemedi, binek devre dışı:',e); MOUNT.ready=false; }
     if(tm){ try{ const mb=atob(tm.trim()); const mu=new Uint8Array(mb.length); for(let i=0;i<mb.length;i++) mu[i]=mb.charCodeAt(i); prepMaw(L.parse(mu.buffer,''),b); }catch(e){ console.warn('Maw yüklenemedi, eski ork kullanılacak',e); MAW=null; } }
@@ -3245,21 +3465,31 @@ async function boot(){
     try{ const tp=await get('models/plants.b64.txt',()=>{}); prepPlants(L.parse(dec(tp),'')); if(NATURE_PENDING) prepNature(NATURE_PENDING[0],NATURE_PENDING[1]); }catch(e){ console.error('[Bitki] Bitki paketi (plants kit FBX) yüklenemedi, eski ağaçlar kullanılacak:',e); }
     initMapUI(); initVillageMap(); setAtmos('village'); try{ warmFx(); }catch(e){ console.warn('[Efekt] ısınma atlandı',e); } setP(100);
     myTag=document.createElement('div'); myTag.className='pn'; $('pops').appendChild(myTag);
-    $('loading').classList.add('hidden'); $('login').classList.remove('hidden');
-    const has=loadGame(); if(has){ $('nameIn').value=S.name; document.querySelector(`input[name=king][value="${S.king}"]`).checked=true; }
-    window.__game={CORE,rankOf,rankReward,grantRank,plateHTML,refreshPlate,RANKS,RANK_REWARD,get plateKey(){return plateKey},get myTag(){return myTag},TYPES,guards,updateGuards,addTime:d=>{time+=d},get ATK_HOLD(){return ATK_HOLD},equipWeaponModel,WMODELS,get sword(){return sword},LEGEND_WEAPONS,legEq,LGLB,LFAIL,loadLegend,get SWKEY(){return SWKEY},weapName,wCrit,critCh,buyLegend,SWCFG,refreshWins,updateSmith,upgradeWeapon,buyStone,fixWeapon,WLV,swRoll,wAtk,wMag,aspd,swEq,applySwordLook,updateSwordFx,SEAT,yawFix,get FOREST_STATS(){return FOREST_STATS},zoneAt,updateMount,groundFix,get GOFF(){return GOFF},get S(){return S},ITEMS,EQS,registerItem,addItem,moveItem,initInv,addStat,resetStats,qOf,expNeed,get PLANT_SETS(){return PLANT_SETS},renderMenu,setTab,toggleWin,closeWins,skillUp,skPoints,skL,skv,skStats,saveGame,loadGame,renderSkillWin,gainExp,updatePlayer,updateMobs,updateProjectiles,updateSkills,updateCamera,updateHUD,SKD,SLOT_DEF,SK,cds,fx2,pt2,sched,projectiles,SHAKE,clearSkillFx,MAPS,TRAVEL,travelTo,get MAP(){return MAP;},get obstacles(){return obstacles;},get MAP(){return MAP;},get renderer(){return renderer;},npcs,vRoadD,MAPS,hAt,get HAS3(){return HAS3;},get A3META(){return A3META;},damagePlayer,get COMBO(){return COMBO;},horseRear,horseAnim,playerHit,killMob,fxPlay,fxStep,get FROG2(){return FROG2;},MOUNT,toggleMount,get mixer(){return mixer},rotW,overlayPose,S,P,mobs,cam,actions,bones,setAnim,useSlot,clickAt,THREE,scene,camera,renderer,model,get tIdle(){return tIdle;},get TURN_DELTA(){return TURN_DELTA;}};
+    $('loading').classList.add('hidden'); mountAuthUI();
+    window.__game={enterGame,MAPS,keys,useSlot,killPlayer,respawnPlayer,DEATH,drawMini,updateHUD2:()=>{},lakeE,LAKE_B,LAKE_WL,FROG_SPOTS,CROC_SPOTS,hForest,placePlayer,spawnMob,respawn,fxAttack,fxDeath,get LAKE_STATS(){return LAKE_STATS},get LAKE_MOBS(){return LAKE_MOBS},get CROC(){return CROC},CORE,rankOf,rankReward,grantRank,plateHTML,refreshPlate,RANKS,RANK_REWARD,get plateKey(){return plateKey},get myTag(){return myTag},TYPES,guards,updateGuards,addTime:d=>{time+=d},get ATK_HOLD(){return ATK_HOLD},equipWeaponModel,WMODELS,get sword(){return sword},charPreview,ARMOR,ARMOR_ITEMS,syncArmor,armorDef,defPow,LEGEND_WEAPONS,legEq,LGLB,LFAIL,loadLegend,get SWKEY(){return SWKEY},weapName,wCrit,critCh,buyLegend,SWCFG,refreshWins,updateSmith,upgradeWeapon,buyStone,fixWeapon,WLV,swRoll,wAtk,wMag,aspd,swEq,applySwordLook,updateSwordFx,SEAT,yawFix,get FOREST_STATS(){return FOREST_STATS},zoneAt,updateMount,groundFix,get GOFF(){return GOFF},get S(){return S},ITEMS,EQS,registerItem,addItem,moveItem,initInv,addStat,resetStats,qOf,expNeed,get PLANT_SETS(){return PLANT_SETS},renderMenu,setTab,toggleWin,closeWins,skillUp,skPoints,skL,skv,skStats,saveGame,loadGame,renderSkillWin,gainExp,updatePlayer,updateMobs,updateProjectiles,updateSkills,updateCamera,updateHUD,SKD,SLOT_DEF,SK,cds,fx2,pt2,sched,projectiles,SHAKE,clearSkillFx,MAPS,TRAVEL,travelTo,get MAP(){return MAP;},get obstacles(){return obstacles;},get MAP(){return MAP;},get renderer(){return renderer;},npcs,vRoadD,MAPS,hAt,get HAS3(){return HAS3;},get A3META(){return A3META;},damagePlayer,get COMBO(){return COMBO;},horseRear,horseAnim,playerHit,killMob,fxPlay,fxStep,get FROG2(){return FROG2;},MOUNT,toggleMount,get mixer(){return mixer},rotW,overlayPose,S,P,mobs,cam,actions,bones,setAnim,useSlot,clickAt,THREE,scene,camera,renderer,model,get tIdle(){return tIdle;},get TURN_DELTA(){return TURN_DELTA;}};
   }catch(err){ console.error(err); $('loadTxt').textContent='Yükleme başarısız oldu.'; $('loadTxt').style.color='#ff8a80'; $('err').textContent=String(err&&err.message||err); }
 }
-$('go').onclick=()=>{
-  const nm=$('nameIn').value.trim().slice(0,14)||'Yiğit'; S.name=nm; S.king=+(document.querySelector('input[name=king]:checked')||{value:0}).value;
+/* Hesap sistemi (auth/ modülleri) karakter seçilince bunu çağırır. Oyun motoru hesap koduna bağımlı değildir. */
+/* gizli test komutu: sol üstteki karakter adına 7 kez hızlı dokun → Sv.99 + 10.000.000 yang (yalnızca bu cihazdaki kayıt) */
+function devBoost(){ S.lvl=99; S.exp=0; S.qd=3; S.yang=10000000; S.pts=Math.max(S.pts,0)+3*98; S.hp=maxHP(); S.sp=maxSP(); saveGame(); updateHUD(); banner('Sv. 99 · 10.000.000 Yang'); say('Test komutu: Seviye 99, 10.000.000 yang verildi. Stat puanı: '+S.pts+' (V)','c-sys'); SFX.level(); pillarFx(P.pos,0xffd24a); }
+window.__devBoost=devBoost;
+(function(){ const n=$('meName'); let c=0,t=0; n.style.pointerEvents='auto'; n.addEventListener('click',()=>{ c++; clearTimeout(t); t=setTimeout(()=>c=0,1500); if(c>=7){ c=0; devBoost(); } }); })();
+(function(){ const b=$('authOut'); let t=0; b.addEventListener('click',()=>{ if(!b.classList.contains('arm')){ b.classList.add('arm'); b.textContent='Emin misin? Çıkış'; saveGame(); t=setTimeout(()=>{ b.classList.remove('arm'); b.textContent='⎋ Çıkış'; },3500); } else { clearTimeout(t); window.ValkorAuth&&window.ValkorAuth.logout(); } }); b.addEventListener('pointerdown',e=>e.stopPropagation()); })();
+async function mountAuthUI(){
+  $('auth').classList.remove('pre'); try{ const m=await import('./auth/auth-ui.js'); await m.mountAuth({root:$('auth'),onEnter:enterGame,preview:charPreview,info:charInfo,purge:charPurge}); }
+  catch(e){ console.error('[Hesap] arayüz yüklenemedi',e); $('auth').innerHTML='<div style="position:absolute;inset:0;display:grid;place-items:center;color:#ffb4a8;padding:20px;text-align:center">Giriş ekranı yüklenemedi. Uygulamayı yeniden aç.</div>'; }
+}
+function enterGame({uid,username,character}){
+  charPreview(false,true);
+  SAVEKEY='valkor.v1.'+uid+'.'+character.id; loadGame(); S.name=character.name; S.king=character.king|0; S.acct=username;
   initAudio(); S.hp=Math.max(S.hp,maxHP()); S.hp=maxHP(); S.sp=maxSP(); P.pos.set(0,0,7); P.yaw=Math.PI;
   refreshPlate(true);
-  $('login').classList.add('hidden'); $('hud').classList.remove('hidden'); started=true; canvas.focus();
+  $('hud').classList.remove('hidden'); $('authOut').classList.remove('hidden'); started=true; canvas.focus();
   cam.yaw=0; cam.pitch=.8; cam.dist=11; cam.tx=P.pos.x; cam.ty=1.5; cam.tz=P.pos.z;
   say('Valkor\'a hoş geldin, '+S.name+'!','c-sys'); say('Joystick: yürü. Büyük kılıç tuşu: en yakın hedefe saldır. Çevresi: beceriler, altı: iksirler.','c-sys'); say('Mühür Taşları güçlü ödüller verir ama canavar çağırır.','c-sys');
   saveGame(); refreshWins();
   if(coarse){ safe(()=>document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen().catch(()=>{})); safe(()=>screen.orientation&&screen.orientation.lock&&screen.orientation.lock('landscape').catch(()=>{})); }
-};
+}
 requestAnimationFrame(frame);
 boot();
 </script>
