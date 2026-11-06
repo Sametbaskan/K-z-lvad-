@@ -1,0 +1,90 @@
+<!doctype html><html><body>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three'; import {GLTFExporter} from 'three/addons/exporters/GLTFExporter.js';
+const un=(s,T)=>{const b=atob(s),u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return new T(u.buffer)};
+const D=await (await fetch('dec_c.json')).json(); const NV=D.n;
+const pos=un(D.pos,Float32Array);
+// ---- iskelet (dünya dinlenme konumları; tüm dinlenme dönüşleri birim)
+const S=[ // ad, ebeveyn, konum
+ ['Hips',null,[0,.25,.2]],['Spine1','Hips',[0,.27,.7]],['Spine2','Spine1',[0,.28,1.1]],['Neck','Spine2',[0,.26,1.42]],['Head','Neck',[0,.21,1.6]],['HeadTip','Head',[0,.21,2.25]],
+ ['Jaw','Head',[0,.11,1.72]],['JawTip','Jaw',[0,.09,2.25]],
+ ['Tail1','Hips',[0,.28,-.25]],['Tail2','Tail1',[0,.26,-.75]],['Tail3','Tail2',[.08,.22,-1.2]],['Tail4','Tail3',[.22,.17,-1.6]],['Tail5','Tail4',[.38,.12,-1.95]],['TailTip','Tail5',[.48,.08,-2.25]]];
+for(const [sd,sn] of [[1,'L'],[-1,'R']]){
+  S.push(['HindUpper'+sn,'Hips',[sd*.33,.26,.3]],['HindLower'+sn,'HindUpper'+sn,[sd*.52,.17,.3]],['HindFoot'+sn,'HindLower'+sn,[sd*.66,.05,.28]],['HindToe'+sn,'HindFoot'+sn,[sd*.74,.03,.4]]);
+  S.push(['FrontUpper'+sn,'Spine2',[sd*.33,.22,1.1]],['FrontLower'+sn,'FrontUpper'+sn,[sd*.52,.1,1.23]],['FrontFoot'+sn,'FrontLower'+sn,[sd*.66,.04,1.36]],['FrontToe'+sn,'FrontFoot'+sn,[sd*.72,.02,1.5]]); }
+const NB=S.length, idx={}; S.forEach((s,i)=>idx[s[0]]=i);
+const W=S.map(s=>new THREE.Vector3(...s[2]));
+const bones=S.map(s=>{const b=new THREE.Bone(); b.name=s[0]; return b;});
+S.forEach((s,i)=>{ if(s[1]){ const p=idx[s[1]]; bones[p].add(bones[i]); bones[i].position.copy(W[i]).sub(W[p]); } else bones[i].position.copy(W[i]); });
+const arm=new THREE.Group(); arm.name='Armature'; arm.add(bones[0]);
+// ---- ağırlıklar: her kemik, kendi konumundan çocuklarına giden doğru parçaları
+const segs=[]; // [boneIdx, a, b]
+const kids={}; S.forEach((s,i)=>{ if(s[1]) (kids[idx[s[1]]]=kids[idx[s[1]]]||[]).push(i); });
+const SEGSKIP=new Set(['Hips>Tail1','Hips>HindUpperL','Hips>HindUpperR','Spine2>FrontUpperL','Spine2>FrontUpperR','Head>Jaw','Neck>Head']);
+for(let i=0;i<NB;i++){ for(const c of (kids[i]||[])){ const key=S[i][0]+'>'+S[c][0]; if(SEGSKIP.has(key)) continue; segs.push([i,W[i],W[c]]); } }
+// Head ve Jaw için üst/alt ayrımı: Head segmenti kafa üstü, Jaw alt çene
+segs.push([idx.Head,new THREE.Vector3(0,.215,1.6),new THREE.Vector3(0,.215,1.75)]);
+segs.push([idx.Neck,W[idx.Neck],new THREE.Vector3(0,.23,1.6)]);
+segs.push([idx.Hips,W[idx.Hips],new THREE.Vector3(0,.27,.5)]); // Hips→Spine1 eklenmiş olabilir; sorun değil
+const ab=new THREE.Vector3(),ap=new THREE.Vector3(),v=new THREE.Vector3();
+const si=new Uint16Array(NV*4), sw=new Float32Array(NV*4);
+for(let n=0;n<NV;n++){ v.set(pos[n*3],pos[n*3+1],pos[n*3+2]); const best=new Map();
+  for(const [bi,a,b] of segs){ ab.subVectors(b,a); ap.subVectors(v,a); const t=Math.max(0,Math.min(1,ap.dot(ab)/ab.lengthSq())); const d=ap.distanceTo(ab.clone().multiplyScalar(t)); const w=1/Math.pow(d+.025,4); best.set(bi,(best.get(bi)||0)+w); }
+  const arr=[...best.entries()].sort((x,y)=>y[1]-x[1]).slice(0,4); let tot=0; arr.forEach(e=>tot+=e[1]);
+  for(let k=0;k<4;k++){ si[n*4+k]=arr[k]?arr[k][0]:0; sw[n*4+k]=arr[k]?arr[k][1]/tot:0; } }
+const g=new THREE.BufferGeometry();
+g.setAttribute('position',new THREE.BufferAttribute(pos,3)); g.setAttribute('color',new THREE.BufferAttribute(un(D.col,Uint8Array),3,true));
+g.setAttribute('skinIndex',new THREE.BufferAttribute(si,4)); g.setAttribute('skinWeight',new THREE.BufferAttribute(sw,4));
+g.setIndex(new THREE.BufferAttribute(un(D.idx,Uint32Array),1)); g.computeVertexNormals();
+const mesh=new THREE.SkinnedMesh(g,new THREE.MeshStandardMaterial({vertexColors:true,roughness:.8,metalness:0})); mesh.name='Crocodile';
+const root=new THREE.Group(); root.add(mesh); root.add(arm); root.updateMatrixWorld(true);
+const skel=new THREE.Skeleton(bones); mesh.bind(skel,new THREE.Matrix4());
+// ---- animasyonlar
+const E=new THREE.Euler(), Q=new THREE.Quaternion();
+const sm=x=>x*x*(3-2*x), clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+function kf(t,K){ if(t<=K[0][0]) return K[0][1]; for(let i=1;i<K.length;i++){ if(t<=K[i][0]){ const u=sm((t-K[i-1][0])/(K[i][0]-K[i-1][0])); return K[i-1][1]+(K[i][1]-K[i-1][1])*u; } } return K[K.length-1][1]; }
+const TAILS=['Tail1','Tail2','Tail3','Tail4','Tail5'];
+const POSE={ // t,clip -> {bone:[rx,ry,rz]}, hips:[x,y,z]
+ Idle:(t,d)=>{ const f=t/d*2*Math.PI, o={}, set=(n,x,y,z)=>{o[n]=[x,y,z]};
+   set('Spine1',.01*Math.sin(f),.03*Math.sin(f+1),0); set('Spine2',.018*Math.sin(f+.4),0,0); set('Neck',-.025*Math.sin(f+.8),.04*Math.sin(f),0); set('Head',.02*Math.sin(f+1.2),.05*Math.sin(f+.5),0); set('Jaw',.02+.012*Math.sin(2*f),0,0);
+   TAILS.forEach((n,i)=>set(n,0,.1*Math.sin(f-i*.7+.5),0)); return {o,h:[0,.25+.004*Math.sin(f),.2]}; },
+ Walk:(t,d)=>{ const f=t/d*2*Math.PI, o={}, set=(n,x,y,z)=>{o[n]=[x,y,z]}; const A=.62;
+   const legs=[['HindUpper','HindLower','HindFoot','L',0,1],['FrontUpper','FrontLower','FrontFoot','R',0,-1],['HindUpper','HindLower','HindFoot','R',Math.PI,-1],['FrontUpper','FrontLower','FrontFoot','L',Math.PI,1]];
+   for(const [u,l,ft,sn,ph,s] of legs){ const a=f+ph, sw=Math.sin(a), lift=Math.max(0,Math.cos(a));
+     set(u+sn,0,-s*A*sw,s*.05*lift); set(l+sn,0,-s*.15*sw,s*(.05+.62*lift)); set(ft+sn,0,0,-s*.3*lift); }
+   set('Spine1',0,.11*Math.sin(f),0); set('Spine2',0,-.1*Math.sin(f),0); set('Neck',0,.06*Math.sin(f),0); set('Head',0,.04*Math.sin(f),0); set('Jaw',.02,0,0);
+   TAILS.forEach((n,i)=>set(n,0,.2*Math.sin(f-i*.8-1.2),0)); return {o,h:[0,.25+.012*Math.abs(Math.sin(f*2))*0+.008*Math.cos(2*f),.2]}; },
+ Attack:(t,d)=>{ const o={}, set=(n,x,y,z)=>{o[n]=[x,y,z]};
+   const jaw=kf(t,[[0,.02],[.12,.75],[.3,.8],[.42,.0],[.52,.1],[1.0,.02]]);
+   const lunge=kf(t,[[0,0],[.14,-.14],[.30,-.14],[.42,.5],[.55,.4],[.9,0],[1.0,0]]);
+   const rise=kf(t,[[0,0],[.14,.18],[.3,.2],[.42,-.12],[.6,-.05],[1.0,0]]);   // + = ön yükselir (Spine rx negatif)
+   set('Spine1',-rise*.5,0,0); set('Spine2',-rise*.6,0,0); set('Neck',-rise*.9,0,0); set('Head',-rise*.5+(t>.3&&t<.5?.2:0),0,0); set('Jaw',jaw,0,0);
+   const sway=kf(t,[[0,0],[.3,-.25],[.5,.3],[1,0]]); TAILS.forEach((n,i)=>set(n,0,sway*(.4+i*.12),0));
+   for(const sn of ['L','R']){ const s=sn==='L'?1:-1; set('FrontUpper'+sn,0,s*kf(t,[[0,0],[.3,.15],[.45,-.3],[1,0]]),0); set('HindUpper'+sn,0,-s*kf(t,[[0,0],[.3,-.1],[.45,.3],[1,0]]),0); }
+   return {o,h:[0,.25+(lunge>0?.0:0),.2+lunge]}; },
+ Hit:(t,d)=>{ const o={}, set=(n,x,y,z)=>{o[n]=[x,y,z]};
+   const b=kf(t,[[0,0],[.1,1],[.25,.5],[.5,0]]);
+   set('Spine1',-.15*b,.1*b,0); set('Spine2',-.2*b,-.15*b,0); set('Neck',-.3*b,.2*b,0); set('Head',-.25*b,0,0); set('Jaw',.35*b,0,0);
+   TAILS.forEach((n,i)=>set(n,0,-.5*b*(.5+i*.15),0)); return {o,h:[0,.25,.2-.14*b]}; },
+ Death:(t,d)=>{ const o={}, set=(n,x,y,z)=>{o[n]=[x,y,z]};
+   const flip=kf(t,[[0,0],[.15,.06],[.9,Math.PI],[1.1,Math.PI+.06],[1.35,Math.PI]]);
+   const jaw=kf(t,[[0,0],[.2,.6],[.9,.45],[1.5,.35]]); const lim=kf(t,[[0,0],[.5,.35],[1.0,.55]]);
+   set('Neck',-.35*lim,.15*lim,0); set('Head',-.2*lim,0,0); set('Jaw',jaw,0,0); set('Spine1',0,.12*lim,0);
+   TAILS.forEach((n,i)=>set(n,0,.25*lim*(1+i*.2),0));
+   for(const sn of ['L','R']){ const s=sn==='L'?1:-1; for(const u of ['Front','Hind']){ set(u+'Upper'+sn,0,s*(u==='Front'?-.4:.4)*lim,s*.4*lim); set(u+'Lower'+sn,0,0,s*.6*lim); } }
+   const up=kf(t,[[0,0],[.3,.12],[.9,.08],[1.1,.05],[1.35,.05]]);
+   o.Hips=[0,0,flip]; return {o,h:[0,.25+up,.2]}; }
+};
+const DUR={Idle:3.0,Walk:.9,Attack:1.0,Hit:.5,Death:1.5}; const FPS=30; const clips=[];
+for(const name of Object.keys(POSE)){ const d=DUR[name], n=Math.round(d*FPS)+1, times=[], qs=Array.from({length:NB},()=>[]), hp=[];
+  for(let k=0;k<n;k++){ const t=Math.min(d,k/FPS); times.push(t); const {o,h}=POSE[name](t,d);
+    for(let i=0;i<NB;i++){ const r=o[S[i][0]]||[0,0,0]; E.set(r[0],r[1],r[2],'XYZ'); Q.setFromEuler(E);
+      if(k>0){ const a=qs[i].slice(-4); if(a[0]*Q.x+a[1]*Q.y+a[2]*Q.z+a[3]*Q.w<0) Q.set(-Q.x,-Q.y,-Q.z,-Q.w); } qs[i].push(Q.x,Q.y,Q.z,Q.w); }
+    hp.push(h[0],h[1],h[2]); }
+  const tr=[]; for(let i=0;i<NB;i++) tr.push(new THREE.QuaternionKeyframeTrack(S[i][0]+'.quaternion',times,qs[i]));
+  tr.push(new THREE.VectorKeyframeTrack('Hips.position',times,hp)); clips.push(new THREE.AnimationClip(name,d,tr)); }
+const res=await new GLTFExporter().parseAsync(root,{binary:true,animations:clips});
+const u=new Uint8Array(res); let s=''; for(let i=0;i<u.length;i+=32768) s+=String.fromCharCode.apply(null,u.subarray(i,i+32768));
+window.__glb=btoa(s); window.__done=true;
+</script></body></html>
