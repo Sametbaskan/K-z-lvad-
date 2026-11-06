@@ -176,18 +176,13 @@ body{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-c
 #splPct{position:absolute;left:66.9%;top:87.6%;font:700 12px/2.2 var(--body,serif);color:#e9c98a;text-shadow:0 1px 2px #000;width:5%}
 #loadTxt{position:absolute;left:0;right:0;top:94.4%;margin:0;text-align:center;font:13px var(--body,serif);color:transparent}
 #err{position:absolute;left:10%;right:10%;top:80%;text-align:center;color:#ff8a80;font:13px var(--body,sans-serif);text-shadow:0 1px 3px #000}
+#authOut{position:fixed;top:max(6px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:21;pointer-events:auto;font:700 12px var(--body);color:#d8c79e;background:rgba(15,8,5,.55);border:1px solid rgba(124,98,52,.7);border-radius:12px;padding:3px 10px;opacity:.6}#authOut:active,#authOut.arm{opacity:1;background:#5a1410;color:#fff}
 .screen{position:fixed;inset:0;display:grid;place-items:center;z-index:20;padding:16px;pointer-events:auto;
   background:radial-gradient(ellipse at 50% 30%,#3a1a12 0%,#150d09 60%,#0a0605 100%)}
 .card{width:min(420px,100%);padding:22px 22px 20px;text-align:center}
 .logo{font:700 clamp(40px,11vw,60px)/1 var(--display);letter-spacing:.07em;color:#f4d58a;text-shadow:0 0 22px rgba(255,120,40,.45),0 3px 0 #5c1d10;margin:0}
 .sub{color:var(--mut);margin:6px 0 16px;font-size:15px}
 .field{text-align:left;margin:12px 0 4px;font:700 13px var(--body);color:var(--gold);letter-spacing:.08em;text-transform:uppercase}
-#nameIn{width:100%;padding:9px 10px;font:500 18px var(--body);background:#0f0a06;color:var(--ink);border:1px solid var(--gold-d);border-radius:3px}
-.kings{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
-.kings label{cursor:pointer;border:1px solid var(--gold-d);border-radius:3px;padding:8px 4px;font-weight:700;background:#150e09}
-.kings input{position:absolute;opacity:0;pointer-events:none}
-.kings label:has(input:checked){background:#3b2a16;box-shadow:inset 0 0 0 1px var(--gold)}
-.kings .dot{display:block;width:16px;height:16px;border-radius:50%;margin:0 auto 4px;border:1px solid #000}
 .prog{height:10px;background:#0b0705;border:1px solid var(--gold-d);margin:14px 0 6px}
 .prog i{display:block;height:100%;width:0;background:linear-gradient(#f7d869,#a8841c);transition:width .2s}
 .help{margin-top:14px;font-size:13px;color:var(--mut);line-height:1.45;text-align:left}
@@ -469,19 +464,9 @@ body{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-c
     <div id="splTrack"><i id="loadBar"></i></div><div id="splPct">0%</div>
     <p id="loadTxt">Valkor Dünyasına Hoş Geldin…</p><div id="err"></div></div>
 </div>
-<div id="login" class="screen hidden">
-  <div class="card panel"><h1 class="logo">Valkor</h1><p class="sub">Savaşçı yolu seni bekliyor.</p>
-    <div class="field">Karakter adı</div><input id="nameIn" maxlength="14" value="Yiğit" autocomplete="off" spellcheck="false">
-    <div class="field">Krallık</div>
-    <div class="kings">
-      <label><input type="radio" name="king" value="0" checked><span class="dot" style="background:#d33"></span>Kızıl</label>
-      <label><input type="radio" name="king" value="1"><span class="dot" style="background:#e3b52b"></span>Altın</label>
-      <label><input type="radio" name="king" value="2"><span class="dot" style="background:#3a7be0"></span>Mavi</label>
-    </div>
-    <p style="margin:18px 0 0"><button class="btn" id="go" style="font-size:19px;padding:10px 34px;font-family:var(--display)">Oyuna Gir</button></p>
-    <div class="help"><b>Dokunmatik:</b> sol alttaki joystick ile yürü, boş ekranı sürükleyerek kamerayı çevir, iki parmakla yakınlaştır. Sağ alttaki büyük tuş saldırır; çevresindeki yuvarlak tuşlar beceriler (Sv.5'te açılır), altındakiler iksirler.</div>
-  </div>
-</div>
+<link rel="stylesheet" href="auth/auth.css">
+<div id="auth"></div>
+<button id="authOut" class="hidden" type="button" aria-label="Çıkış yap">⎋ Çıkış</button>
 <div id="death" class="hidden"><div class="dvig"></div><div class="dbox"><h1>ÖLDÜNÜZ</h1><div class="dline"></div><div class="dbtns"><button class="dbtn" id="reHere" type="button">Burada Yeniden Başla</button><button class="dbtn" id="reCity" type="button">Şehirde Yeniden Başla</button></div></div></div>
 
 <script type="importmap">
@@ -1265,9 +1250,9 @@ const qOf = () => S.lvl>=30?3:Math.min(3,Math.floor(S.exp/expNeed(S.lvl)*4));
 function addStat(k){ if(!(k in BASESTAT)) return; if(S.pts<=0){ say('Stat puanın yok.','c-bad'); return; } if(S[k]>=STATCAP){ say(STATD[k][0]+' en yüksek değerde ('+STATCAP+').','c-bad'); return; } S.pts--; S[k]++; if(k==='vit') S.hp+=8; if(k==='int') S.sp+=5; saveGame(); renderMenu(true); }
 /* ileride NPC / özel eşya için: tüm dağıtılan stat puanlarını iade eder */
 function resetStats(){ let refund=0; for(const k in BASESTAT){ refund+=S[k]-BASESTAT[k]; S[k]=BASESTAT[k]; } S.pts+=refund; S.rst=(S.rst|0)+1; S.hp=Math.min(S.hp,maxHP()); S.sp=Math.min(S.sp,maxSP()); saveGame(); renderMenu(true); return refund; }
-const LEGACY_SAVE=['kizil','vadi'].join('')+'.v1', LEGACY_WM=['kizil','vadi'].join('')+'.wm';   // eski sürümlerden kayıt taşıma (adlar parçalı: dosyada eski ad kalmasın)
-function saveGame(){ safe(()=>localStorage.setItem('valkor.v1',JSON.stringify({name:S.name,king:S.king,lvl:S.lvl,exp:S.exp,yang:S.yang,pts:S.pts,qd:S.qd,rst:S.rst,inv:S.inv,eq:S.eq,st:S.st,vit:S.vit,int:S.int,dex:S.dex,weap:S.weap,wr:S.wr,red:S.red,blue:S.blue,sk:S.sk,rp:S.rp,rk:rankSum(S.rp),guild:S.guild}))); }
-function loadGame(){ try{ initInv(); }catch(e){} const d=safe(()=>JSON.parse(localStorage.getItem('valkor.v1')||localStorage.getItem(LEGACY_SAVE)||'null')); if(d&&typeof d==='object'){ for(const k of Object.keys(d)) if(k!=='sk'&&k in S && typeof d[k]===typeof S[k]) S[k]=d[k]; sanitizeSkills(d.sk); initInv(); for(const k in BASESTAT) S[k]=Math.max(BASESTAT[k],Math.min(STATCAP,Math.floor(S[k])||BASESTAT[k])); S.pts=Math.max(0,Math.floor(S.pts)||0); if(d.qd===undefined) S.qd=qOf(); S.qd=Math.max(0,Math.min(3,S.qd|0)); S.rp=(typeof d.rp==='number'&&isFinite(d.rp)&&d.rk===rankSum(d.rp))?Math.max(RANK_MIN,Math.min(RANK_MAX,Math.round(d.rp))):0; S.guild=typeof d.guild==='string'?d.guild.slice(0,16):''; fixWeapon(); return true; } fixWeapon(); return false; }
+let SAVEKEY='valkor.v1.guest'; const LEGACY_SAVE=['kizil','vadi'].join('')+'.v1', LEGACY_WM=['kizil','vadi'].join('')+'.wm';   // eski sürümlerden kayıt taşıma (adlar parçalı: dosyada eski ad kalmasın)
+function saveGame(){ safe(()=>localStorage.setItem(SAVEKEY,JSON.stringify({name:S.name,king:S.king,lvl:S.lvl,exp:S.exp,yang:S.yang,pts:S.pts,qd:S.qd,rst:S.rst,inv:S.inv,eq:S.eq,st:S.st,vit:S.vit,int:S.int,dex:S.dex,weap:S.weap,wr:S.wr,red:S.red,blue:S.blue,sk:S.sk,rp:S.rp,rk:rankSum(S.rp),guild:S.guild}))); }
+function loadGame(){ try{ initInv(); }catch(e){} const d=safe(()=>JSON.parse(localStorage.getItem(SAVEKEY)||'null')); if(d&&typeof d==='object'){ for(const k of Object.keys(d)) if(k!=='sk'&&k in S && typeof d[k]===typeof S[k]) S[k]=d[k]; sanitizeSkills(d.sk); initInv(); for(const k in BASESTAT) S[k]=Math.max(BASESTAT[k],Math.min(STATCAP,Math.floor(S[k])||BASESTAT[k])); S.pts=Math.max(0,Math.floor(S.pts)||0); if(d.qd===undefined) S.qd=qOf(); S.qd=Math.max(0,Math.min(3,S.qd|0)); S.rp=(typeof d.rp==='number'&&isFinite(d.rp)&&d.rk===rankSum(d.rp))?Math.max(RANK_MIN,Math.min(RANK_MAX,Math.round(d.rp))):0; S.guild=typeof d.guild==='string'?d.guild.slice(0,16):''; fixWeapon(); return true; } fixWeapon(); return false; }
 
 /* ============================== oyuncu karakteri (FBX) ============================== */
 const playerGroup = new THREE.Group(); scene.add(playerGroup);
@@ -3280,21 +3265,26 @@ async function boot(){
     try{ const tp=await get('models/plants.b64.txt',()=>{}); prepPlants(L.parse(dec(tp),'')); if(NATURE_PENDING) prepNature(NATURE_PENDING[0],NATURE_PENDING[1]); }catch(e){ console.error('[Bitki] Bitki paketi (plants kit FBX) yüklenemedi, eski ağaçlar kullanılacak:',e); }
     initMapUI(); initVillageMap(); setAtmos('village'); try{ warmFx(); }catch(e){ console.warn('[Efekt] ısınma atlandı',e); } setP(100);
     myTag=document.createElement('div'); myTag.className='pn'; $('pops').appendChild(myTag);
-    $('loading').classList.add('hidden'); $('login').classList.remove('hidden');
-    const has=loadGame(); if(has){ $('nameIn').value=S.name; document.querySelector(`input[name=king][value="${S.king}"]`).checked=true; }
-    window.__game={MAPS,keys,useSlot,killPlayer,respawnPlayer,DEATH,drawMini,updateHUD2:()=>{},lakeE,LAKE_B,LAKE_WL,FROG_SPOTS,CROC_SPOTS,hForest,placePlayer,spawnMob,respawn,fxAttack,fxDeath,get LAKE_STATS(){return LAKE_STATS},get LAKE_MOBS(){return LAKE_MOBS},get CROC(){return CROC},CORE,rankOf,rankReward,grantRank,plateHTML,refreshPlate,RANKS,RANK_REWARD,get plateKey(){return plateKey},get myTag(){return myTag},TYPES,guards,updateGuards,addTime:d=>{time+=d},get ATK_HOLD(){return ATK_HOLD},equipWeaponModel,WMODELS,get sword(){return sword},updateSmith,upgradeWeapon,buyStone,fixWeapon,WLV,swRoll,wAtk,wMag,aspd,swEq,applySwordLook,updateSwordFx,SEAT,yawFix,get FOREST_STATS(){return FOREST_STATS},zoneAt,updateMount,groundFix,get GOFF(){return GOFF},get S(){return S},ITEMS,EQS,registerItem,addItem,moveItem,initInv,addStat,resetStats,qOf,expNeed,get PLANT_SETS(){return PLANT_SETS},renderMenu,setTab,toggleWin,closeWins,skillUp,skPoints,skL,skv,skStats,saveGame,loadGame,renderSkillWin,gainExp,updatePlayer,updateMobs,updateProjectiles,updateSkills,updateCamera,updateHUD,SKD,SLOT_DEF,SK,cds,fx2,pt2,sched,projectiles,SHAKE,clearSkillFx,MAPS,TRAVEL,travelTo,get MAP(){return MAP;},get obstacles(){return obstacles;},get MAP(){return MAP;},get renderer(){return renderer;},npcs,vRoadD,MAPS,hAt,get HAS3(){return HAS3;},get A3META(){return A3META;},damagePlayer,get COMBO(){return COMBO;},horseRear,horseAnim,playerHit,killMob,fxPlay,fxStep,get FROG2(){return FROG2;},MOUNT,toggleMount,get mixer(){return mixer},rotW,overlayPose,S,P,mobs,cam,actions,bones,setAnim,useSlot,clickAt,THREE,scene,camera,renderer,model,get tIdle(){return tIdle;},get TURN_DELTA(){return TURN_DELTA;}};
+    $('loading').classList.add('hidden'); mountAuthUI();
+    window.__game={enterGame,MAPS,keys,useSlot,killPlayer,respawnPlayer,DEATH,drawMini,updateHUD2:()=>{},lakeE,LAKE_B,LAKE_WL,FROG_SPOTS,CROC_SPOTS,hForest,placePlayer,spawnMob,respawn,fxAttack,fxDeath,get LAKE_STATS(){return LAKE_STATS},get LAKE_MOBS(){return LAKE_MOBS},get CROC(){return CROC},CORE,rankOf,rankReward,grantRank,plateHTML,refreshPlate,RANKS,RANK_REWARD,get plateKey(){return plateKey},get myTag(){return myTag},TYPES,guards,updateGuards,addTime:d=>{time+=d},get ATK_HOLD(){return ATK_HOLD},equipWeaponModel,WMODELS,get sword(){return sword},updateSmith,upgradeWeapon,buyStone,fixWeapon,WLV,swRoll,wAtk,wMag,aspd,swEq,applySwordLook,updateSwordFx,SEAT,yawFix,get FOREST_STATS(){return FOREST_STATS},zoneAt,updateMount,groundFix,get GOFF(){return GOFF},get S(){return S},ITEMS,EQS,registerItem,addItem,moveItem,initInv,addStat,resetStats,qOf,expNeed,get PLANT_SETS(){return PLANT_SETS},renderMenu,setTab,toggleWin,closeWins,skillUp,skPoints,skL,skv,skStats,saveGame,loadGame,renderSkillWin,gainExp,updatePlayer,updateMobs,updateProjectiles,updateSkills,updateCamera,updateHUD,SKD,SLOT_DEF,SK,cds,fx2,pt2,sched,projectiles,SHAKE,clearSkillFx,MAPS,TRAVEL,travelTo,get MAP(){return MAP;},get obstacles(){return obstacles;},get MAP(){return MAP;},get renderer(){return renderer;},npcs,vRoadD,MAPS,hAt,get HAS3(){return HAS3;},get A3META(){return A3META;},damagePlayer,get COMBO(){return COMBO;},horseRear,horseAnim,playerHit,killMob,fxPlay,fxStep,get FROG2(){return FROG2;},MOUNT,toggleMount,get mixer(){return mixer},rotW,overlayPose,S,P,mobs,cam,actions,bones,setAnim,useSlot,clickAt,THREE,scene,camera,renderer,model,get tIdle(){return tIdle;},get TURN_DELTA(){return TURN_DELTA;}};
   }catch(err){ console.error(err); $('loadTxt').textContent='Yükleme başarısız oldu.'; $('loadTxt').style.color='#ff8a80'; $('err').textContent=String(err&&err.message||err); }
 }
-$('go').onclick=()=>{
-  const nm=$('nameIn').value.trim().slice(0,14)||'Yiğit'; S.name=nm; S.king=+(document.querySelector('input[name=king]:checked')||{value:0}).value;
+/* Hesap sistemi (auth/ modülleri) karakter seçilince bunu çağırır. Oyun motoru hesap koduna bağımlı değildir. */
+(function(){ const b=$('authOut'); let t=0; b.addEventListener('click',()=>{ if(!b.classList.contains('arm')){ b.classList.add('arm'); b.textContent='Emin misin? Çıkış'; saveGame(); t=setTimeout(()=>{ b.classList.remove('arm'); b.textContent='⎋ Çıkış'; },3500); } else { clearTimeout(t); window.ValkorAuth&&window.ValkorAuth.logout(); } }); b.addEventListener('pointerdown',e=>e.stopPropagation()); })();
+async function mountAuthUI(){
+  try{ const m=await import('./auth/auth-ui.js'); await m.mountAuth({root:$('auth'),onEnter:enterGame}); }
+  catch(e){ console.error('[Hesap] arayüz yüklenemedi',e); $('auth').innerHTML='<div style="position:absolute;inset:0;display:grid;place-items:center;color:#ffb4a8;padding:20px;text-align:center">Giriş ekranı yüklenemedi. Uygulamayı yeniden aç.</div>'; }
+}
+function enterGame({uid,username,character}){
+  SAVEKEY='valkor.v1.'+uid+'.'+character.id; loadGame(); S.name=character.name; S.king=character.king|0; S.acct=username;
   initAudio(); S.hp=Math.max(S.hp,maxHP()); S.hp=maxHP(); S.sp=maxSP(); P.pos.set(0,0,7); P.yaw=Math.PI;
   refreshPlate(true);
-  $('login').classList.add('hidden'); $('hud').classList.remove('hidden'); started=true; canvas.focus();
+  $('hud').classList.remove('hidden'); $('authOut').classList.remove('hidden'); started=true; canvas.focus();
   cam.yaw=0; cam.pitch=.8; cam.dist=11; cam.tx=P.pos.x; cam.ty=1.5; cam.tz=P.pos.z;
   say('Valkor\'a hoş geldin, '+S.name+'!','c-sys'); say('Joystick: yürü. Büyük kılıç tuşu: en yakın hedefe saldır. Çevresi: beceriler, altı: iksirler.','c-sys'); say('Mühür Taşları güçlü ödüller verir ama canavar çağırır.','c-sys');
   saveGame(); refreshWins();
   if(coarse){ safe(()=>document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen().catch(()=>{})); safe(()=>screen.orientation&&screen.orientation.lock&&screen.orientation.lock('landscape').catch(()=>{})); }
-};
+}
 requestAnimationFrame(frame);
 boot();
 </script>

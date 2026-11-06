@@ -1,0 +1,57 @@
+rules_version = '2';
+// VALKOR — Firestore güvenlik kuralları (Firebase Console → Firestore → Rules, ya da `firebase deploy --only firestore:rules`)
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function isOwner(uid) { return signedIn() && request.auth.uid == uid; }
+
+    // Profil: yalnızca sahibi okur/oluşturur; değiştirme/silme istemciden kapalı
+    match /users/{uid} {
+      allow read: if isOwner(uid);
+      allow create: if isOwner(uid)
+        && request.resource.data.keys().hasOnly(['username','usernameLower','createdAt'])
+        && request.resource.data.username is string
+        && request.resource.data.username.matches('^[A-Za-z0-9_]{3,16}$')
+        && request.resource.data.usernameLower == request.resource.data.username.lower();
+      allow update, delete: if false;
+
+      // Karakterler: yalnızca sahibi okur, en fazla 4 karakter oluşturur; istemci değiştiremez/silemez
+      match /characters/{cid} {
+        allow read: if isOwner(uid);
+        allow create: if isOwner(uid)
+          && request.resource.data.keys().hasOnly(['name','nameLower','king','createdAt'])
+          && request.resource.data.name is string
+          && request.resource.data.name.size() >= 2 && request.resource.data.name.size() <= 14
+          && request.resource.data.nameLower == request.resource.data.name.lower()
+          && request.resource.data.king in [0,1,2];
+        allow update, delete: if false;
+      }
+    }
+
+    // Kullanıcı adı rezervasyonu (benzersizlik): tek tek okunabilir (kullanıcı adıyla giriş için), listelenemez, yalnızca bir kez oluşturulur
+    match /usernames/{name} {
+      allow get: if true;
+      allow list: if false;
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['uid','email','username'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.email == request.auth.token.email.lower()
+        && name == request.resource.data.username.lower()
+        && name.matches('^[a-z0-9_]{3,16}$');
+      allow update, delete: if false;
+    }
+
+    // Karakter adı rezervasyonu
+    match /charnames/{name} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['uid','charId','name'])
+        && request.resource.data.uid == request.auth.uid
+        && name == request.resource.data.name.lower();
+      allow update, delete: if false;
+    }
+
+    match /{document=**} { allow read, write: if false; }
+  }
+}
