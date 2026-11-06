@@ -293,6 +293,8 @@ body{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-c
 #shop.fr h2:first-of-type{justify-content:flex-end;margin:0;height:0}
 #shop.fr h2 .x{position:absolute;right:-6px;top:-8px;width:34px;height:34px;padding:0;display:block}#shop.fr h2 .x img{width:100%;height:auto;display:block}
 #shop.fr .row{background:rgba(0,0,0,.28);border-radius:4px;padding:4px 6px;margin:3px 0}
+#legShop{max-height:34vh;overflow-y:auto}#legShop .row{display:flex;align-items:center;gap:6px}#legShop .row img{width:24px;height:32px;object-fit:contain;flex:none}#legShop .row span{flex:1;line-height:1.15}
+.m2c.leg img,.m2s.leg img{filter:drop-shadow(0 0 3px rgba(255,170,60,.85))}.m2c.leg{box-shadow:inset 0 0 0 1px rgba(255,170,60,.55)}
 .eq.slot{border-style:dashed;border-color:#6b5228}.eq.slot svg{width:70%;height:70%;opacity:.35}.eq.slot .lb{position:absolute;left:0;right:0;bottom:1px;font:700 8px var(--body);color:var(--mut);text-align:center}
 #mini{background:none;border:0;box-shadow:none;padding:0}
 #mini.panel{background:none;border:0;box-shadow:none}
@@ -455,6 +457,8 @@ body{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-c
     <h2 style="margin-top:14px;font-size:18px">Demirci Kaan</h2>
     <div class="row"><span>Silah <b id="shopWeap"></b><br><small id="shopOdds"></small></span><button class="btn" id="upg">Yükselt</button></div>
     <div class="row"><span>Yükseltme Taşı <small id="shopStone"></small></span><button class="btn" data-sbuy="1">Satın Al</button></div>
+    <h2 style="margin-top:14px;font-size:18px;color:#ffb84a">Efsanevi Kılıçlar</h2>
+    <div id="legShop"></div>
     <div class="row"><span>Yang</span><b id="shopYang"></b></div></div>
 </div>
 
@@ -476,6 +480,7 @@ body{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-c
 import * as THREE from 'three';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
@@ -1143,7 +1148,7 @@ const CORE=(()=>{
   const mobDamage=(lvl,atkMul,curseMul,rr)=>Math.max(1,Math.round((7+1.45*Math.pow(lvl,1.2))*atkMul*rr(.85,1.15)*curseMul));
   /* oyuncu -> canavar: {miss:true} ya da {dmg,crit} */
   const playerAttack=(o,R,rr)=>{ if(!o.quiet&&R()>hitCh(o.dex)) return {miss:true};
-    let dmg=o.power*o.mul*rr(.88,1.12)-o.mobLvl*1.4; dmg=Math.max(1,Math.round(dmg)); let crit=false; if(R()<critCh(o.dex)){ dmg=Math.round(dmg*1.7); crit=true; } return {dmg,crit}; };
+    let dmg=o.power*o.mul*rr(.88,1.12)-o.mobLvl*1.4; dmg=Math.max(1,Math.round(dmg)); let crit=false; if(R()<critCh(o.dex)+(o.critBonus||0)){ dmg=Math.round(dmg*1.7); crit=true; } return {dmg,crit}; };
   /* canavar -> oyuncu (savunma ve azaltma sonrası) */
   const damageToPlayer=(n,def,red)=>Math.max(1,Math.round((n-def*.4)*red));
   /* öldürme ödülleri: tecrübe + sıralı drop listesi [{kind,amount}] (yang / red / blue / ustone) */
@@ -1220,6 +1225,7 @@ function moveItem(a,b){
   if(a.k===b.k&&(a.k==='inv'?a.i===b.i:a.id===b.id)) return false;
   if(!fits(b,A)){ say(`${ITEMS[A.id].name} bu slota takılamaz.`,'c-bad'); return false; }
   const B=slotAt(b);
+  for(const [it,to] of [[A,b],[B,a]]) if(it&&to.k==='eq'&&ITEMS[it.id].reqLv>S.lvl){ say(`${ITEMS[it.id].name} için seviye ${ITEMS[it.id].reqLv} gerekli.`,'c-bad'); return false; }
   if(B&&!fits(a,B)){ say(`${ITEMS[B.id].name} o slota takılamaz.`,'c-bad'); return false; }
   if(a.k==='inv'&&b.k==='inv'&&B&&B.id===A.id&&ITEMS[A.id].stack&&!ITEMS[A.id].cnt){ B.n+=A.n; S.inv[a.i]=null; return fin(); }
   slotPut(b,A); slotPut(a,B||null); return fin(); }
@@ -1231,8 +1237,57 @@ const SW_STONES=[1,2,3,4,5,6,8,10,12], SW_ODDS=[1,.95,.9,.8,.7,.6,.5,.4,.3], STO
 const swInt=(lo,hi)=>lo+Math.floor(Math.random()*(hi-lo+1));   // gerçek rastgele (R sabit tohumlu)
 const swRoll=n=>({a:swInt(WLV[n].a[0],WLV[n].a[1]), m:swInt(WLV[n].m[0],WLV[n].m[1])});   // her seviyede aralık içinde zar; kayıtla saklanır
 function fixWeapon(){ S.weap=Math.max(0,Math.min(9,Math.floor(S.weap)||0)); const L=WLV[S.weap], w=S.wr; if(!w||!(w.a>=L.a[0]&&w.a<=L.a[1]&&w.m>=L.m[0]&&w.m<=L.m[1])) S.wr=swRoll(S.weap); }
-const swEq=()=>!!(S.eq&&S.eq.w1&&S.eq.w1.id==='sword');   // kılıç sağ el slotunda takılı mı
-const wAtk=()=>swEq()?S.wr.a:0, wMag=()=>swEq()?S.wr.m:0, aspd=()=>swEq()?1+SW_ASPD/100:1;
+/* ===================== EFSANEVİ SİLAHLAR (merkezi tanım) =====================
+   Tüm değerler buradan düzenlenir. atk/mag: silah saldırısı / büyü saldırısı (Demir Kılıç +9 = 76–78 / 78–82, hız +22 ile kıyaslanır),
+   aspd: saldırı hızı bonusu (%), crit: kritik şansı bonusu (yüzde puan), reqLv: kuşanma seviyesi, price: Tüccar Han fiyatı (Yang).
+   model: models/weapons/<id>.glb.b64.txt (base64 GLB, kabza ortası orijinde, namlu +Y; ayrı ayrı ve ilk kuşanılışta yüklenir)
+   icon: img/weapons/<id>.webp · grip/scale: GripPoint (model uzayında kabza ortası, m) — ortak el soketi SWCFG ile sağ ele bağlanır.
+   fx: col=parıltı rengi, op/size=parıltı (küçük, kontrollü), emi=[taban, nabız] parlama çarpanı, pulse=nabız hızı,
+       part={kind:spark|smoke|frost|bolt|rune|mist, col, rate(sn başına), size, life}, env=metal yansıma şiddeti */
+const LEGEND_WEAPONS={
+  kizil_hukum:{name:'Kızıl Hüküm',reqLv:15,price:40000,atk:55,mag:43,aspd:16,crit:3,
+    desc:'Siyah çelik namlusunda kızıl enerji damarları atar; kabzasındaki ejder başı her vuruşta hırlar.',
+    fx:{col:0xff2a14,op:.32,size:.13,emi:[.8,.5],pulse:2.2,env:.55,part:{kind:'spark',col:0xff4020,rate:3,size:.035,life:.7}}},
+  geceyarigi:{name:'Geceyarığı',reqLv:15,price:42000,atk:49,mag:53,aspd:26,crit:4,
+    desc:'Gece kadar karanlık, ince ve hafif kavisli. Gümüş ağzı ay ışığını keser, mor rünleri gölgede fısıldar.',
+    fx:{col:0x9a40ff,op:.28,size:.12,emi:[.7,.6],pulse:1.6,env:.6,part:{kind:'mist',col:0x7a30d0,rate:2.5,size:.05,life:1.1}}},
+  ejder_disi:{name:'Ejder Dişi',reqLv:18,price:55000,atk:63,mag:45,aspd:12,crit:3,
+    desc:'Kadim bir ejderin dişinden dövülmüş. Bronz bilezikli ağır namlusu zırhı yarar.',
+    fx:{col:0xff6020,op:.22,size:.12,emi:[.7,.4],pulse:1.4,env:.5,part:{kind:'spark',col:0xff7030,rate:1.8,size:.03,life:.8}}},
+  ruhkesen:{name:'Ruhkesen',reqLv:18,price:58000,atk:55,mag:65,aspd:20,crit:3,
+    desc:'Gümüş namlusunun kökündeki mavi kristal çekirdek, kestiği her ruhun ışığını içine çeker.',
+    fx:{col:0x40a8ff,op:.32,size:.13,emi:[.85,.5],pulse:1.8,env:.65,part:{kind:'rune',col:0x60c0ff,rate:2.5,size:.035,life:1.0}}},
+  kara_safak:{name:'Kara Şafak',reqLv:21,price:75000,atk:67,mag:59,aspd:18,crit:4,
+    desc:'Kraliyet muhafızlarının kılıcı. Siyah çeliğe işlenmiş altın telkari ve el koruyuculu kabzası asaletini gösterir.',
+    fx:{col:0xffc050,op:.24,size:.12,emi:[.8,.35],pulse:1.2,env:.65,part:{kind:'spark',col:0xffd070,rate:1.6,size:.03,life:.9}}},
+  buzul_hukmu:{name:'Buzul Hükmü',reqLv:21,price:78000,atk:63,mag:69,aspd:16,crit:3,
+    desc:'Hiç erimeyen buzdan dövülmüş. Kenarlarındaki kristaller dokunduğu teni dondurur.',
+    fx:{col:0x80d8ff,op:.28,size:.13,emi:[.7,.35],pulse:1.0,env:.75,part:{kind:'frost',col:0xc8f0ff,rate:3,size:.03,life:1.2}}},
+  kanli_hilal:{name:'Kanlı Hilal',reqLv:24,price:95000,atk:75,mag:57,aspd:20,crit:6,
+    desc:'Hilal biçimli bordo namlu ve kemik kabza. Sırtındaki kancalar yarayı açık tutar.',
+    fx:{col:0xb0101a,op:.26,size:.13,emi:[.75,.6],pulse:2.6,env:.5,part:{kind:'mist',col:0x8a0010,rate:2.2,size:.05,life:.9}}},
+  firtina_muhru:{name:'Fırtına Mührü',reqLv:24,price:98000,atk:69,mag:73,aspd:28,crit:4,
+    desc:'Şimşek biçimli namlu, mühürlenmiş bir fırtınayı taşır. Kristali her an çatırdamaya hazırdır.',
+    fx:{col:0x40c0ff,op:.26,size:.12,emi:[.8,.5],pulse:3.2,env:.7,part:{kind:'bolt',col:0x9ae4ff,rate:1.1,size:0,life:.09}}},
+  kral_mezari:{name:'Kral Mezarı',reqLv:27,price:125000,atk:83,mag:67,aspd:14,crit:5,
+    desc:'Unutulmuş bir kralın mezarından çıkarıldı. Eskimiş demirindeki kadim semboller hâlâ okunur.',
+    fx:{col:0x30805a,op:.12,size:.1,emi:[.6,.3],pulse:.8,env:.35,part:{kind:'smoke',col:0x1c1a18,rate:2.2,size:.06,life:1.6}}},
+  olumsuzun_sonu:{name:'Ölümsüzün Sonu',reqLv:30,price:180000,atk:88,mag:84,aspd:24,crit:7,
+    desc:'Ölümsüzleri bile sonlandırdığı söylenen efsane. Altın merkez kristali ve kadim altın rünleri karanlıkta parlar.',
+    fx:{col:0xffc040,op:.34,size:.14,emi:[.85,.55],pulse:1.5,env:.7,part:{kind:'rune',col:0xffd060,rate:3,size:.035,life:1.0}}}
+};
+for(const [id,L] of Object.entries(LEGEND_WEAPONS)){
+  Object.assign(L,{id,cls:'Tek elli kılıç',rarity:'Efsanevi',grip:L.grip??.04,scale:L.scale??1,
+    model:L.model||`models/weapons/${id}.glb.b64.txt`, icon:L.icon||`img/weapons/${id}.webp`});
+  registerItem(id,{name:L.name,img:'lw_'+id,icon:L.icon,slot:'weapon',kind:'kılıç',leg:true,reqLv:L.reqLv,desc:L.desc,
+    info:()=>[`<span style="color:#ffb84a">${L.name}</span>`,`${L.cls} · <span style="color:#ffb84a">${L.rarity}</span> · Sv.${L.reqLv}${S.lvl<L.reqLv?' <span style="color:#f88">(seviyen yetmiyor)</span>':''}`,
+      `Saldırı: ${L.atk} · Büyü saldırısı: ${L.mag}`,`Saldırı hızı: +${L.aspd} · Kritik: +%${L.crit}`,`<i style="color:#cdbb9a">${L.desc}</i>`]});
+}
+const swEq=()=>!!(S.eq&&S.eq.w1&&S.eq.w1.id==='sword');   // Demir Kılıç sağ el slotunda takılı mı
+const legEq=()=>{ const it=S.eq&&S.eq.w1; return it&&LEGEND_WEAPONS[it.id]?LEGEND_WEAPONS[it.id]:null; };   // sağ elde (w1) efsanevi silah
+const wAtk=()=>{ const L=legEq(); return L?L.atk:swEq()?S.wr.a:0; }, wMag=()=>{ const L=legEq(); return L?L.mag:swEq()?S.wr.m:0; },
+      aspd=()=>{ const L=legEq(); return L?1+L.aspd/100:swEq()?1+SW_ASPD/100:1; }, wCrit=()=>{ const L=legEq(); return L?L.crit/100:0; };
+const weapName=()=>{ const L=legEq(); return L?L.name:swEq()?'Demir Kılıç +'+S.weap:'—'; };
 fixWeapon();
 Object.defineProperty(ITEMS.sword,'desc',{get:()=>`Başlangıç silahı +${S.weap}. Saldırı ${S.wr.a} (${WLV[S.weap].a[0]}–${WLV[S.weap].a[1]}) · Büyü saldırısı ${S.wr.m} (${WLV[S.weap].m[0]}–${WLV[S.weap].m[1]}) · Saldırı hızı +${SW_ASPD}`,enumerable:true});
 ITEMS.sword.info=()=>{ const L=WLV[S.weap]; return [`Demir Kılıç +${S.weap}`,`Saldırı: ${S.wr.a}  (${L.a[0]}–${L.a[1]})`,`Büyü saldırısı: ${S.wr.m}  (${L.m[0]}–${L.m[1]})`,`Saldırı hızı: +${SW_ASPD}`,S.weap<9?`Sonraki: +${S.weap+1} · Demirci Kaan'da yükselt`:'En yüksek seviye']; };
@@ -1243,7 +1298,7 @@ const weapMul = () => 1;   // eski çarpan kaldırıldı: silah gücü artık d�
 const atkPow = () => (10+S.lvl*3+S.st*1.5+wAtk())*(S.buff>0?(S.buffAtk||1.3):1);
 const magPow = () => (10+S.lvl*3+S.st*1.5+wMag())*magMul()*(S.buff>0?(S.buffAtk||1.3):1);
 const defPow = () => CORE.defPow(S.lvl,S.vit);
-const dodgeCh = () => CORE.dodgeCh(S.dex), hitCh = () => CORE.hitCh(S.dex), magMul = () => 1+S.int*.006, critCh = () => CORE.critCh(S.dex);
+const dodgeCh = () => CORE.dodgeCh(S.dex), hitCh = () => CORE.hitCh(S.dex), magMul = () => 1+S.int*.006, critCh = () => CORE.critCh(S.dex)+wCrit();
 const MAGCOL=new Set([0xff8a2a,0xbfeaff,0x9be4ff]);
 const qOf = () => S.lvl>=30?3:Math.min(3,Math.floor(S.exp/expNeed(S.lvl)*4));
 /* stat puanı: EXP çubuğu 4 parça, %25/%50/%75'te 1'er puan (seviye başına toplam 3) */
@@ -1329,7 +1384,7 @@ const WMODELS={ sword10:{name:'Demir Kılıç',file:'models/sword10.b64.txt',sca
                 kyanite:{name:'Kyanite Kılıç',file:'models/kyanite.b64.txt',scale:.8,grip:-.12} };
 const WGLB={}; let WMODEL='kyanite'; try{ const w=(localStorage.getItem('valkor.wm')||localStorage.getItem(LEGACY_WM)); if(w&&WMODELS[w]) WMODEL=w; }catch(e){}
 function equipWeaponModel(id){ if(!WMODELS[id]||!WGLB[id]) return false; WMODEL=id; try{ localStorage.setItem('valkor.wm',id); }catch(e){}
-  if(SWHAND){ if(sword) SWHAND.remove(sword); sword=makeSword(); sword.scale.setScalar(1/MSCALE); SWHAND.add(sword); placeSword(); swFxLv=-1; } return true; }
+  if(SWHAND&&SWKEY==='base'){ if(sword) SWHAND.remove(sword); sword=makeSword(); sword.scale.setScalar(1/MSCALE); SWHAND.add(sword); placeSword(); swFxLv=-1; } return true; }
 let SWORD_GLB=null, swMat=null, swHalo=[], swAura=null, swFxLv=-1, swAcc=0, swRing=0;
 const SWL=[   // +0..+9: renk tonu, parlama rengi, parlama şiddeti, halo opaklığı, halo ölçeği, saniyedeki kıvılcım
   {c:0xffffff,e:0x000000,ei:0,ho:0,hs:1,pr:0},{c:0xf1f6ff,e:0x101820,ei:.04,ho:0,hs:1,pr:0},{c:0xe2eeff,e:0x182838,ei:.07,ho:0,hs:1,pr:0},{c:0xd0e6ff,e:0x203a58,ei:.10,ho:0,hs:1,pr:0},
@@ -1341,7 +1396,8 @@ function addSwordFx(g){ swHalo=[]; for(const y of [.3,.75,1.15]){ const sp=new T
 function applySwordLook(n){ n=Math.max(0,Math.min(9,n|0)); const L=SWL[n]; swFxLv=n;
   if(swMat){ swMat.color.setHex(L.c); swMat.emissive.setHex(L.e); swMat.emissiveIntensity=L.ei; if(swMat.map&&!swMat.emissiveMap) swMat.emissiveMap=swMat.map; swMat.needsUpdate=true; }
   swHalo.forEach(s=>s.material.color.setHex(SWHC[n])); if(swAura) swAura.material.color.setHex(n>=9?0xff6a10:0xffffff); }
-function updateSwordFx(dt,time){ if(!sword) return; const eq=swEq(); sword.visible=eq; if(!eq) return;
+function updateSwordFx(dt,time){ const want=handWant(); if(want!==SWKEY) swapHandWeapon(want); if(!sword) return;
+  if(SWKEY!=='base'){ updateLegendFx(dt,time); return; } sword.visible=true;
   const n=Math.max(0,Math.min(9,S.weap|0)); if(n!==swFxLv) applySwordLook(n);
   const L=SWL[n], pul=.5+.5*Math.sin(time*(n>=9?5.5:3));
   if(swMat) swMat.emissiveIntensity=L.ei*(n>=7?.75+.25*pul:1);
@@ -1350,6 +1406,62 @@ function updateSwordFx(dt,time){ if(!sword) return; const eq=swEq(); sword.visib
   if(n>=7){ swAcc+=dt*L.pr; while(swAcc>=1){ swAcc-=1; _swv.set((Math.random()-.5)*.08,.25+Math.random()*.95,(Math.random()-.5)*.08); sword.localToWorld(_swv); burst(_swv,n>=9?(Math.random()<.5?0xffc040:0xff6a20):n>=8?0xffd070:0xc090ff,1,n>=9?1.6:1,.55,.16,n>=9?-2:-.5); } }
   if(n>=9){ swRing-=dt; if(swRing<=0){ swRing=2.6; ringFx(P.pos,1.5,0xffc050,.8,.15); } } }
 const _swv=new THREE.Vector3();
+
+/* ===================== ortak silah soketi: sağ el (SWHAND = RightHand) + SWCFG tutuş noktası =====================
+   Elde gösterilecek model sağ el slotundan (w1) belirlenir: efsanevi silah → kendi GLB'si, Demir Kılıç → WMODELS görünümü, boş → el boş.
+   Model değişince eskisi elden çıkarılır ve klonlanmış malzemeleri serbest bırakılır (geometri/dokular önbellekte paylaşılır). */
+let SWKEY='base'; const LGLB={}, LPEND={}, LFAIL={}; let WENV=null;
+const handWant=()=>{ const L=legEq(); return L?(LFAIL[L.id]?'base':L.id):swEq()?'base':null; };
+function weaponEnv(){ if(!WENV){ const pm=new THREE.PMREMGenerator(renderer); WENV=pm.fromScene(new RoomEnvironment(),.04).texture; pm.dispose(); } return WENV; }
+function loadLegend(id){ if(LGLB[id]||LPEND[id]||LFAIL[id]) return LPEND[id]; const L=LEGEND_WEAPONS[id], t0=performance.now();
+  LPEND[id]=fetch(L.model).then(r=>{ if(!r.ok) throw new Error(L.model+' ('+r.status+')'); return r.text(); })
+    .then(t=>{ const b=atob(t.trim()), u=new Uint8Array(b.length); for(let i=0;i<b.length;i++) u[i]=b.charCodeAt(i); return new Promise((ok,no)=>new GLTFLoader().parse(u.buffer,'',ok,no)); })
+    .then(g=>{ LGLB[id]=g; let tri=0; g.scene.traverse(o=>{ if(o.isMesh) tri+=(o.geometry.index?o.geometry.index.count:o.geometry.attributes.position.count)/3; });
+      console.info(`[Silah] ${L.name} yüklendi: ${tri} üçgen, ${(performance.now()-t0).toFixed(0)} ms`); })
+    .catch(e=>{ LFAIL[id]=true; console.error(`[Silah] ${L.name} modeli yüklenemedi, Demir Kılıç görünümü kullanılacak:`,e); })
+    .finally(()=>{ delete LPEND[id]; });
+  return LPEND[id]; }
+function dropHandWeapon(){ if(!sword) return; SWHAND&&SWHAND.remove(sword); sword.traverse(o=>{ if(o.material){ (Array.isArray(o.material)?o.material:[o.material]).forEach(m=>m.dispose()); } }); sword=null; }
+function swapHandWeapon(want){ if(!SWHAND) return;
+  if(want&&want!=='base'&&!LGLB[want]){ loadLegend(want); dropHandWeapon(); SWKEY=null; return; }   // model gelene kadar el boş (yüklenince otomatik takılır)
+  dropHandWeapon(); SWKEY=want; if(!want) return;
+  sword=want==='base'?makeSword():makeLegendSword(want); sword.scale.setScalar(1/MSCALE); SWHAND.add(sword); placeSword(); if(want==='base') swFxLv=-1; }
+function makeLegendSword(id){ const L=LEGEND_WEAPONS[id], F=L.fx, g=new THREE.Group(), m=LGLB[id].scene.clone(true);
+  m.scale.setScalar(L.scale); m.position.y=-L.grip*L.scale; g.add(m); g.name='weapon:'+id;
+  const env=weaponEnv(), em=[], pts=[], v=new THREE.Vector3(); m.updateMatrixWorld(true);
+  m.traverse(o=>{ if(!o.isMesh) return; o.castShadow=true; o.frustumCulled=false; o.material=o.material.clone(); const mt=o.material; mt.envMap=env; mt.envMapIntensity=F.env; mt.needsUpdate=true;
+    if(mt.emissive&&(mt.emissiveMap||mt.emissive.r+mt.emissive.g+mt.emissive.b>.02)) em.push([mt,mt.emissiveIntensity]);
+    const p=o.geometry.attributes.position, step=Math.max(1,Math.floor(p.count/90)); for(let i=0;i<p.count;i+=step){ v.fromBufferAttribute(p,i).applyMatrix4(o.matrixWorld); if(v.y>.16) pts.push(v.clone()); } });
+  pts.sort((a,b)=>a.y-b.y); const top=pts.length?pts[pts.length-1].y:.9;
+  // küçük parıltı halesi (namlu boyunca 3 nokta) — ölçek silah boyutunda, ekranı kaplamaz
+  const glow=[]; for(const f of [.32,.6,.86]){ const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,color:F.col,transparent:true,opacity:F.op,depthWrite:false,blending:THREE.AdditiveBlending,fog:false}));
+    const q=pts[Math.min(pts.length-1,Math.floor(f*pts.length))]||new THREE.Vector3(0,f*top,0); sp.position.set(q.x*.6,q.y,0); sp.scale.setScalar(F.size*(f===.6?1.15:1)); g.add(sp); glow.push(sp); }
+  // parçacık havuzu (sabit 7 sprite; mobilde ek yük yok)
+  const P0=F.part, pool=[], smoke=P0.kind==='smoke';
+  if(P0.kind!=='bolt') for(let i=0;i<7;i++){ const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,color:P0.col,transparent:true,opacity:0,depthWrite:false,blending:smoke?THREE.NormalBlending:THREE.AdditiveBlending,fog:false}));
+    sp.visible=false; g.add(sp); pool.push({s:sp,t:0,life:1,v:new THREE.Vector3()}); }
+  // yıldırım: namlu boyunca kısa ömürlü kırık çizgiler
+  const bolts=[]; if(P0.kind==='bolt') for(let i=0;i<2;i++){ const geo=new THREE.BufferGeometry(); geo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(8*3),3));
+    const ln=new THREE.Line(geo,new THREE.LineBasicMaterial({color:P0.col,transparent:true,opacity:.95,blending:THREE.AdditiveBlending,depthWrite:false,fog:false})); ln.visible=false; ln.frustumCulled=false; g.add(ln); bolts.push({ln,t:0}); }
+  g.userData.leg={L,em,pts,glow,pool,bolts,acc:0,next:.4};
+  return g; }
+function updateLegendFx(dt,time){ const u=sword&&sword.userData.leg; if(!u) return; const F=u.L.fx, P0=F.part, k=.5+.5*Math.sin(time*F.pulse);
+  for(const [mt,b] of u.em) mt.emissiveIntensity=b*(F.emi[0]+F.emi[1]*k);
+  u.glow.forEach((sp,i)=>{ sp.material.opacity=F.op*(.65+.35*(i===1?k:1-k)); });
+  if(!u.pts.length) return;
+  if(P0.kind==='bolt'){ u.next-=dt; for(const b of u.bolts){ if(b.t>0){ b.t-=dt; if(b.t<=0) b.ln.visible=false; } }
+    if(u.next<=0){ u.next=.45+Math.random()*1.1; const b=u.bolts.find(x=>x.t<=0); if(b){ const a=b.ln.geometry.attributes.position, n=u.pts.length, i0=Math.floor(Math.random()*n*.6), span=Math.max(8,Math.floor(n*.35));
+      for(let j=0;j<8;j++){ const q=u.pts[Math.min(n-1,i0+Math.floor(j*span/7))]; a.setXYZ(j,q.x+(Math.random()-.5)*.03,q.y,q.z+(Math.random()-.5)*.03); } a.needsUpdate=true; b.ln.visible=true; b.t=P0.life; } }
+    return; }
+  u.acc+=dt*P0.rate; while(u.acc>=1){ u.acc-=1; const p=u.pool.find(x=>!x.s.visible); if(!p) break; const q=u.pts[Math.floor(Math.random()*u.pts.length)];
+    p.s.position.copy(q); p.t=0; p.life=P0.life*(.7+Math.random()*.6); p.s.visible=true;
+    if(P0.kind==='smoke') p.v.set((Math.random()-.5)*.03,.05+Math.random()*.05,(Math.random()-.5)*.03);
+    else if(P0.kind==='frost') p.v.set((Math.random()-.5)*.04,-.06-Math.random()*.05,(Math.random()-.5)*.04);
+    else if(P0.kind==='mist') p.v.set((Math.random()-.5)*.03,.02,(Math.random()-.5)*.03);
+    else p.v.set((Math.random()-.5)*.05,.08+Math.random()*.08,(Math.random()-.5)*.05); }
+  for(const p of u.pool){ if(!p.s.visible) continue; p.t+=dt; const f=p.t/p.life; if(f>=1){ p.s.visible=false; continue; } p.s.position.addScaledVector(p.v,dt);
+    const grow=P0.kind==='smoke'||P0.kind==='mist'?1+f*1.6:1-f*.4; p.s.scale.setScalar(P0.size*grow);
+    p.s.material.opacity=(P0.kind==='smoke'?.32:.85)*Math.sin(Math.PI*f); if(P0.kind==='rune') p.s.material.rotation=time*2; } }
 function makeSword(){
   let g;
   const WM=WMODELS[WMODEL], WG=WGLB[WMODEL]||SWORD_GLB;
@@ -2019,7 +2131,7 @@ function gainExp(x){
   saveGame();
 }
 function playerHit(m,mul,crit=false,quiet=false,col=0){
-  if(m.dead) return; const ar=CORE.playerAttack({power:(MAGCOL.has(col)||quiet?magPow():atkPow()),mul,mobLvl:m.lvl,dex:S.dex,quiet},R,rr); if(ar.miss){ popup('ISKA',m.group.position.clone().setY(m.group.position.y+m.b.h*m.T.scale+.3),'dot'); S.combat=6; return; } const dmg=ar.dmg; if(ar.crit) crit=true;
+  if(m.dead) return; const ar=CORE.playerAttack({power:(MAGCOL.has(col)||quiet?magPow():atkPow()),mul,mobLvl:m.lvl,dex:S.dex,quiet,critBonus:wCrit()},R,rr); if(ar.miss){ popup('ISKA',m.group.position.clone().setY(m.group.position.y+m.b.h*m.T.scale+.3),'dot'); S.combat=6; return; } const dmg=ar.dmg; if(ar.crit) crit=true;
   m.hp-=dmg; m.flash=.12; m.hitReq=true; popup(String(dmg),m.group.position.clone().setY(m.group.position.y+m.b.h*m.T.scale+.3),quiet?'dot':crit?'crit':'');
   if(!quiet){ fxImpactFor(m,col||(crit?0xffc040:0xfff0cf),crit,!!m.T.boss); (crit?SFX.crit:SFX.hit)(); }
   S.combat=6;
@@ -2312,10 +2424,11 @@ canvas.addEventListener('wheel',e=>{ e.preventDefault(); cam.dist=clamp(cam.dist
 function toggleWin(id){ if(id==='sta') id='chr'; const mw=$('mw'); if(!mw.classList.contains('hidden')&&MTAB===id){ closeWins(); return; } $('shop').classList.add('hidden'); mw.classList.remove('hidden'); setTab(id); }
 function closeWins(){ $('mw').classList.add('hidden'); $('shop').classList.add('hidden'); }
 document.addEventListener('click',e=>{
-  const t=e.target.closest('[data-win],[data-close],[data-buy],[data-sbuy],[data-stat],[data-skup],[data-tab],[data-use],[data-ipg],[data-sksel],#upg'); if(!t) return;
+  const t=e.target.closest('[data-win],[data-close],[data-buy],[data-sbuy],[data-stat],[data-skup],[data-tab],[data-use],[data-ipg],[data-sksel],[data-lbuy],#upg'); if(!t) return;
   if(t.dataset.win) toggleWin(t.dataset.win); else if(t.dataset.close) $(t.dataset.close).classList.add('hidden');
   else if(t.dataset.buy){ if(S.yang>=40){ S.yang-=40; S[t.dataset.buy]++; SFX.buy(); say(`${t.dataset.buy==='red'?'Kırmızı':'Mavi'} İksir satın aldın.`,'c-yang'); saveGame(); refreshWins(); } else say('Yeterli Yang yok.','c-bad'); }
   else if(t.dataset.sbuy){ buyStone(); }
+  else if(t.dataset.lbuy){ buyLegend(t.dataset.lbuy); }
   else if(t.dataset.stat){ addStat(t.dataset.stat); }
   else if(t.dataset.sksel){ SKSEL=t.dataset.sksel; renderSkillWin(true); }
   else if(t.dataset.skup){ skillUp(t.dataset.skup); }
@@ -2336,6 +2449,9 @@ function upgradeWeapon(){
     say(`Demir Kılıç +${S.weap} oldu! Saldırı ${S.wr.a}, büyü saldırısı ${S.wr.m}, saldırı hızı +${SW_ASPD}.`,'c-sys'); SFX.level(); const bp=P.pos.clone().setY(P.pos.y+1.5); burst(bp,S.weap>=9?0xffb030:S.weap>=7?0xb080ff:S.weap>=4?0x40c8ff:0xffe080,20+S.weap*3,3,.8,.35); if(S.weap>=7) ringFx(P.pos,2.4,S.weap>=9?0xffc050:0xb080ff,.8,.15); }
   else { say('Yükseltme başarısız oldu. Kılıcın seviyesi düşmedi; Yükseltme Taşları iade edildi, yalnız Yang harcandı.','c-bad'); SFX.hurt(); }
   INVV++; saveGame(); refreshWins(); }
+function buyLegend(id){ const L=LEGEND_WEAPONS[id]; if(!L) return; if(hasItem(id)){ say(`${L.name} zaten sende.`,'c-sys'); return; }
+  if(S.yang<L.price){ say(`Yeterli Yang yok (${fmt(L.price)} gerekli).`,'c-bad'); return; } if(!addItem(id,1)) return; S.yang-=L.price; SFX.buy();
+  say(`${L.name} satın aldın! Envanterden kuşanabilirsin`+(S.lvl<L.reqLv?` (Sv.${L.reqLv} gerekli).`:'.'),'c-yang'); saveGame(); refreshWins(); }
 function buyStone(){ if(S.yang<STONE_PRICE){ say('Yeterli Yang yok.','c-bad'); return; } if(!addItem('ustone',1)) return; S.yang-=STONE_PRICE; SFX.buy(); say('Yükseltme Taşı satın aldın.','c-yang'); saveGame(); refreshWins(); }
 const ICON={ red:'<svg viewBox="0 0 24 24"><circle cx="12" cy="15" r="6" fill="#e03a30"/><rect x="10" y="4" width="4" height="6" fill="#ddd"/></svg>', blue:'<svg viewBox="0 0 24 24"><circle cx="12" cy="15" r="6" fill="#3a78ee"/><rect x="10" y="4" width="4" height="6" fill="#ddd"/></svg>',
   sword:'<svg viewBox="0 0 24 24"><path d="M12 2l2 12h-4z" fill="#dfe6ee"/><rect x="7" y="14" width="10" height="2" fill="#d3ad62"/><rect x="11" y="16" width="2" height="5" fill="#6a4026"/></svg>',
@@ -2402,7 +2518,11 @@ SLOT_DEF.forEach((id,i)=>{ const sk=SK[i]; const d=document.createElement('div')
   const tip=document.createElement('div'); tip.id='itemTip'; document.body.appendChild(tip); let tipT=0;
   const hideTip=()=>{ tip.style.display='none'; };
   mwEl.addEventListener('click',e=>{ if(MTAB!=='inv'){ hideTip(); return; } const el=e.target.closest('.m2c.has,.m2s.has'); if(!el||el.dataset.use!==undefined){ hideTip(); return; } const rf=refOf(el), it=rf&&slotAt(rf), d=itemOf(it); if(!d){ hideTip(); return; }
-    const lines=d.info?d.info():[d.name+(d.badge?' '+d.badge():''),d.desc||'']; tip.innerHTML='<b>'+lines[0]+'</b>'+lines.slice(1).map(l=>'<div>'+l+'</div>').join(''); tip.style.display='block'; clearTimeout(tipT); tipT=setTimeout(hideTip,5000); });
+    const lines=d.info?d.info():[d.name+(d.badge?' '+d.badge():''),d.desc||'']; tip.innerHTML='<b>'+lines[0]+'</b>'+lines.slice(1).map(l=>'<div>'+l+'</div>').join('');
+    if(d.slot==='weapon'){ const on=rf.k==='eq'&&rf.id==='w1'; tip.dataset.ref=JSON.stringify(rf); tip.innerHTML+=`<button class="btn" data-weq="${on?'off':'on'}" style="margin-top:6px;padding:3px 14px">${on?'Çıkar':'Kuşan'}</button>`; }
+    tip.style.display='block'; clearTimeout(tipT); tipT=setTimeout(hideTip,5000); });
+  tip.addEventListener('click',e=>{ const b=e.target.closest('[data-weq]'); if(!b) return; const rf=JSON.parse(tip.dataset.ref||'null'); hideTip(); if(!rf) return;
+    if(b.dataset.weq==='on') moveItem(rf,{k:'eq',id:'w1'}); else { const f=firstEmpty(); if(f<0) say('Envanter dolu.','c-bad'); else moveItem(rf,{k:'inv',i:f}); } });
   document.addEventListener('pointerdown',e=>{ if(!e.target.closest('#itemTip,.m2c.has,.m2s.has')) hideTip(); },true);
 })();
 let skSig='', SKSEL='cut';
@@ -2434,10 +2554,13 @@ function skillUp(id){
   if(L>=SKMAX){ banner(`${sk.name}: PERFECT!`); say(`${sk.name} PERFECT (P) seviyesine ulaştı!`,'c-xp'); popup('PERFECT!',top,'crit'); FXL=1.7; perfectFx(); pillarFx(P.pos,0xffd24a,1.1); ringFx(P.pos,2.6,0xffe080,.9); }
   else { banner(`${sk.name} ${L}/${SKMAX}`); say(`${sk.name} ${L}/${SKMAX} seviyesine yükseldi.`,'c-xp'); popup(`${sk.name} ${L}/${SKMAX}`,top,'heal'); ringFx(P.pos,1.6,0xffe080,.6); burst(P.pos.clone().setY(P.pos.y+1),0xffe080,12,2.5,.7,.3,-1); }
 }
+let LSHOPSIG='';
 function refreshWins(){
   const has=hasItem('sword'), n=S.weap, L=WLV[n], N=WLV[Math.min(9,n+1)], st=upgStones(), have=stoneCount();
   $('shopWeap').textContent='Demir Kılıç +'+n+(has?'':' (yok)');
   $('shopOdds').innerHTML=`Şimdi: Saldırı ${S.wr.a} · Büyü ${S.wr.m} · Hız +${SW_ASPD}`+(n>=9?'<br>En yüksek seviye':`<br>+${n+1}: Saldırı ${N.a[0]}–${N.a[1]} · Büyü ${N.m[0]}–${N.m[1]}<br>Gerekli: <b style="color:${S.yang>=upgCost()?'#9f9':'#f88'}">${fmt(upgCost())} Yang</b> · <b style="color:${have>=st?'#9f9':'#f88'}">${st} Yükseltme Taşı (${have})</b><br>Başarı %${Math.round(upgOdds()*100)} · Başarısızlıkta kılıç korunur, taşlar iade edilir`);
+  const lsig=S.lvl+'|'+Object.values(LEGEND_WEAPONS).map(L=>hasItem(L.id)?1:0).join('');   // dükkân açıkken her kare çağrılır: yalnız değişince yeniden kur
+  if(lsig!==LSHOPSIG){ LSHOPSIG=lsig; $('legShop').innerHTML=Object.values(LEGEND_WEAPONS).map(L=>{ const own=hasItem(L.id); return `<div class="row lw"><img src="${L.icon}" alt=""><span><b style="color:#ffb84a">${L.name}</b> <small style="color:${S.lvl>=L.reqLv?'#9f9':'#f88'}">Sv.${L.reqLv}</small><br><small>Saldırı ${L.atk} · Büyü ${L.mag} · Hız +${L.aspd} · Kritik +%${L.crit}</small></span><button class="btn" data-lbuy="${L.id}"${own?' disabled':''}>${own?'Sende':fmt(L.price)+' Yang'}</button></div>`; }).join(''); }
   $('shopStone').textContent=`${STONE_PRICE} Yang · sende ${have}`; $('shopYang').textContent=fmt(S.yang)+' Yang'; $('upg').disabled=n>=9||!has;
 }
 /* ---- ana pencere: sekmeler (Envanter / Karakter / Yetenekler / Statü) ---- */
@@ -2454,8 +2577,8 @@ function renderMenu(force){
   const el=$('pg-'+t); let h='';
   if(t==='inv'){
     syncPots(); const pg=INVPG; let cells=''; for(let i=0;i<INVN;i++){ const gi=pg*INVN+i, it=S.inv[gi], d=itemOf(it), n=d?(d.cnt?d.cnt():it.n):0;
-      cells+=`<div class="m2c${d?' has':''}" data-ci="${gi}"${d&&d.use!==undefined?` data-use="${d.use}"`:''}${d?` title="${d.name}${d.desc?' — '+d.desc:''}"`:''}>${d?`<img src="${UIIMG[d.img]||''}" alt="${d.name}">${d.badge?`<span class="n">${d.badge()}</span>`:n>1?`<span class="n">${n}</span>`:''}`:''}</div>`; }
-    const dollSlots=EQS.map(e=>{ const it=S.eq[e.id], d=itemOf(it); return `<div class="m2s${d?' has':''}" data-eq="${e.id}" title="${d?d.name:e.lb}" style="left:${((e.x-.095)*100).toFixed(2)}%;top:${((e.y-.082)*100).toFixed(2)}%;width:19%;height:16.4%">${d?`<img src="${UIIMG[d.img]||''}" alt=""><span class="n">${d.badge?d.badge():''}</span>`:`<span class="lb">${e.lb}</span>`}</div>`; }).join('');
+      cells+=`<div class="m2c${d?' has':''}${d&&d.leg?' leg':''}" data-ci="${gi}"${d&&d.use!==undefined?` data-use="${d.use}"`:''}${d?` title="${d.name}${d.desc?' — '+d.desc:''}"`:''}>${d?`<img src="${d.icon||UIIMG[d.img]||''}" alt="${d.name}">${d.badge?`<span class="n">${d.badge()}</span>`:n>1?`<span class="n">${n}</span>`:''}`:''}</div>`; }
+    const dollSlots=EQS.map(e=>{ const it=S.eq[e.id], d=itemOf(it); return `<div class="m2s${d?' has':''}${d&&d.leg?' leg':''}" data-eq="${e.id}" title="${d?d.name:e.lb}" style="left:${((e.x-.095)*100).toFixed(2)}%;top:${((e.y-.082)*100).toFixed(2)}%;width:19%;height:16.4%">${d?`<img src="${d.icon||UIIMG[d.img]||''}" alt=""><span class="n">${d.badge?d.badge():''}</span>`:`<span class="lb">${e.lb}</span>`}</div>`; }).join('');
     h=`<div class="m2t">Envanter</div><button class="m2x" data-close="mw" aria-label="Kapat"></button>
       <div class="m2tabs">${['I','II','III','IV'].map((r,i)=>`<button data-ipg="${i}" class="${i===pg?'on':''}">${r}</button>`).join('')}</div>
       <div class="m2doll">${dollSlots}</div>
@@ -2479,7 +2602,7 @@ function renderMenu(force){
         <span>Kritik şansı</span><b>%${(critCh()*100).toFixed(1)}</b><span>Büyü gücü</span><b>+%${Math.round((magMul()-1)*100)}</b>
         <span>İsabet</span><b>%${(hitCh()*100).toFixed(1)}</b><span>Kaçınma</span><b>%${(dodgeCh()*100).toFixed(1)}</b>
         <span>Silah saldırısı</span><b>${wAtk()}</b><span>Büyü saldırısı</span><b>${wMag()}</b>
-        <span>Saldırı hızı</span><b>+${Math.round((aspd()-1)*100)}</b><span>Silah</span><b>${swEq()?'Demir Kılıç +'+S.weap:'—'}</b>
+        <span>Saldırı hızı</span><b>+${Math.round((aspd()-1)*100)}</b><span>Silah</span><b>${weapName()}</b>
         <span>Skill puanı</span><b>${skPoints()}</b><span></span><b style="visibility:hidden">0</b></div>
       <div class="m3hint" style="${B(40,566,420,30)}">STR saldırı · VIT can+savunma · DEX kaçınma+isabet · INT SP+büyü gücü · üst sınır ${STATCAP}</div>
       ${m3tabs('chr',W,H)}`;
@@ -3291,7 +3414,7 @@ async function boot(){
     initMapUI(); initVillageMap(); setAtmos('village'); try{ warmFx(); }catch(e){ console.warn('[Efekt] ısınma atlandı',e); } setP(100);
     myTag=document.createElement('div'); myTag.className='pn'; $('pops').appendChild(myTag);
     $('loading').classList.add('hidden'); mountAuthUI();
-    window.__game={enterGame,MAPS,keys,useSlot,killPlayer,respawnPlayer,DEATH,drawMini,updateHUD2:()=>{},lakeE,LAKE_B,LAKE_WL,FROG_SPOTS,CROC_SPOTS,hForest,placePlayer,spawnMob,respawn,fxAttack,fxDeath,get LAKE_STATS(){return LAKE_STATS},get LAKE_MOBS(){return LAKE_MOBS},get CROC(){return CROC},CORE,rankOf,rankReward,grantRank,plateHTML,refreshPlate,RANKS,RANK_REWARD,get plateKey(){return plateKey},get myTag(){return myTag},TYPES,guards,updateGuards,addTime:d=>{time+=d},get ATK_HOLD(){return ATK_HOLD},equipWeaponModel,WMODELS,get sword(){return sword},updateSmith,upgradeWeapon,buyStone,fixWeapon,WLV,swRoll,wAtk,wMag,aspd,swEq,applySwordLook,updateSwordFx,SEAT,yawFix,get FOREST_STATS(){return FOREST_STATS},zoneAt,updateMount,groundFix,get GOFF(){return GOFF},get S(){return S},ITEMS,EQS,registerItem,addItem,moveItem,initInv,addStat,resetStats,qOf,expNeed,get PLANT_SETS(){return PLANT_SETS},renderMenu,setTab,toggleWin,closeWins,skillUp,skPoints,skL,skv,skStats,saveGame,loadGame,renderSkillWin,gainExp,updatePlayer,updateMobs,updateProjectiles,updateSkills,updateCamera,updateHUD,SKD,SLOT_DEF,SK,cds,fx2,pt2,sched,projectiles,SHAKE,clearSkillFx,MAPS,TRAVEL,travelTo,get MAP(){return MAP;},get obstacles(){return obstacles;},get MAP(){return MAP;},get renderer(){return renderer;},npcs,vRoadD,MAPS,hAt,get HAS3(){return HAS3;},get A3META(){return A3META;},damagePlayer,get COMBO(){return COMBO;},horseRear,horseAnim,playerHit,killMob,fxPlay,fxStep,get FROG2(){return FROG2;},MOUNT,toggleMount,get mixer(){return mixer},rotW,overlayPose,S,P,mobs,cam,actions,bones,setAnim,useSlot,clickAt,THREE,scene,camera,renderer,model,get tIdle(){return tIdle;},get TURN_DELTA(){return TURN_DELTA;}};
+    window.__game={enterGame,MAPS,keys,useSlot,killPlayer,respawnPlayer,DEATH,drawMini,updateHUD2:()=>{},lakeE,LAKE_B,LAKE_WL,FROG_SPOTS,CROC_SPOTS,hForest,placePlayer,spawnMob,respawn,fxAttack,fxDeath,get LAKE_STATS(){return LAKE_STATS},get LAKE_MOBS(){return LAKE_MOBS},get CROC(){return CROC},CORE,rankOf,rankReward,grantRank,plateHTML,refreshPlate,RANKS,RANK_REWARD,get plateKey(){return plateKey},get myTag(){return myTag},TYPES,guards,updateGuards,addTime:d=>{time+=d},get ATK_HOLD(){return ATK_HOLD},equipWeaponModel,WMODELS,get sword(){return sword},LEGEND_WEAPONS,legEq,LGLB,LFAIL,loadLegend,get SWKEY(){return SWKEY},weapName,wCrit,critCh,buyLegend,SWCFG,refreshWins,updateSmith,upgradeWeapon,buyStone,fixWeapon,WLV,swRoll,wAtk,wMag,aspd,swEq,applySwordLook,updateSwordFx,SEAT,yawFix,get FOREST_STATS(){return FOREST_STATS},zoneAt,updateMount,groundFix,get GOFF(){return GOFF},get S(){return S},ITEMS,EQS,registerItem,addItem,moveItem,initInv,addStat,resetStats,qOf,expNeed,get PLANT_SETS(){return PLANT_SETS},renderMenu,setTab,toggleWin,closeWins,skillUp,skPoints,skL,skv,skStats,saveGame,loadGame,renderSkillWin,gainExp,updatePlayer,updateMobs,updateProjectiles,updateSkills,updateCamera,updateHUD,SKD,SLOT_DEF,SK,cds,fx2,pt2,sched,projectiles,SHAKE,clearSkillFx,MAPS,TRAVEL,travelTo,get MAP(){return MAP;},get obstacles(){return obstacles;},get MAP(){return MAP;},get renderer(){return renderer;},npcs,vRoadD,MAPS,hAt,get HAS3(){return HAS3;},get A3META(){return A3META;},damagePlayer,get COMBO(){return COMBO;},horseRear,horseAnim,playerHit,killMob,fxPlay,fxStep,get FROG2(){return FROG2;},MOUNT,toggleMount,get mixer(){return mixer},rotW,overlayPose,S,P,mobs,cam,actions,bones,setAnim,useSlot,clickAt,THREE,scene,camera,renderer,model,get tIdle(){return tIdle;},get TURN_DELTA(){return TURN_DELTA;}};
   }catch(err){ console.error(err); $('loadTxt').textContent='Yükleme başarısız oldu.'; $('loadTxt').style.color='#ff8a80'; $('err').textContent=String(err&&err.message||err); }
 }
 /* Hesap sistemi (auth/ modülleri) karakter seçilince bunu çağırır. Oyun motoru hesap koduna bağımlı değildir. */
