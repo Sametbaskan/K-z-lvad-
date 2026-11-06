@@ -1290,18 +1290,21 @@ for(const [id,L] of Object.entries(LEGEND_WEAPONS)){
 const ARMOR_PIECES={gogusluk:{name:'Göğüslük',hide:['Spine1','Spine2']},sirt:{name:'Sırt zırhı',hide:['Spine1','Spine2']},
   omuzluk_l:{name:'Sol omuzluk',hide:[]},omuzluk_r:{name:'Sağ omuzluk',hide:[]},kol_l:{name:'Sol kol koruması',hide:['LeftForeArm']},kol_r:{name:'Sağ kol koruması',hide:['RightForeArm']},
   eldiven:{name:'Eldivenler',hide:['LeftHand*','RightHand*']},bel:{name:'Bel zırhı',hide:[]},bacak_l:{name:'Sol bacak zırhı',hide:['LeftUpLeg','LeftLeg']},bacak_r:{name:'Sağ bacak zırhı',hide:['RightUpLeg','RightLeg']},
-  botlar:{name:'Botlar',hide:['LeftFoot','RightFoot','LeftToeBase','RightToeBase','LeftToe_End','RightToe_End']}};   // hide: parça takılıyken gizlenen gövde bölgeleri (kemik adı)
+  botlar:{name:'Botlar',hide:['LeftFoot','RightFoot','LeftToeBase','RightToeBase','LeftToe_End','RightToe_End']},
+  boyunluk:{name:'Boyunluk',hide:['Neck','LeftShoulder','RightShoulder']},pelerin:{name:'Pelerin',hide:[]},migfer:{name:'Miğfer',hide:['Head','HeadTop_End']}};   // hide: parça takılıyken gizlenen gövde bölgeleri (kemik adı)
 const ARMOR_SETS={kara_sovalye:{tex:{base:'models/armor/kara_sovalye/tex/base.jpg',mr:'models/armor/kara_sovalye/tex/mr.jpg',normal:'models/armor/kara_sovalye/tex/normal.jpg'}}};
 const ARMOR_ITEMS={
   kara_sovalye_zirh:{name:'Kara Şövalye Zırhı',slot:'armor',set:'kara_sovalye',reqLv:20,price:150000,def:22,
-    pieces:['gogusluk','sirt','omuzluk_l','omuzluk_r','kol_l','kol_r','eldiven','bel','bacak_l','bacak_r'],
-    desc:'Kızıl damarlı kara çelik plakalar, katmanlı omuzluklar ve ağır bacaklıklar. Göğüslük, sırt, omuzluklar, kol korumaları, eldivenler, bel ve bacak zırhları.'},
+    pieces:['gogusluk','sirt','boyunluk','pelerin','omuzluk_l','omuzluk_r','kol_l','kol_r','eldiven','bel','bacak_l','bacak_r'],
+    desc:'Kızıl damarlı kara çelik plakalar, katmanlı omuzluklar ve ağır bacaklıklar. Göğüslük, sırt, boyunluk, pelerin, omuzluklar, kol korumaları, eldivenler, bel ve bacak zırhları.'},
+  kara_sovalye_migfer:{name:'Kara Şövalye Miğferi',slot:'helmet',set:'kara_sovalye',reqLv:20,price:30000,def:6,pieces:['migfer'],
+    desc:'Göz yarığından kızıl ışık sızan, taç dikenli kapalı kara çelik miğfer.'},
   kara_sovalye_bot:{name:'Kara Şövalye Botları',slot:'boots',set:'kara_sovalye',reqLv:20,price:40000,def:7,pieces:['botlar'],
     desc:'Kat kat plakalı, kalın tabanlı kara çelik savaş botları.'}
 };
 for(const [id,A] of Object.entries(ARMOR_ITEMS)){ A.id=id; A.icon=A.icon||`img/armor/${id}.webp`;
   registerItem(id,{name:A.name,img:'ar_'+id,icon:A.icon,slot:A.slot,kind:'zırh',leg:true,reqLv:A.reqLv,desc:A.desc,
-    info:()=>[`<span style="color:#ffb84a">${A.name}</span>`,`${A.slot==='boots'?'Bot':'Zırh'} · <span style="color:#ffb84a">Efsanevi</span> · Sv.${A.reqLv}${S.lvl<A.reqLv?' <span style="color:#f88">(seviyen yetmiyor)</span>':''}`,
+    info:()=>[`<span style="color:#ffb84a">${A.name}</span>`,`${A.slot==='boots'?'Bot':A.slot==='helmet'?'Miğfer':'Zırh'} · <span style="color:#ffb84a">Efsanevi</span> · Sv.${A.reqLv}${S.lvl<A.reqLv?' <span style="color:#f88">(seviyen yetmiyor)</span>':''}`,
       `Savunma: +${A.def}`,`Parçalar: ${A.pieces.map(p=>ARMOR_PIECES[p].name).join(', ')}`,`<i style="color:#cdbb9a">${A.desc}</i>`]}); }
 const armorDef=()=>{ let d=0; for(const e of EQS){ const it=S.eq&&S.eq[e.id], A=it&&ARMOR_ITEMS[it.id]; if(A) d+=A.def; } return d; };
 const swEq=()=>!!(S.eq&&S.eq.w1&&S.eq.w1.id==='sword');   // Demir Kılıç sağ el slotunda takılı mı
@@ -2585,11 +2588,11 @@ SLOT_DEF.forEach((id,i)=>{ const sk=SK[i]; const d=document.createElement('div')
   const hideTip=()=>{ tip.style.display='none'; };
   mwEl.addEventListener('click',e=>{ if(MTAB!=='inv'){ hideTip(); return; } const el=e.target.closest('.m2c.has,.m2s.has'); if(!el||el.dataset.use!==undefined){ hideTip(); return; } const rf=refOf(el), it=rf&&slotAt(rf), d=itemOf(it); if(!d){ hideTip(); return; }
     const lines=d.info?d.info():[d.name+(d.badge?' '+d.badge():''),d.desc||'']; tip.innerHTML='<b>'+lines[0]+'</b>'+lines.slice(1).map(l=>'<div>'+l+'</div>').join('');
-    if(d.slot==='armor'||d.slot==='boots'){ const on=rf.k==='eq'; tip.dataset.ref=JSON.stringify(rf); tip.dataset.slot=d.slot; tip.innerHTML+=`<button class="btn" data-weq="${on?'off':'on'}" style="margin-top:6px;padding:3px 14px">${on?'Çıkar':'Kuşan'}</button>`; }
+    if(d.slot==='armor'||d.slot==='boots'||d.slot==='helmet'){ const on=rf.k==='eq'; tip.dataset.ref=JSON.stringify(rf); tip.dataset.slot=d.slot; tip.innerHTML+=`<button class="btn" data-weq="${on?'off':'on'}" style="margin-top:6px;padding:3px 14px">${on?'Çıkar':'Kuşan'}</button>`; }
     if(d.slot==='weapon'){ tip.dataset.slot='weapon'; const on=rf.k==='eq'&&rf.id==='w1'; tip.dataset.ref=JSON.stringify(rf); tip.innerHTML+=`<button class="btn" data-weq="${on?'off':'on'}" style="margin-top:6px;padding:3px 14px">${on?'Çıkar':'Kuşan'}</button>`; }
     tip.style.display='block'; clearTimeout(tipT); tipT=setTimeout(hideTip,5000); });
   tip.addEventListener('click',e=>{ const b=e.target.closest('[data-weq]'); if(!b) return; const rf=JSON.parse(tip.dataset.ref||'null'); hideTip(); if(!rf) return;
-    const sl=tip.dataset.slot||'weapon', dest=sl==='weapon'?'w1':sl==='boots'?'boots':(S.eq.armor1&&!S.eq.armor2?'armor2':'armor1');
+    const sl=tip.dataset.slot||'weapon', dest=sl==='weapon'?'w1':sl==='boots'?'boots':sl==='helmet'?'helmet':(S.eq.armor1&&!S.eq.armor2?'armor2':'armor1');
     if(b.dataset.weq==='on') moveItem(rf,{k:'eq',id:dest}); else { const f=firstEmpty(); if(f<0) say('Envanter dolu.','c-bad'); else moveItem(rf,{k:'inv',i:f}); } });
   document.addEventListener('pointerdown',e=>{ if(!e.target.closest('#itemTip,.m2c.has,.m2s.has')) hideTip(); },true);
 })();
