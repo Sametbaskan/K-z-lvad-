@@ -1291,14 +1291,23 @@ const ARMOR_PIECES={gogusluk:{name:'Göğüslük',hide:['Spine1','Spine2']},sirt
   omuzluk_l:{name:'Sol omuzluk',hide:[]},omuzluk_r:{name:'Sağ omuzluk',hide:[]},kol_l:{name:'Sol kol koruması',hide:['LeftForeArm']},kol_r:{name:'Sağ kol koruması',hide:['RightForeArm']},
   eldiven:{name:'Eldivenler',hide:['LeftHand*','RightHand*']},bel:{name:'Bel zırhı',hide:[]},bacak_l:{name:'Sol bacak zırhı',hide:['LeftUpLeg','LeftLeg']},bacak_r:{name:'Sağ bacak zırhı',hide:['RightUpLeg','RightLeg']},
   botlar:{name:'Botlar',hide:['LeftFoot','RightFoot','LeftToeBase','RightToeBase','LeftToe_End','RightToe_End']},
+  govde:{name:'Gövde, kollar ve eldivenler',hide:['Spine','Spine1','Spine2','Neck','LeftShoulder','RightShoulder','LeftArm','RightArm','LeftForeArm','RightForeArm','LeftHand*','RightHand*']},
+  bacak:{name:'Bacak zırhları',hide:['Hips','LeftUpLeg','RightUpLeg','LeftLeg','RightLeg']},bas:{name:'Maske-miğfer',hide:['Head','HeadTop_End','Neck']},hale:{name:'Güneş halesi',hide:[]},
   boyunluk:{name:'Boyunluk',hide:['Neck','LeftShoulder','RightShoulder']},pelerin:{name:'Pelerin',hide:[]},migfer:{name:'Miğfer',hide:['Head','HeadTop_End']}};   // hide: parça takılıyken gizlenen gövde bölgeleri (kemik adı)
-const ARMOR_SETS={kara_sovalye:{tex:{base:'models/armor/kara_sovalye/tex/base.jpg',mr:'models/armor/kara_sovalye/tex/mr.jpg',normal:'models/armor/kara_sovalye/tex/normal.jpg'}}};
+const ARMOR_SETS={gunes_sovalyesi:{ownBind:true,glow:0xffb040,tex:{base:'models/armor/gunes_sovalyesi/tex/base.jpg',mr:'models/armor/gunes_sovalyesi/tex/mr.jpg',normal:'models/armor/gunes_sovalyesi/tex/normal.jpg'}},
+  kara_sovalye:{tex:{base:'models/armor/kara_sovalye/tex/base.jpg',mr:'models/armor/kara_sovalye/tex/mr.jpg',normal:'models/armor/kara_sovalye/tex/normal.jpg'}}};
 const ARMOR_ITEMS={
   kara_sovalye_zirh:{name:'Kara Şövalye Zırhı',slot:'armor',set:'kara_sovalye',reqLv:20,price:150000,def:22,
     pieces:['gogusluk','sirt','boyunluk','pelerin','omuzluk_l','omuzluk_r','kol_l','kol_r','eldiven','bel','bacak_l','bacak_r'],
     desc:'Kızıl damarlı kara çelik plakalar, katmanlı omuzluklar ve ağır bacaklıklar. Göğüslük, sırt, boyunluk, pelerin, omuzluklar, kol korumaları, eldivenler, bel ve bacak zırhları.'},
   kara_sovalye_migfer:{name:'Kara Şövalye Miğferi',slot:'helmet',set:'kara_sovalye',reqLv:20,price:30000,def:6,pieces:['migfer'],
     desc:'Göz yarığından kızıl ışık sızan, taç dikenli kapalı kara çelik miğfer.'},
+  gunes_zirh:{name:'Güneş Şövalyesi Zırhı',slot:'armor',set:'gunes_sovalyesi',reqLv:75,price:2500000,def:68,pieces:['govde','bacak','pelerin'],
+    desc:'Unutulmuş Güneş Tarikatı\'nın son şövalyesinin zırhı. İşlemeli bronz omuzluklar, kat kat plaka ve yerlere dökülen koyu pelerin. Sv.75 efsanevi set.'},
+  gunes_migfer:{name:'Güneş Şövalyesi Maskesi',slot:'helmet',set:'gunes_sovalyesi',reqLv:75,price:900000,def:20,pieces:['bas','hale'],
+    desc:'Gagalı kara maske ve arkasında altın ışınlarla parlayan güneş halesi.'},
+  gunes_bot:{name:'Güneş Şövalyesi Çizmeleri',slot:'boots',set:'gunes_sovalyesi',reqLv:75,price:700000,def:16,pieces:['botlar'],
+    desc:'Güneş tarikatının ağır, işlemeli savaş çizmeleri.'},
   kara_sovalye_bot:{name:'Kara Şövalye Botları',slot:'boots',set:'kara_sovalye',reqLv:20,price:40000,def:7,pieces:['botlar'],
     desc:'Kat kat plakalı, kalın tabanlı kara çelik savaş botları.'}
 };
@@ -1444,6 +1453,7 @@ function armorMat(mt,set){ const key=set+'|'+mt.name; let m=ARMOR.mats[key]; if(
   const T=ARMOR_SETS[set]&&ARMOR_SETS[set].tex;
   if(T&&mt.name===set){ const tl=new THREE.TextureLoader(), ld=(u,srgb)=>{ const t=tl.load(u); t.flipY=false; if(srgb) t.colorSpace=THREE.SRGBColorSpace; t.anisotropy=4; return t; };
     const mr=ld(T.mr,false); m=new THREE.MeshStandardMaterial({map:ld(T.base,true),normalMap:ld(T.normal,false),roughnessMap:mr,metalnessMap:mr,metalness:1,roughness:1,envMap:weaponEnv(),envMapIntensity:.7}); m.name=key; }
+  else if(T&&mt.name===set+'_hale'){ const base=armorMat({name:set},set); m=base.clone(); m.name=key; m.emissive=new THREE.Color(ARMOR_SETS[set].glow||0xffb040); m.emissiveMap=base.map; m.emissiveIntensity=.35; ARMOR.glow=m; }
   else { m=mt; m.envMap=weaponEnv(); m.envMapIntensity=.55; m.side=THREE.DoubleSide; m.needsUpdate=true; }
   ARMOR.mats[key]=m; return m; }
 /* gövde gizleme: takılı parçaların kapattığı kemik bölgelerindeki gövde üçgenleri çizilmez (zırhın içinden taşmasın) */
@@ -1459,18 +1469,23 @@ function armorBody(){ let hide=new Set(); for(const k in ARMOR.on){ const p=ARMO
 function attachArmor(k){ let hs=null; model.traverse(o=>{ if(!hs&&o.isSkinnedMesh&&!o.userData.armor) hs=o; }); if(!hs) return;
   const sk=hs.skeleton, idx=new Map(sk.bones.map((b,i)=>[b.name,i])), list=[];
   ARMOR.glb[k].scene.traverse(o=>{ if(!o.isSkinnedMesh) return;
+    const set=k.split('/')[0], own=ARMOR_SETS[set]&&ARMOR_SETS[set].ownBind;
+    if(own){ const bones=o.skeleton.bones.map(b=>sk.bones[idx.get(b.name)]); if(bones.includes(undefined)){ console.warn('[Zırh] '+k+': eşleşmeyen kemik var'); return; }
+      const mats=(Array.isArray(o.material)?o.material:[o.material]).map(mt=>armorMat(mt,set));
+      const m=new THREE.SkinnedMesh(o.geometry.clone(),mats.length>1?mats:mats[0]); m.name='armor:'+k; m.userData.armor=k; m.frustumCulled=false; m.castShadow=true;
+      hs.parent.add(m); m.bind(new THREE.Skeleton(bones,o.skeleton.boneInverses.map(x=>x.clone())),hs.bindMatrix.clone()); list.push(m); return; }   // kendi duruşunda bağlı: tek karışım
     const g=o.geometry.clone(), si=g.attributes.skinIndex, map=o.skeleton.bones.map(b=>idx.has(b.name)?idx.get(b.name):-1);
     if(map.includes(-1)) console.warn('[Zırh] '+k+': eşleşmeyen kemik var');
     const arr=new Uint16Array(si.count*4); for(let i=0;i<si.count;i++) for(let c=0;c<4;c++) arr[i*4+c]=Math.max(0,map[si.getComponent(i,c)]);
     g.setAttribute('skinIndex',new THREE.Uint16BufferAttribute(arr,4));
-    const set=k.split('/')[0], mats=(Array.isArray(o.material)?o.material:[o.material]).map(mt=>armorMat(mt,set));
+    const mats=(Array.isArray(o.material)?o.material:[o.material]).map(mt=>armorMat(mt,set));
     const m=new THREE.SkinnedMesh(g,mats.length>1?mats:mats[0]); m.name='armor:'+k; m.userData.armor=k; m.frustumCulled=false; m.castShadow=true;
     hs.parent.add(m); m.bind(sk,hs.bindMatrix.clone()); list.push(m); });
   ARMOR.on[k]=list; }
 function syncArmor(){ if(!model) return; const want=armorWant();
   for(const k in ARMOR.on) if(!want.has(k)){ for(const m of ARMOR.on[k]){ m.parent&&m.parent.remove(m); m.geometry.dispose(); } delete ARMOR.on[k]; }
   for(const k of want){ if(ARMOR.on[k]||ARMOR.fail[k]) continue; if(ARMOR.glb[k]) attachArmor(k); else loadArmor(k); }
-  armorBody(); }
+  armorBody(); if(ARMOR.glow) ARMOR.glow.emissiveIntensity=.3+.12*Math.sin(performance.now()*.0018); }
 
 /* ===================== ortak silah soketi: sağ el (SWHAND = RightHand) + SWCFG tutuş noktası =====================
    Elde gösterilecek model sağ el slotundan (w1) belirlenir: efsanevi silah → kendi GLB'si, Demir Kılıç → WMODELS görünümü, boş → el boş.
