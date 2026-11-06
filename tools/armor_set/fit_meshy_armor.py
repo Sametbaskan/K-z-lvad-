@@ -141,7 +141,10 @@ HDOM = np.array(SH)[Wh.argmax(1)]
 hn = Wh[:, [BI['mixamorigHead'], BI['mixamorigNeck']]].sum(1)
 skin = (lum > 0.26) & (vcol[:, 0] - vcol[:, 2] > 0.06)          # çıplak deri (kızılımsı-kahve)
 hair = (lum > 0.42) | skin | (hn > 0.3)                          # saç, deri, başa bağlı köşeler
+FULL = os.environ.get('FULL') == '1'   # tam kostüm: hiçbir şey kesilmez, baş + saç ayrı 'bas' parçası olur
+if FULL: hair[:] = False
 headreg = np.isin(HDOM, ['Head', 'Neck'])
+if FULL: headreg[:] = False
 def piece_of(i):
     b = HDOM[i]; p = Vn[i]
     if b in ('Spine', 'Spine1', 'Spine2'): return 'gogusluk' if p[2] >= HW['Spine1'][2] else 'sirt'
@@ -155,6 +158,7 @@ def piece_of(i):
         if b in (s + 'UpLeg', s + 'Leg'): return 'botlar' if p[1] < 22 else 'bacak_' + t
         if b in (s + 'Foot', s + 'ToeBase'): return 'botlar'
     if b == 'Hips': return 'bel'
+    if FULL and b in ('Head', 'Neck'): return 'bas'
     return None
 vp = np.array([piece_of(i) for i in range(NV)], dtype=object)
 groups = {}
@@ -174,7 +178,7 @@ for t in keep:
     a_, b_, c_ = (fd(vid[i]) for i in TRI[t]); par[b_] = a_; par[fd(c_)] = a_
 lab = {t: fd(vid[TRI[t][0]]) for t in keep}
 from collections import Counter
-size = Counter(lab.values()); small = {k for k, n in size.items() if n < 80}
+size = Counter(lab.values()); small = set() if FULL else {k for k, n in size.items() if n < 80}
 for g in groups: groups[g] = [t for t in groups[g] if lab[t] not in small]
 print('atılan küçük adacık', len(small), 'üçgen', sum(size[k] for k in small))
 print('atılan saç köşesi', int(hair.sum()), 'baş/boyun köşesi', int(headreg.sum()))
