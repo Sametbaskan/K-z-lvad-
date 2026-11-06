@@ -30,3 +30,20 @@ Meshy modelinde saç sırta/omuzlara kaynaşık olduğu için saç ve yaka bölg
 python3 -I gen_extras.py -- ../../www/models/hero.json extras out     # out = fit_meshy_armor.py çıktısı
 python3 -I render_glb_icon.py -- extras/migfer.glb ../../www/img/armor/kara_sovalye_migfer.webp
 ```
+
+## Güneş Şövalyesi (Sv.75) — iskeletsiz heykel modelinden
+Kaynak: "Dark Fantasy Sun Knight Warrior - With PBR Textures", FERUL (CGTrader, ücretsiz). Tek parça, iskeletsiz, ~790 bin üçgen, 2048 PBR dokular.
+`fit_static_armor.py`:
+- Model düz önüne baktırılır (gövde 19.7° dönük), cm'ye çevrilir; sağ eldeki kılıcın bıçağı ve muhafızı eksen boyunca kesilir (kabza yumrukta kalır).
+- ~36 bin üçgene sadeleştirilir; eklemler (JOINTS) kesitlerden elle ölçüldü.
+- Ağırlıklar bölgelere göre (baş, sol/sağ kol, gövde, pelerin, sol/sağ bacak); yumuşatma yalnız anatomik olarak bağlı bölgeler arasında yapılır,
+  el-pelerin gibi değen yerlerde köşeler ikiye bölünür (ağırlık karışıp uzun şeritler oluşmasın). Küçük bölge adacıkları komşu bölgeye katılır.
+- Savaşçı iskeleti zincir boyunca heykelin duruşuna poz verilir (burulma ebeveynden devralınır) ve her kemik için özel bağlama matrisi
+  Inv_i = H_i^-1 · M_i^-1 yazılır: zırh kendi duruşunda kalır, oyunda tek karışımla bükülür (oyunda `ARMOR_SETS[set].ownBind`).
+- Parçalar: govde, bacak, pelerin (zırh), bas + hale (maske; hale hafif altın nabızla parlar), botlar. GLB'ler elle yazılır (doku gömülmez).
+```
+python3 -I fit_static_armor.py -- SunKnightWarrior.fbx ../../www/models/hero.json PBR_Textures.jpeg out 36000
+for f in out/*.glb; do base64 -w0 $f > ../../www/models/armor/gunes_sovalyesi/$(basename $f .glb).glb.b64.txt; done; cp out/tex/*.jpg ../../www/models/armor/gunes_sovalyesi/tex/
+python3 -I render_statue_icons.py -- out/_cut.blend PBR_Textures.jpeg ikon/      # zırh + maske ikonları
+python3 -I render_glb_icon.py -- out/botlar.glb ikon/gunes_bot.webp out/tex/base.jpg
+```
