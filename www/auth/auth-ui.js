@@ -5,49 +5,85 @@ import * as A from './auth-service.js';
 const KINGS = [['Kızıl', '#d33'], ['Altın', '#e3b52b'], ['Mavi', '#3a7be0']];
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const EYE = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M1.5 12S5.5 5 12 5s10.5 7 10.5 7-4 7-10.5 7S1.5 12 1.5 12z"/><circle cx="12" cy="12" r="3"/></svg>';
-
-function pw(id, label, ac, ph) {
-  return `<label class="af" for="${id}">${label}</label><div class="pwrap"><input id="${id}" type="password" autocomplete="${ac}" placeholder="${ph || ''}" maxlength="64" autocapitalize="off" spellcheck="false"><button type="button" class="eye" data-eye="${id}" aria-label="Şifreyi göster/gizle">${EYE}</button></div>`;
+const IC = {
+  user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20c.6-4 3.6-6 7.5-6s6.9 2 7.5 6"/></svg>',
+  mail: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="5.5" width="18" height="13" rx="1.5"/><path d="m3.5 7 8.5 6.5L20.5 7"/></svg>',
+  lock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="5" y="10.5" width="14" height="10" rx="1.5"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></svg>',
+  sword: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 19 17 7l2-4 2 2-4 2L5 19zM4 20l2-2M7 17l-3 3"/></svg>'
+};
+function fld(id, icon, ph, { type = 'text', ac = 'off', max = 80, mode = '', cap = 'off' } = {}) {
+  const pwd = type === 'password';
+  return `<div class="fld"><div class="fi">${IC[icon]}<input id="${id}" type="${type}" placeholder="${ph}" aria-label="${ph}" autocomplete="${ac}" maxlength="${max}" autocapitalize="${cap}" spellcheck="false"${mode ? ` inputmode="${mode}"` : ''}>${pwd ? `<button type="button" class="eye" data-eye="${id}" aria-label="Şifreyi göster/gizle">${EYE}</button>` : ''}</div></div>`;
 }
+const B = h => `<div class="abody">${h}</div>`;
 const VIEWS = {
-  login: () => `<h2>Giriş Yap</h2>
-    <label class="af" for="a_id">Kullanıcı adı veya e-posta</label><input id="a_id" type="text" autocomplete="username" autocapitalize="off" spellcheck="false" maxlength="80">
-    ${pw('a_pw', 'Şifre', 'current-password')}
+  login: () => `<h2><span>Hesap Girişi</span></h2>` + B(`
+    ${fld('a_id', 'user', 'Kullanıcı adı veya e-posta', { ac: 'username' })}
+    ${fld('a_pw', 'lock', 'Şifre', { type: 'password', ac: 'current-password', max: 64 })}
     <label class="rem"><input type="checkbox" id="a_rem" checked><span></span>Beni hatırla</label>
     <div class="amsg" id="a_msg" role="alert"></div>
-    <button class="abtn" id="a_go" type="submit">Giriş Yap</button>
-    <div class="alinks"><a href="#" data-v="register">Hesap Oluştur</a><a href="#" data-v="forgot">Şifremi Unuttum</a></div>`,
-  register: () => `<h2>Hesap Oluştur</h2>
-    <label class="af" for="a_user">Kullanıcı adı</label><input id="a_user" type="text" autocomplete="username" autocapitalize="off" spellcheck="false" maxlength="16" placeholder="3-16 karakter, harf/rakam/_">
-    <label class="af" for="a_mail">E-posta</label><input id="a_mail" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" maxlength="80">
-    ${pw('a_pw', 'Şifre', 'new-password', 'En az 8 karakter, harf + rakam')}
+    <button class="abtn" id="a_go" type="submit"><i>Giriş Yap</i></button>`) +
+    `<div class="alinks"><a href="#" data-v="register">Hesap Oluştur</a><a href="#" data-v="forgot">Şifremi Unuttum</a></div>`,
+  register: () => `<h2><span>Hesap Oluştur</span></h2>` + B(`
+    ${fld('a_user', 'user', 'Kullanıcı adı (3-16: harf, rakam, _)', { ac: 'username', max: 16 })}
+    ${fld('a_mail', 'mail', 'E-posta', { type: 'email', ac: 'email', mode: 'email' })}
+    ${fld('a_pw', 'lock', 'Şifre (8+ karakter, harf + rakam)', { type: 'password', ac: 'new-password', max: 64 })}
     <div class="meter" id="a_meter"><i></i></div>
-    ${pw('a_pw2', 'Şifre (tekrar)', 'new-password')}
+    ${fld('a_pw2', 'lock', 'Şifre (tekrar)', { type: 'password', ac: 'new-password', max: 64 })}
     <div class="amsg" id="a_msg" role="alert"></div>
-    <button class="abtn" id="a_go" type="submit">Hesap Oluştur</button>
-    <div class="alinks"><a href="#" data-v="login">← Girişe dön</a></div>`,
-  forgot: () => `<h2>Şifremi Unuttum</h2><p class="asub">Hesabına bağlı e-posta adresini yaz; şifre sıfırlama bağlantısı gönderelim.</p>
-    <label class="af" for="a_mail">E-posta</label><input id="a_mail" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" maxlength="80">
+    <button class="abtn" id="a_go" type="submit"><i>Hesap Oluştur</i></button>`) +
+    `<div class="alinks"><a href="#" data-v="login">← Girişe dön</a></div>`,
+  forgot: () => `<h2><span>Şifremi Unuttum</span></h2>` + B(`<p class="asub">Hesabına bağlı e-posta adresini yaz; şifre sıfırlama bağlantısı gönderelim.</p>
+    ${fld('a_mail', 'mail', 'E-posta', { type: 'email', ac: 'email', mode: 'email' })}
     <div class="amsg" id="a_msg" role="alert"></div>
-    <button class="abtn" id="a_go" type="submit">Sıfırlama Bağlantısı Gönder</button>
-    <div class="alinks"><a href="#" data-v="login">← Girişe dön</a></div>`,
-  pass: () => `<h2>Şifre Değiştir</h2>
-    ${pw('a_old', 'Mevcut şifre', 'current-password')}${pw('a_pw', 'Yeni şifre', 'new-password', 'En az 8 karakter, harf + rakam')}${pw('a_pw2', 'Yeni şifre (tekrar)', 'new-password')}
+    <button class="abtn" id="a_go" type="submit"><i>Bağlantı Gönder</i></button>`) +
+    `<div class="alinks"><a href="#" data-v="login">← Girişe dön</a></div>`,
+  pass: () => `<h2><span>Şifre Değiştir</span></h2>` + B(`
+    ${fld('a_old', 'lock', 'Mevcut şifre', { type: 'password', ac: 'current-password', max: 64 })}
+    ${fld('a_pw', 'lock', 'Yeni şifre (8+ karakter, harf + rakam)', { type: 'password', ac: 'new-password', max: 64 })}
+    ${fld('a_pw2', 'lock', 'Yeni şifre (tekrar)', { type: 'password', ac: 'new-password', max: 64 })}
     <div class="amsg" id="a_msg" role="alert"></div>
-    <button class="abtn" id="a_go" type="submit">Şifreyi Değiştir</button>
-    <div class="alinks"><a href="#" data-v="chars">← Karakterlere dön</a></div>`,
-  create: () => `<h2>Karakter Oluştur</h2>
-    <label class="af" for="a_cn">Karakter adı</label><input id="a_cn" type="text" autocomplete="off" autocapitalize="words" spellcheck="false" maxlength="14">
-    <div class="af">Krallık</div><div class="kings2">${KINGS.map((k, i) => `<label><input type="radio" name="a_king" value="${i}"${i ? '' : ' checked'}><b style="background:${k[1]}"></b>${k[0]}</label>`).join('')}</div>
+    <button class="abtn" id="a_go" type="submit"><i>Şifreyi Değiştir</i></button>`) +
+    `<div class="alinks"><a href="#" data-v="chars">← Karakterlere dön</a></div>`,
+  create: () => `<h2><span>Karakter Oluştur</span></h2>` + B(`
+    ${fld('a_cn', 'sword', 'Karakter adı', { max: 14, cap: 'words' })}
+    <div class="kings2">${KINGS.map((k, i) => `<label><input type="radio" name="a_king" value="${i}"${i ? '' : ' checked'}><b style="background:${k[1]}"></b>${k[0]}</label>`).join('')}</div>
     <div class="amsg" id="a_msg" role="alert"></div>
-    <button class="abtn" id="a_go" type="submit">Karakteri Oluştur</button>
-    <div class="alinks" id="a_back"><a href="#" data-v="chars">← Geri</a></div>`
+    <button class="abtn" id="a_go" type="submit"><i>Karakteri Oluştur</i></button>`) +
+    `<div class="alinks" id="a_back"><a href="#" data-v="chars">← Geri</a></div>`
 };
+
+/* Ateş kıvılcımları (canvas): yukarı süzülen, titreşen, sönen kor parçacıkları */
+function sparks(cv, host) {
+  const ctx = cv.getContext('2d'); let W = 0, H = 0, dpr = 1, last = 0, burstT = 2;
+  const reduce = matchMedia('(prefers-reduced-motion:reduce)').matches, N = reduce ? 24 : 150;
+  const spr = [[255, 240, 190], [255, 170, 60], [255, 80, 30]].map(c => { const s = document.createElement('canvas'); s.width = s.height = 32; const g = s.getContext('2d'), r = g.createRadialGradient(16, 16, 0, 16, 16, 16); r.addColorStop(0, `rgba(${c},1)`); r.addColorStop(.14, `rgba(${c},1)`); r.addColorStop(.4, `rgba(${c},.35)`); r.addColorStop(1, `rgba(${c},0)`); g.fillStyle = r; g.fillRect(0, 0, 32, 32); return s; });
+  const size = () => { dpr = Math.min(2, devicePixelRatio || 1); W = cv.clientWidth; H = cv.clientHeight; cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); };
+  const P = Array.from({ length: N }, () => ({}));
+  const spawn = (p, init, x, boost) => { p.x = x != null ? x + (Math.random() - .5) * 40 : Math.random() * W; p.y = init ? Math.random() * H : H + 8; p.vy = -(35 + Math.random() * 95) * (boost || 1); p.vx = (Math.random() - .5) * 20; p.r = .9 + Math.random() * 3; p.t = 0; p.max = 3 + Math.random() * 5; p.ph = Math.random() * 6.28; p.sw = 8 + Math.random() * 28; p.c = Math.random() < .25 ? 0 : Math.random() < .6 ? 1 : 2; };
+  size(); P.forEach(p => spawn(p, true)); addEventListener('resize', size);
+  function frame(t) {
+    requestAnimationFrame(frame);
+    if (host.classList.contains('gone') || host.classList.contains('pre') || document.hidden) { last = t; return; }
+    const dt = Math.min(.05, (t - last) / 1000 || .016); last = t; if (!W) size();
+    ctx.clearRect(0, 0, W, H); ctx.globalCompositeOperation = 'lighter';
+    burstT -= dt; if (burstT <= 0 && !reduce) { burstT = 2.5 + Math.random() * 3; const bx = Math.random() * W; let k = 0; for (const p of P) { if (p.t > p.max * .6 && k < 14) { spawn(p, false, bx, 1.5); k++; } } }
+    for (const p of P) {
+      p.t += dt; if (p.t > p.max || p.y < -20) { spawn(p, false); continue; }
+      p.x += (p.vx + Math.sin(p.t * 2 + p.ph) * p.sw) * dt; p.y += p.vy * dt; p.vy *= 1 - .06 * dt;
+      const a = Math.sin(Math.PI * p.t / p.max) * (.65 + .35 * Math.sin(p.t * 17 + p.ph));
+      ctx.globalAlpha = Math.max(0, a); const s = p.r * 5.5; ctx.drawImage(spr[p.c], p.x - s / 2, p.y - s / 2, s, s);
+    }
+    ctx.globalAlpha = 1;
+  }
+  requestAnimationFrame(frame);
+}
 
 export async function mountAuth({ root, onEnter }) {
   let state = { user: null, name: '', chars: [] }, view = 'login', busy = false, booted = false, registering = false;
-  root.innerHTML = `<div class="abg"><i class="aimg"></i><i class="avig"></i><div class="aembers">${Array.from({ length: 22 }, (_, i) => `<s style="left:${(i * 47) % 100}%;animation-delay:${-(i * 1.7) % 9}s;animation-duration:${7 + (i * 3) % 6}s;--d:${(i % 5 - 2) * 18}px"></s>`).join('')}</div></div>
-  <div class="ascroll"><div class="awrap"><div class="alogo"><h1>VALKOR</h1><p>Efsane seni bekliyor</p></div><form class="acard" id="a_card" novalidate></form><div class="afoot" id="a_foot"></div></div></div>`;
+  root.innerHTML = `<div class="abg"><i class="aimg"></i><i class="aglow"></i><i class="avig"></i><canvas class="asp"></canvas></div>
+  <div class="ascroll"><div class="awrap"><div class="alogo"><svg class="awing l" viewBox="0 0 200 70" aria-hidden="true"><defs><linearGradient id="wg" x1="0" x2="1"><stop offset="0" stop-color="#7a4a12"/><stop offset=".5" stop-color="#f3cf7a"/><stop offset="1" stop-color="#fff0b8"/></linearGradient></defs><path d="M200 36C150 22 90 14 6 24c46 2 86 8 130 18-40-2-84 0-122 14 52-8 100-6 150 2-30 0-66 4-96 12 60-10 100-6 132 4z" fill="url(#wg)" opacity=".95"/></svg><div class="alogo-c"><i class="asun"></i><h1>VALKOR</h1><p>Efsane seni bekliyor</p></div><svg class="awing r" viewBox="0 0 200 70" aria-hidden="true"><path d="M200 36C150 22 90 14 6 24c46 2 86 8 130 18-40-2-84 0-122 14 52-8 100-6 150 2-30 0-66 4-96 12 60-10 100-6 132 4z" fill="url(#wg)" opacity=".95"/></svg></div><form class="acard" id="a_card" novalidate></form><div class="afoot" id="a_foot"></div></div></div>`;
+  sparks(root.querySelector('.asp'), root);
   const card = root.querySelector('#a_card'), foot = root.querySelector('#a_foot');
   const $ = s => card.querySelector(s);
   const msg = (t, ok) => { const m = $('#a_msg'); if (m) { m.textContent = t || ''; m.className = 'amsg' + (ok ? ' ok' : ''); } };
@@ -87,10 +123,10 @@ export async function mountAuth({ root, onEnter }) {
       state.name = (p && p.username) || state.pending || state.user.email; state.chars = chars;
     } catch (err) { card.innerHTML = `<div class="amsg" style="display:block">${esc(A.explain(err))}</div><button class="abtn" type="button" id="a_retry">Tekrar Dene</button><div class="alinks"><a href="#" id="a_out">Çıkış Yap</a></div>`; card.querySelector('#a_retry').onclick = showChars; card.querySelector('#a_out').onclick = e => { e.preventDefault(); out(); }; return; }
     if (!state.chars.length) { show('create'); const b = card.querySelector('#a_back'); if (b) b.innerHTML = '<a href="#" id="a_out">Çıkış Yap</a>'; card.querySelector('#a_out').onclick = e => { e.preventDefault(); out(); }; if (state.notice) { msg(state.notice, true); state.notice = ''; } return; }
-    card.innerHTML = `<h2>Karakter Seç</h2><p class="asub">Hoş geldin, <b>${esc(state.name)}</b></p>
+    card.innerHTML = `<h2><span>Karakter Seç</span></h2><div class="abody"><p class="asub">Hoş geldin, <b>${esc(state.name)}</b></p>
       <div class="clist">${state.chars.map((c, i) => `<button type="button" class="cslot" data-c="${i}"><b style="background:${KINGS[c.king | 0][1]}"></b><span>${esc(c.name)}</span><small>${KINGS[c.king | 0][0]} Krallığı</small></button>`).join('')}</div>
-      ${state.chars.length < A.MAX_CHARS ? '<button class="abtn ghost" type="button" id="a_new">+ Yeni Karakter</button>' : ''}
-      <div class="amsg" id="a_msg"></div>
+      ${state.chars.length < A.MAX_CHARS ? '<button class="abtn ghost" type="button" id="a_new"><i>+ Yeni Karakter</i></button>' : ''}
+      <div class="amsg" id="a_msg"></div></div>
       <div class="alinks"><a href="#" data-v="pass">Şifre Değiştir</a><a href="#" id="a_out">Çıkış Yap</a></div>`;
     card.querySelectorAll('.cslot').forEach(b => b.onclick = () => enter(state.chars[+b.dataset.c]));
     const nb = card.querySelector('#a_new'); if (nb) nb.onclick = () => { show('create'); };
@@ -106,7 +142,7 @@ export async function mountAuth({ root, onEnter }) {
   foot.textContent = '© Valkor';
   if (!A.isConfigured()) {
     card.className = 'acard v-off';
-    card.innerHTML = `<h2>Hesap sistemi kapalı</h2><div class="amsg" style="display:block">Firebase ayarları eksik. <b>auth/firebase-config.js</b> dosyasına proje bilgileri girilmeden giriş yapılamaz ve oyuna girilemez. Kurulum için AUTH-KURULUM.md dosyasına bak.</div>`;
+    card.innerHTML = `<h2><span>Hesap sistemi kapalı</span></h2><div class="abody"><div class="amsg" style="display:block">Firebase ayarları eksik. <b>auth/firebase-config.js</b> dosyasına proje bilgileri girilmeden giriş yapılamaz ve oyuna girilemez. Kurulum için AUTH-KURULUM.md dosyasına bak.</div></div>`;
     return;
   }
   card.innerHTML = '<div class="aload">Bağlanılıyor…</div>';
