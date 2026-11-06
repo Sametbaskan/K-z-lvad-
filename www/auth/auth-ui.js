@@ -84,12 +84,15 @@ export async function mountAuth({ root, onEnter, preview = () => {}, info = () =
   let state = { user: null, name: '', chars: [], ci: 0 }, view = 'login', busy = false, booted = false, registering = false;
   root.innerHTML = `<div class="abg"><i class="aimg"></i><i class="aglow"></i><i class="avig"></i><canvas class="asp"></canvas></div>
   <div class="ascroll"><div class="awrap"><div class="alogo"><svg class="awing l" viewBox="0 0 200 70" aria-hidden="true"><defs><linearGradient id="wg" x1="0" x2="1"><stop offset="0" stop-color="#7a4a12"/><stop offset=".5" stop-color="#f3cf7a"/><stop offset="1" stop-color="#fff0b8"/></linearGradient></defs><path d="M200 36C150 22 90 14 6 24c46 2 86 8 130 18-40-2-84 0-122 14 52-8 100-6 150 2-30 0-66 4-96 12 60-10 100-6 132 4z" fill="url(#wg)" opacity=".95"/></svg><div class="alogo-c"><i class="asun"></i><h1>VALKOR</h1><p>Efsane seni bekliyor</p></div><svg class="awing r" viewBox="0 0 200 70" aria-hidden="true"><path d="M200 36C150 22 90 14 6 24c46 2 86 8 130 18-40-2-84 0-122 14 52-8 100-6 150 2-30 0-66 4-96 12 60-10 100-6 132 4z" fill="url(#wg)" opacity=".95"/></svg></div><form class="acard" id="a_card" novalidate></form><div class="afoot" id="a_foot"></div></div></div>
-  <div class="csel" id="c_sel"><div class="cbar top"><span class="cbrand">VALKOR</span><button class="cx" id="c_x" type="button" aria-label="Çıkış yap">✕</button></div>
-    <div class="cpanel"><dl id="c_rows"></dl><div class="cnote" id="c_note"></div><div class="cbtns"><button type="button" class="cbtn" id="c_ok">Seç</button><button type="button" class="cbtn sm" id="c_del">Sil</button></div></div><div class="amsg" id="c_msg" role="alert"></div>
-    <button class="carr l" id="c_l" type="button" aria-label="Önceki sınıf"><svg viewBox="0 0 64 40"><path d="M2 20 30 2l-5 18 5 18z" fill="currentColor"/><path d="M34 20 62 8v24z" fill="currentColor" opacity=".0"/></svg></button><button class="carr r" id="c_r" type="button" aria-label="Sonraki sınıf"><svg viewBox="0 0 64 40"><path d="M2 20 30 2l-5 18 5 18z" fill="currentColor"/><path d="M34 20 62 8v24z" fill="currentColor" opacity=".0"/></svg></button>
-    <div class="ccls"><h3 id="c_cls"></h3><p id="c_sub"></p><div class="cdots" id="c_dots"></div></div>
-    <div class="cbar bot"><span id="c_acct"></span><a href="#" id="c_pw">Şifre Değiştir</a></div>
-    <div class="cmodal" id="c_modal"><div class="cm"><h4>Karakteri Sil</h4><p id="c_mt"></p><input id="c_mi" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Karakter adı"><div class="amsg" id="c_mm"></div><div class="cmb"><button type="button" class="cbtn sm" id="c_mc">Vazgeç</button><button type="button" class="cbtn sm danger" id="c_md">Sil</button></div></div></div></div>`;
+  <div class="csel" id="c_sel"><div class="cbrand">VALKOR</div>
+    <div class="ccls"><h3 id="c_cls"></h3><p id="c_sub"></p><div class="cnav"><button class="carr" id="c_l" type="button" aria-label="Önceki sınıf"><svg viewBox="0 0 10 16"><path d="M9 1 2 8l7 7" /></svg></button><div class="cdots" id="c_dots"></div><button class="carr" id="c_r" type="button" aria-label="Sonraki sınıf"><svg viewBox="0 0 10 16"><path d="M1 1l7 7-7 7" /></svg></button></div></div>
+    <div class="cpanel"><div class="ckr"><div class="cflag" id="c_flag"></div><div class="cstk"><div class="cbox" id="c_king"></div><div class="cbox" id="c_guild"></div></div></div>
+      <div class="crow"><label>İsim</label><div class="cbox" id="c_name"></div></div><div class="crow"><label>Seviye</label><div class="cbox" id="c_lvl"></div></div><div class="crow"><label>Oyun Süresi (dak.)</label><div class="cbox" id="c_pt"></div></div>
+      <div class="cstat"><label>HP</label><div class="ctr"><i class="hp" id="c_hp_b"></i></div><div class="cbox" id="c_hp"></div></div><div class="cstat"><label>SP</label><div class="ctr"><i class="sp" id="c_sp_b"></i></div><div class="cbox" id="c_sp"></div></div><div class="cstat"><label>STR</label><div class="ctr"><i class="st" id="c_st_b"></i></div><div class="cbox" id="c_st"></div></div><div class="cstat"><label>DEX</label><div class="ctr"><i class="dx" id="c_dx_b"></i></div><div class="cbox" id="c_dx"></div></div>
+      <button type="button" class="cbtn wide" id="c_ok">Başla</button><div class="cbtns2"><button type="button" class="cbtn" id="c_del">Sil</button><button type="button" class="cbtn" id="c_x">Çıkış</button></div></div>
+    <div class="amsg" id="c_msg" role="alert"></div>
+    <div class="cfoot"><span id="c_acct"></span><a href="#" id="c_pw">Şifre Değiştir</a></div>
+    <div class="cmodal" id="c_modal"><div class="cm"><h4>Karakteri Sil</h4><p id="c_mt"></p><input id="c_mi" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Karakter adı"><div class="amsg" id="c_mm"></div><div class="cmb"><button type="button" class="cbtn" id="c_mc">Vazgeç</button><button type="button" class="cbtn danger" id="c_md">Sil</button></div></div></div></div>`;
   sparks(root.querySelector('.asp'), root);
   const card = root.querySelector('#a_card'), foot = root.querySelector('#a_foot');
   const $ = s => card.querySelector(s);
@@ -126,15 +129,17 @@ export async function mountAuth({ root, onEnter, preview = () => {}, info = () =
   const sel = root.querySelector('#c_sel'), S$ = id => sel.querySelector('#' + id);
   function setSel(on) { root.classList.toggle('sel', on); if (!on) preview(false, false); }
   const chOf = cls => cls.ready ? (state.chars.find(c => (c.cls || 'warrior') === cls.id) || null) : null;
+  const FLAG = i => { const c = KINGS[i][1]; return `<svg viewBox="0 0 80 34" preserveAspectRatio="none"><rect width="80" height="34" fill="#0b1018"/><path d="M0 34 22 6l14 14 12-12 32 26z" fill="${c}" opacity=".35"/><path d="M40 5l8 8-8 16-8-16z" fill="${c}"/><path d="M40 9l4 4-4 9-4-9z" fill="#fff" opacity=".55"/></svg>`; };
   function renderSel() {
-    const cls = CLASSES[state.ci], ch = chOf(cls), inf = ch ? info(ch, state.user.uid) : null;
-    preview(true, cls.ready);
-    S$('c_cls').textContent = cls.name; S$('c_sub').textContent = !cls.ready ? 'Yakında' : ch ? ch.name : 'Karakter oluşturulmadı';
-    S$('c_rows').innerHTML = [['İsim', ch ? esc(ch.name) : '—'], ['Seviye', inf ? inf.lvl : '—'], ['Lonca', inf ? esc(inf.guild || 'Yok') : '—'], ['Krallık', ch ? `<b class="kdot" style="background:${KINGS[ch.king | 0][1]}"></b>${KINGS[ch.king | 0][0]}` : '—'], ['Sınıf', cls.name]].map(r => `<div><dt>${r[0]}</dt><dd>${r[1]}</dd></div>`).join('');
-    S$('c_note').textContent = !cls.ready ? 'Bu sınıf henüz oyuna eklenmedi.' : '';
-    const ok = S$('c_ok'), del = S$('c_del'); ok.textContent = ch ? 'Seç' : 'Oluştur'; ok.disabled = !cls.ready; del.disabled = !ch;
+    const cls = CLASSES[state.ci], ch = chOf(cls), inf = ch ? info(ch, state.user.uid) : null, K = ch ? KINGS[ch.king | 0] : null;
+    preview(true, cls.ready, ch, state.user.uid);
+    S$('c_cls').textContent = cls.name; S$('c_sub').textContent = !cls.ready ? 'Yakında' : ch ? '' : 'Karakter oluşturulmadı';
+    S$('c_flag').innerHTML = ch ? FLAG(ch.king | 0) : ''; S$('c_king').textContent = ch ? K[0] + ' Krallığı' : '—'; S$('c_guild').textContent = ch ? (inf.guild || 'Lonca yok') : '—';
+    S$('c_name').textContent = ch ? ch.name : '—'; S$('c_lvl').textContent = inf ? inf.lvl : '—'; S$('c_pt').textContent = inf ? inf.min : '—';
+    [['hp', 'vit'], ['sp', 'int'], ['st', 'st'], ['dx', 'dex']].forEach(([id, k]) => { const v = inf ? inf[k] : 0; S$('c_' + id).textContent = inf ? v : '—'; S$('c_' + id + '_b').style.width = inf ? Math.max(4, Math.min(100, v / inf.cap * 100)) + '%' : '0'; });
+    const ok = S$('c_ok'), del = S$('c_del'); ok.textContent = ch ? 'Başla' : 'Oluştur'; ok.disabled = !cls.ready; del.disabled = !ch;
     S$('c_dots').innerHTML = CLASSES.map((c, i) => `<i class="${i === state.ci ? 'on' : ''}${c.ready ? '' : ' lk'}"></i>`).join('');
-    S$('c_acct').textContent = 'Hesap: ' + state.name; S$('c_msg').textContent = '';
+    S$('c_acct').textContent = 'Hesap: ' + state.name; S$('c_msg').textContent = ''; S$('c_msg').className = 'amsg';
     if (state.notice) { const m = S$('c_msg'); m.textContent = state.notice; m.className = 'amsg ok'; state.notice = ''; }
   }
   const cyc = d => { state.ci = (state.ci + d + CLASSES.length) % CLASSES.length; renderSel(); };
