@@ -116,6 +116,12 @@ export async function listCharacters(uid) {
   const s = await M.getDocs(M.collection(db, 'users', uid, 'characters'));
   return s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
 }
+export async function deleteCharacter(uid, c) {
+  const b = M.writeBatch(db);
+  b.delete(M.doc(db, 'users', uid, 'characters', c.id));
+  b.delete(M.doc(db, 'charnames', lc(c.name)));
+  try { await b.commit(); } catch (e) { if (/permission/i.test(e.code || '')) throw new AuthError('valkor/val', 'Silme izni yok: Firestore kuralları güncel değil (firestore.rules yeniden yayınlanmalı).'); throw e; }
+}
 export async function createCharacter(uid, { name, king }) {
   name = String(name || '').trim().replace(/\s+/g, ' ');
   if (!RULES.char.test(name)) throw new AuthError('valkor/val', 'Karakter adı 2-14 karakter olmalı (harf, rakam, boşluk, - ve _).');

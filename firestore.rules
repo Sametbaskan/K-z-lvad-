@@ -24,7 +24,8 @@ service cloud.firestore {
           && request.resource.data.name.size() >= 2 && request.resource.data.name.size() <= 14
           && request.resource.data.nameLower == request.resource.data.name.lower()
           && request.resource.data.king in [0,1,2];
-        allow update, delete: if false;
+        allow update: if false;
+        allow delete: if isOwner(uid);   // karakter silme (SİL düğmesi)
       }
     }
 
@@ -49,7 +50,8 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(['uid','charId','name'])
         && request.resource.data.uid == request.auth.uid
         && name == request.resource.data.name.lower();
-      allow update, delete: if false;
+      allow update: if false;
+      allow delete: if signedIn() && resource.data.uid == request.auth.uid;   // karakter silinince ad serbest kalır
     }
 
     match /{document=**} { allow read, write: if false; }

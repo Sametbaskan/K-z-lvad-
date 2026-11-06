@@ -2,6 +2,7 @@
    Kullanım: mountAuth({ root, onEnter({uid,username,character}) }) */
 import * as A from './auth-service.js';
 
+const CLASSES = [{ id: 'warrior', name: 'Savaşçı', ready: true }, { id: 'ninja', name: 'Ninja' }, { id: 'shaman', name: 'Şaman' }, { id: 'sura', name: 'Sura' }];
 const KINGS = [['Kızıl', '#d33'], ['Altın', '#e3b52b'], ['Mavi', '#3a7be0']];
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const EYE = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M1.5 12S5.5 5 12 5s10.5 7 10.5 7-4 7-10.5 7S1.5 12 1.5 12z"/><circle cx="12" cy="12" r="3"/></svg>';
@@ -79,16 +80,22 @@ function sparks(cv, host) {
   requestAnimationFrame(frame);
 }
 
-export async function mountAuth({ root, onEnter }) {
-  let state = { user: null, name: '', chars: [] }, view = 'login', busy = false, booted = false, registering = false;
+export async function mountAuth({ root, onEnter, preview = () => {}, info = () => ({ lvl: 1, guild: '' }), purge = () => {} }) {
+  let state = { user: null, name: '', chars: [], ci: 0 }, view = 'login', busy = false, booted = false, registering = false;
   root.innerHTML = `<div class="abg"><i class="aimg"></i><i class="aglow"></i><i class="avig"></i><canvas class="asp"></canvas></div>
-  <div class="ascroll"><div class="awrap"><div class="alogo"><svg class="awing l" viewBox="0 0 200 70" aria-hidden="true"><defs><linearGradient id="wg" x1="0" x2="1"><stop offset="0" stop-color="#7a4a12"/><stop offset=".5" stop-color="#f3cf7a"/><stop offset="1" stop-color="#fff0b8"/></linearGradient></defs><path d="M200 36C150 22 90 14 6 24c46 2 86 8 130 18-40-2-84 0-122 14 52-8 100-6 150 2-30 0-66 4-96 12 60-10 100-6 132 4z" fill="url(#wg)" opacity=".95"/></svg><div class="alogo-c"><i class="asun"></i><h1>VALKOR</h1><p>Efsane seni bekliyor</p></div><svg class="awing r" viewBox="0 0 200 70" aria-hidden="true"><path d="M200 36C150 22 90 14 6 24c46 2 86 8 130 18-40-2-84 0-122 14 52-8 100-6 150 2-30 0-66 4-96 12 60-10 100-6 132 4z" fill="url(#wg)" opacity=".95"/></svg></div><form class="acard" id="a_card" novalidate></form><div class="afoot" id="a_foot"></div></div></div>`;
+  <div class="ascroll"><div class="awrap"><div class="alogo"><svg class="awing l" viewBox="0 0 200 70" aria-hidden="true"><defs><linearGradient id="wg" x1="0" x2="1"><stop offset="0" stop-color="#7a4a12"/><stop offset=".5" stop-color="#f3cf7a"/><stop offset="1" stop-color="#fff0b8"/></linearGradient></defs><path d="M200 36C150 22 90 14 6 24c46 2 86 8 130 18-40-2-84 0-122 14 52-8 100-6 150 2-30 0-66 4-96 12 60-10 100-6 132 4z" fill="url(#wg)" opacity=".95"/></svg><div class="alogo-c"><i class="asun"></i><h1>VALKOR</h1><p>Efsane seni bekliyor</p></div><svg class="awing r" viewBox="0 0 200 70" aria-hidden="true"><path d="M200 36C150 22 90 14 6 24c46 2 86 8 130 18-40-2-84 0-122 14 52-8 100-6 150 2-30 0-66 4-96 12 60-10 100-6 132 4z" fill="url(#wg)" opacity=".95"/></svg></div><form class="acard" id="a_card" novalidate></form><div class="afoot" id="a_foot"></div></div></div>
+  <div class="csel" id="c_sel"><div class="cbar top"><span class="cbrand">VALKOR</span><button class="cx" id="c_x" type="button" aria-label="Çıkış yap">✕</button></div>
+    <div class="cpanel"><dl id="c_rows"></dl><div class="cnote" id="c_note"></div><div class="cbtns"><button type="button" class="cbtn" id="c_ok">Seç</button><button type="button" class="cbtn sm" id="c_del">Sil</button></div></div><div class="amsg" id="c_msg" role="alert"></div>
+    <button class="carr l" id="c_l" type="button" aria-label="Önceki sınıf"><svg viewBox="0 0 64 40"><path d="M2 20 30 2l-5 18 5 18z" fill="currentColor"/><path d="M34 20 62 8v24z" fill="currentColor" opacity=".0"/></svg></button><button class="carr r" id="c_r" type="button" aria-label="Sonraki sınıf"><svg viewBox="0 0 64 40"><path d="M2 20 30 2l-5 18 5 18z" fill="currentColor"/><path d="M34 20 62 8v24z" fill="currentColor" opacity=".0"/></svg></button>
+    <div class="ccls"><h3 id="c_cls"></h3><p id="c_sub"></p><div class="cdots" id="c_dots"></div></div>
+    <div class="cbar bot"><span id="c_acct"></span><a href="#" id="c_pw">Şifre Değiştir</a></div>
+    <div class="cmodal" id="c_modal"><div class="cm"><h4>Karakteri Sil</h4><p id="c_mt"></p><input id="c_mi" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Karakter adı"><div class="amsg" id="c_mm"></div><div class="cmb"><button type="button" class="cbtn sm" id="c_mc">Vazgeç</button><button type="button" class="cbtn sm danger" id="c_md">Sil</button></div></div></div></div>`;
   sparks(root.querySelector('.asp'), root);
   const card = root.querySelector('#a_card'), foot = root.querySelector('#a_foot');
   const $ = s => card.querySelector(s);
   const msg = (t, ok) => { const m = $('#a_msg'); if (m) { m.textContent = t || ''; m.className = 'amsg' + (ok ? ' ok' : ''); } };
   const setBusy = b => { busy = b; const g = $('#a_go'); if (g) { g.disabled = b; g.classList.toggle('busy', b); } };
-  const show = v => { view = v; card.className = 'acard v-' + v; card.innerHTML = VIEWS[v](); wire(); const f = card.querySelector('input:not([type=checkbox]):not([type=radio])'); if (f && !matchMedia('(pointer:coarse)').matches) f.focus(); };
+  const show = v => { setSel(false); view = v; card.className = 'acard v-' + v; card.innerHTML = VIEWS[v](); wire(); const f = card.querySelector('input:not([type=checkbox]):not([type=radio])'); if (f && !matchMedia('(pointer:coarse)').matches) f.focus(); };
 
   function wire() {
     card.querySelectorAll('[data-v]').forEach(a => a.onclick = e => { e.preventDefault(); if (busy) return; if (a.dataset.v === 'chars') showChars(); else show(a.dataset.v); });
@@ -111,29 +118,43 @@ export async function mountAuth({ root, onEnter }) {
     else if (view === 'pass') { await A.changePassword(v('a_old'), v('a_pw'), v('a_pw2')); msg('Şifren başarıyla değiştirildi.', true); ['a_old', 'a_pw', 'a_pw2'].forEach(i => $('#' + i).value = ''); }
     else if (view === 'create') {
       const c = await A.createCharacter(state.user.uid, { name: v('a_cn'), king: (card.querySelector('input[name=a_king]:checked') || {}).value });
-      state.chars.push(c); enter(c);
+      state.chars.push(c); state.notice = 'Karakter oluşturuldu. Şimdi “Seç” ile oyuna girebilirsin.'; await showChars();
     }
   }
   function enter(c) { root.classList.add('gone'); onEnter({ uid: state.user.uid, username: state.name, character: c }); }
 
+  const sel = root.querySelector('#c_sel'), S$ = id => sel.querySelector('#' + id);
+  function setSel(on) { root.classList.toggle('sel', on); if (!on) preview(false, false); }
+  const chOf = cls => cls.ready ? (state.chars.find(c => (c.cls || 'warrior') === cls.id) || null) : null;
+  function renderSel() {
+    const cls = CLASSES[state.ci], ch = chOf(cls), inf = ch ? info(ch, state.user.uid) : null;
+    preview(true, cls.ready);
+    S$('c_cls').textContent = cls.name; S$('c_sub').textContent = !cls.ready ? 'Yakında' : ch ? ch.name : 'Karakter oluşturulmadı';
+    S$('c_rows').innerHTML = [['İsim', ch ? esc(ch.name) : '—'], ['Seviye', inf ? inf.lvl : '—'], ['Lonca', inf ? esc(inf.guild || 'Yok') : '—'], ['Krallık', ch ? `<b class="kdot" style="background:${KINGS[ch.king | 0][1]}"></b>${KINGS[ch.king | 0][0]}` : '—'], ['Sınıf', cls.name]].map(r => `<div><dt>${r[0]}</dt><dd>${r[1]}</dd></div>`).join('');
+    S$('c_note').textContent = !cls.ready ? 'Bu sınıf henüz oyuna eklenmedi.' : '';
+    const ok = S$('c_ok'), del = S$('c_del'); ok.textContent = ch ? 'Seç' : 'Oluştur'; ok.disabled = !cls.ready; del.disabled = !ch;
+    S$('c_dots').innerHTML = CLASSES.map((c, i) => `<i class="${i === state.ci ? 'on' : ''}${c.ready ? '' : ' lk'}"></i>`).join('');
+    S$('c_acct').textContent = 'Hesap: ' + state.name; S$('c_msg').textContent = '';
+    if (state.notice) { const m = S$('c_msg'); m.textContent = state.notice; m.className = 'amsg ok'; state.notice = ''; }
+  }
+  const cyc = d => { state.ci = (state.ci + d + CLASSES.length) % CLASSES.length; renderSel(); };
+  S$('c_l').onclick = () => cyc(-1); S$('c_r').onclick = () => cyc(1);
+  S$('c_ok').onclick = () => { const cls = CLASSES[state.ci]; if (!cls.ready) return; const ch = chOf(cls); if (ch) enter(ch); else { show('create'); const b = card.querySelector('#a_back'); if (b) b.innerHTML = '<a href="#" data-v="chars">← Geri</a>'; wire(); } };
+  S$('c_x').onclick = () => out();
+  S$('c_pw').onclick = e => { e.preventDefault(); show('pass'); };
+  const modal = S$('c_modal');
+  S$('c_del').onclick = () => { const ch = chOf(CLASSES[state.ci]); if (!ch) return; S$('c_mt').innerHTML = `Silmek için karakter adını yaz: <b>${esc(ch.name)}</b>. Bu işlem geri alınamaz.`; S$('c_mi').value = ''; S$('c_mm').textContent = ''; modal.classList.add('on'); };
+  S$('c_mc').onclick = () => modal.classList.remove('on');
+  S$('c_md').onclick = async () => { const ch = chOf(CLASSES[state.ci]); if (!ch) return; if (S$('c_mi').value.trim().toLowerCase() !== ch.name.toLowerCase()) { S$('c_mm').textContent = 'Karakter adı eşleşmiyor.'; return; } S$('c_md').disabled = true; try { await A.deleteCharacter(state.user.uid, ch); purge(ch, state.user.uid); state.chars = state.chars.filter(c => c.id !== ch.id); modal.classList.remove('on'); renderSel(); const m = S$('c_msg'); m.textContent = 'Karakter silindi.'; m.className = 'amsg ok'; } catch (err) { S$('c_mm').textContent = A.explain(err); } S$('c_md').disabled = false; };
+
   async function showChars() {
-    view = 'chars'; card.className = 'acard v-chars'; card.innerHTML = '<div class="aload">Hesap yükleniyor…</div>';
+    setSel(false); view = 'chars'; card.className = 'acard v-chars'; card.innerHTML = '<div class="aload">Hesap yükleniyor…</div>';
     try {
       const [p, chars] = await Promise.all([A.profile(state.user.uid), A.listCharacters(state.user.uid)]);
       state.name = (p && p.username) || state.pending || state.user.email; state.chars = chars;
-    } catch (err) { card.innerHTML = `<div class="amsg" style="display:block">${esc(A.explain(err))}</div><button class="abtn" type="button" id="a_retry">Tekrar Dene</button><div class="alinks"><a href="#" id="a_out">Çıkış Yap</a></div>`; card.querySelector('#a_retry').onclick = showChars; card.querySelector('#a_out').onclick = e => { e.preventDefault(); out(); }; return; }
+    } catch (err) { card.innerHTML = `<div class="abody"><div class="amsg" style="display:block">${esc(A.explain(err))}</div><button class="abtn" type="button" id="a_retry"><i>Tekrar Dene</i></button></div><div class="alinks"><a href="#" id="a_out">Çıkış Yap</a></div>`; card.querySelector('#a_retry').onclick = showChars; card.querySelector('#a_out').onclick = e => { e.preventDefault(); out(); }; return; }
     if (!state.chars.length) { show('create'); const b = card.querySelector('#a_back'); if (b) b.innerHTML = '<a href="#" id="a_out">Çıkış Yap</a>'; card.querySelector('#a_out').onclick = e => { e.preventDefault(); out(); }; if (state.notice) { msg(state.notice, true); state.notice = ''; } return; }
-    card.innerHTML = `<h2><span>Karakter Seç</span></h2><div class="abody"><p class="asub">Hoş geldin, <b>${esc(state.name)}</b></p>
-      <div class="clist">${state.chars.map((c, i) => `<button type="button" class="cslot" data-c="${i}"><b style="background:${KINGS[c.king | 0][1]}"></b><span>${esc(c.name)}</span><small>${KINGS[c.king | 0][0]} Krallığı</small></button>`).join('')}</div>
-      ${state.chars.length < A.MAX_CHARS ? '<button class="abtn ghost" type="button" id="a_new"><i>+ Yeni Karakter</i></button>' : ''}
-      <div class="amsg" id="a_msg"></div></div>
-      <div class="alinks"><a href="#" data-v="pass">Şifre Değiştir</a><a href="#" id="a_out">Çıkış Yap</a></div>`;
-    card.querySelectorAll('.cslot').forEach(b => b.onclick = () => enter(state.chars[+b.dataset.c]));
-    const nb = card.querySelector('#a_new'); if (nb) nb.onclick = () => { show('create'); };
-    card.querySelector('#a_out').onclick = e => { e.preventDefault(); out(); };
-    card.querySelector('[data-v=pass]').onclick = e => { e.preventDefault(); show('pass'); };
-    card.onsubmit = e => e.preventDefault();
-    if (state.notice) { msg(state.notice, true); state.notice = ''; }
+    state.ci = 0; setSel(true); renderSel();
   }
   async function out() { try { await A.logout(); } catch (_) {} location.reload(); }
   window.ValkorAuth = { logout: out };
