@@ -3418,6 +3418,10 @@ async function boot(){
   }catch(err){ console.error(err); $('loadTxt').textContent='Yükleme başarısız oldu.'; $('loadTxt').style.color='#ff8a80'; $('err').textContent=String(err&&err.message||err); }
 }
 /* Hesap sistemi (auth/ modülleri) karakter seçilince bunu çağırır. Oyun motoru hesap koduna bağımlı değildir. */
+/* gizli test komutu: sol üstteki karakter adına 7 kez hızlı dokun → Sv.99 + 10.000.000 yang (yalnızca bu cihazdaki kayıt) */
+function devBoost(){ S.lvl=99; S.exp=0; S.qd=3; S.yang=10000000; S.pts=Math.max(S.pts,0)+3*98; S.hp=maxHP(); S.sp=maxSP(); saveGame(); updateHUD(); banner('Sv. 99 · 10.000.000 Yang'); say('Test komutu: Seviye 99, 10.000.000 yang verildi. Stat puanı: '+S.pts+' (V)','c-sys'); SFX.level(); pillarFx(P.pos,0xffd24a); }
+window.__devBoost=devBoost;
+(function(){ const n=$('meName'); let c=0,t=0; n.style.pointerEvents='auto'; n.addEventListener('click',()=>{ c++; clearTimeout(t); t=setTimeout(()=>c=0,1500); if(c>=7){ c=0; devBoost(); } }); })();
 (function(){ const b=$('authOut'); let t=0; b.addEventListener('click',()=>{ if(!b.classList.contains('arm')){ b.classList.add('arm'); b.textContent='Emin misin? Çıkış'; saveGame(); t=setTimeout(()=>{ b.classList.remove('arm'); b.textContent='⎋ Çıkış'; },3500); } else { clearTimeout(t); window.ValkorAuth&&window.ValkorAuth.logout(); } }); b.addEventListener('pointerdown',e=>e.stopPropagation()); })();
 async function mountAuthUI(){
   $('auth').classList.remove('pre'); try{ const m=await import('./auth/auth-ui.js'); await m.mountAuth({root:$('auth'),onEnter:enterGame,preview:charPreview,info:charInfo,purge:charPurge}); }
