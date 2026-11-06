@@ -1183,7 +1183,7 @@ function refreshPlate(force){ if(!myTag) return; const k=S.lvl+'|'+rankIdx(S.rp)
 const BASESTAT={st:5,vit:5,int:4,dex:4}, STATCAP=90;
 const KINGS=['Kızıl','Altın','Mavi'], KCOL=['#ff6a5a','#ffd24a','#6aa8ff'];
 const expNeed = CORE.expNeed;
-const maxHP = () => CORE.maxHP(S.lvl,S.vit);
+const maxHP = () => CORE.maxHP(S.lvl,S.vit)+gearSum('hp');
 const maxSP = () => CORE.maxSP(S.lvl,S.int);
 /* ===== eşya altyapısı: ITEMS kaydı, 180 hücreli envanter (4 sayfa x 45), 14 ekipman slotu ===== */
 const INVN=45, INVPAGES=4;
@@ -1204,9 +1204,10 @@ const EQS=[  // id, tür, etiket, merkez x/y (kukla kutusuna göre 0..1)
   {id:'ex1',type:'boost',lb:'Güç',x:.145,y:.849},{id:'ex2',type:'boost',lb:'Güç',x:.603,y:.849}];
 const eqDef=id=>EQS.find(e=>e.id===id);
 const itemOf=it=>it&&ITEMS[it.id];
-function initInv(){ if(!Array.isArray(S.inv)) S.inv=[]; S.inv.length=INVN*INVPAGES; for(let i=0;i<S.inv.length;i++){ const it=S.inv[i]; S.inv[i]=(it&&ITEMS[it.id])?{id:it.id,n:Math.max(1,it.n|0||1)}:null; }
+const cpIt=it=>{ const o={id:it.id,n:Math.max(1,it.n|0||1)}; if(ITEMS[it.id]&&ITEMS[it.id].gear) o.u=Math.max(0,Math.min(10,it.u|0)); return o; };
+function initInv(){ if(!Array.isArray(S.inv)) S.inv=[]; S.inv.length=INVN*INVPAGES; for(let i=0;i<S.inv.length;i++){ const it=S.inv[i]; S.inv[i]=(it&&ITEMS[it.id])?cpIt(it):null; }
   if(!S.eq||typeof S.eq!=='object'||Array.isArray(S.eq)) S.eq={w1:{id:'sword',n:1}};
-  const eq={}; for(const e of EQS){ const it=S.eq[e.id]; if(it&&ITEMS[it.id]&&ITEMS[it.id].slot===e.type) eq[e.id]={id:it.id,n:Math.max(1,it.n|0||1)}; } S.eq=eq;
+  const eq={}; for(const e of EQS){ const it=S.eq[e.id]; if(it&&ITEMS[it.id]&&ITEMS[it.id].slot===e.type) eq[e.id]=cpIt(it); } S.eq=eq;
   // kılıç hiçbir yerde yoksa (eski kayıt) ilk silah slotuna koy
   if(!hasItem('sword')) S.eq.w1=S.eq.w1||{id:'sword',n:1};
   syncPots(); }
@@ -1312,13 +1313,45 @@ const weapName=()=>{ const L=legEq(); return L?L.name:swEq()?'Demir Kılıç +'+
 fixWeapon();
 Object.defineProperty(ITEMS.sword,'desc',{get:()=>`Başlangıç silahı +${S.weap}. Saldırı ${S.wr.a} (${WLV[S.weap].a[0]}–${WLV[S.weap].a[1]}) · Büyü saldırısı ${S.wr.m} (${WLV[S.weap].m[0]}–${WLV[S.weap].m[1]}) · Saldırı hızı +${SW_ASPD}`,enumerable:true});
 ITEMS.sword.info=()=>{ const L=WLV[S.weap]; return [`Demir Kılıç +${S.weap}`,`Saldırı: ${S.wr.a}  (${L.a[0]}–${L.a[1]})`,`Büyü saldırısı: ${S.wr.m}  (${L.m[0]}–${L.m[1]})`,`Saldırı hızı: +${SW_ASPD}`,S.weap<9?`Sonraki: +${S.weap+1} · Demirci Kaan'da yükselt`:'En yüksek seviye']; };
+
+/* ===== zırh / iç eşya seti (kask, zırh, ayakkabı, kolye, küpe, bilezik): +0 ... +10 yükseltme ===== */
+const GEAR_MAX=10, G_STONES=[1,2,3,4,5,6,8,10,12,15], G_ODDS=[1,.95,.9,.8,.7,.6,.5,.4,.3,.2], G_PER=.15;   // +n -> +n+1: taş, şans; her seviye taban değerin %15'i
+const gUpYang=u=>200*Math.pow(u+1,2);
+const gIco=(body,c1,c2)=>'data:image/svg+xml;utf8,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></linearGradient></defs><g fill="url(#g)" stroke="#1a1008" stroke-width="2" stroke-linejoin="round">${body}</g></svg>`);
+const GEAR={
+  g_helmet:{name:'Demir Kask',slot:'helmet',lb:'Kask',def:12,hp:60,desc:'Düz demirden dövülmüş savaş kaskı.',icon:gIco('<path d="M12 40C12 20 22 10 32 10s20 10 20 30v6H12z"/><path d="M26 40h12v10H26z" fill="#2a1c12"/><path d="M30 10h4v14h-4z" fill="#c33"/>','#cfd6de','#6b7684')},
+  g_neck:{name:'Kızıl Kolye',slot:'necklace',lb:'Kolye',atk:10,hp:80,desc:'Kızıl taş taşıyan altın zincir.',icon:gIco('<path d="M12 10c0 22 8 28 20 28s20-6 20-28" fill="none" stroke="#e0b040" stroke-width="4"/><path d="M32 36l8 8-8 12-8-12z" fill="#d22" />','#e04040','#8a0a10')},
+  g_ear:{name:'Gümüş Küpe',slot:'earring',lb:'Küpe',atk:8,def:6,desc:'İnce işlenmiş gümüş halka küpe.',icon:gIco('<circle cx="32" cy="26" r="14" fill="none" stroke="#dfe6ee" stroke-width="5"/><path d="M32 42l6 8-6 8-6-8z" fill="#6cf"/>','#6cf','#2c7bb0')},
+  g_brace:{name:'Güç Bilekliği',slot:'bracelet',lb:'Bilezik',atk:14,def:8,desc:'Kolu saran altın bilezik, ortasında mühür.',icon:gIco('<ellipse cx="32" cy="32" rx="22" ry="14" fill="none" stroke="#e0b040" stroke-width="8"/><circle cx="32" cy="18" r="6" fill="#d22"/>','#ffd24a','#a06a10')}
+};
+for(const [id,A] of Object.entries(ARMOR_ITEMS)){ Object.assign(ITEMS[id],{gear:true,base:{def:A.def,hp:0,atk:0}}); }
+const gLv=it=>it&&ITEMS[it.id]&&ITEMS[it.id].gear?(it.u|0):0;
+const gVal=(it,k)=>{ const d=ITEMS[it.id], b=d.base[k]||0; return Math.round(b*(1+G_PER*(it.u|0))); };
+function gearSum(k){ let t=0; if(!S.eq) return 0; for(const id in S.eq){ const it=S.eq[id], d=it&&ITEMS[it.id]; if(d&&d.gear&&(d.slot!=='weapon')) t+=gVal(it,k); } return t; }
+for(const [id,G] of Object.entries(GEAR)){
+  registerItem(id,{name:G.name,icon:G.icon,slot:G.slot,gear:true,base:{def:G.def||0,hp:G.hp||0,atk:G.atk||0},desc:G.desc});
+}
+const gearInfo=it=>{ const d=ITEMS[it.id], u=it.u|0, B=d.base; let ln, desc0=null;
+  if(d.info){ ln=d.info().map(l=>l.replace(/Savunma: \+\d+/,`Savunma: +${gVal(it,'def')}`)); desc0=ln.pop(); ln[0]=ln[0].replace(d.name,d.name+(u?' +'+u:'')); }
+  else { ln=[`<span style="color:#ffd24a">${d.name}${u?' +'+u:''}</span>`]; if(B.def) ln.push(`Savunma: ${gVal(it,'def')}`); if(B.hp) ln.push(`Can: +${gVal(it,'hp')}`); if(B.atk) ln.push(`Saldırı: +${gVal(it,'atk')}`); }
+  ln.push(u<GEAR_MAX?`Sonraki +${u+1}: ${G_STONES[u]} taş · ${fmt(gUpYang(u))} yang · %${Math.round(G_ODDS[u]*100)} şans`:'<span style="color:#9f9">En yüksek seviye (+10)</span>'); ln.push(desc0||`<i style="color:#cdbb9a">${d.desc}</i>`); return ln; };
+function upgradeGear(rf){
+  const it=slotAt(rf), d=itemOf(it); if(!it||!d||!d.gear) return false; const u=it.u|0;
+  if(u>=GEAR_MAX){ say(`${d.name} zaten +10.`,'c-bad'); return false; }
+  const need=G_STONES[u], cost=gUpYang(u);
+  if(stoneCount()<need){ say(`Yeterli Yükseltme Taşı yok (${need} gerekli).`,'c-bad'); return false; }
+  if(S.yang<cost){ say(`Yeterli yang yok (${fmt(cost)} gerekli).`,'c-bad'); return false; }
+  takeStones(need); S.yang-=cost;
+  if(Math.random()<G_ODDS[u]){ it.u=u+1; say(`${d.name} +${u+1} oldu!`,'c-xp'); banner(`${d.name} +${u+1}`); SFX.level&&SFX.level(); }
+  else { say(`Yükseltme başarısız. ${d.name} +${u} olarak kaldı (taşlar harcandı).`,'c-bad'); }
+  S.hp=Math.min(S.hp,maxHP()); INVV++; saveGame(); renderMenu(true); return true; }
 registerItem('ustone',{name:'Yükseltme Taşı',img:'ustone',slot:null,stack:true,desc:'Demirci Kaan silah yükseltmesinde kullanır. Canavarlardan düşer, Tüccar Han satar.'});
 const stoneCount=()=>S.inv.reduce((a,i)=>a+(i&&i.id==='ustone'?i.n:0),0);
 function takeStones(n){ for(let i=0;i<S.inv.length&&n>0;i++){ const it=S.inv[i]; if(it&&it.id==='ustone'){ const t=Math.min(n,it.n); it.n-=t; n-=t; if(it.n<=0) S.inv[i]=null; } } INVV++; }
 const weapMul = () => 1;   // eski çarpan kaldırıldı: silah gücü artık düz saldırı değeri (wAtk/wMag)
-const atkPow = () => (10+S.lvl*3+S.st*1.5+wAtk())*(S.buff>0?(S.buffAtk||1.3):1);
-const magPow = () => (10+S.lvl*3+S.st*1.5+wMag())*magMul()*(S.buff>0?(S.buffAtk||1.3):1);
-const defPow = () => CORE.defPow(S.lvl,S.vit)+armorDef();
+const atkPow = () => (10+S.lvl*3+S.st*1.5+wAtk()+gearSum('atk'))*(S.buff>0?(S.buffAtk||1.3):1);
+const magPow = () => (10+S.lvl*3+S.st*1.5+wMag()+gearSum('atk'))*magMul()*(S.buff>0?(S.buffAtk||1.3):1);
+const defPow = () => CORE.defPow(S.lvl,S.vit)+gearSum('def');
 const dodgeCh = () => CORE.dodgeCh(S.dex), hitCh = () => CORE.hitCh(S.dex), magMul = () => 1+S.int*.006, critCh = () => CORE.critCh(S.dex)+wCrit();
 const MAGCOL=new Set([0xff8a2a,0xbfeaff,0x9be4ff]);
 const qOf = () => S.lvl>=30?3:Math.min(3,Math.floor(S.exp/expNeed(S.lvl)*4));
@@ -2584,13 +2617,17 @@ SLOT_DEF.forEach((id,i)=>{ const sk=SK[i]; const d=document.createElement('div')
   const tip=document.createElement('div'); tip.id='itemTip'; document.body.appendChild(tip); let tipT=0;
   const hideTip=()=>{ tip.style.display='none'; };
   mwEl.addEventListener('click',e=>{ if(MTAB!=='inv'){ hideTip(); return; } const el=e.target.closest('.m2c.has,.m2s.has'); if(!el||el.dataset.use!==undefined){ hideTip(); return; } const rf=refOf(el), it=rf&&slotAt(rf), d=itemOf(it); if(!d){ hideTip(); return; }
-    const lines=d.info?d.info():[d.name+(d.badge?' '+d.badge():''),d.desc||'']; tip.innerHTML='<b>'+lines[0]+'</b>'+lines.slice(1).map(l=>'<div>'+l+'</div>').join('');
-    if(d.slot==='armor'||d.slot==='boots'){ const on=rf.k==='eq'; tip.dataset.ref=JSON.stringify(rf); tip.dataset.slot=d.slot; tip.innerHTML+=`<button class="btn" data-weq="${on?'off':'on'}" style="margin-top:6px;padding:3px 14px">${on?'Çıkar':'Kuşan'}</button>`; }
-    if(d.slot==='weapon'){ tip.dataset.slot='weapon'; const on=rf.k==='eq'&&rf.id==='w1'; tip.dataset.ref=JSON.stringify(rf); tip.innerHTML+=`<button class="btn" data-weq="${on?'off':'on'}" style="margin-top:6px;padding:3px 14px">${on?'Çıkar':'Kuşan'}</button>`; }
-    tip.style.display='block'; clearTimeout(tipT); tipT=setTimeout(hideTip,5000); });
-  tip.addEventListener('click',e=>{ const b=e.target.closest('[data-weq]'); if(!b) return; const rf=JSON.parse(tip.dataset.ref||'null'); hideTip(); if(!rf) return;
-    const sl=tip.dataset.slot||'weapon', dest=sl==='weapon'?'w1':sl==='boots'?'boots':(S.eq.armor1&&!S.eq.armor2?'armor2':'armor1');
-    if(b.dataset.weq==='on') moveItem(rf,{k:'eq',id:dest}); else { const f=firstEmpty(); if(f<0) say('Envanter dolu.','c-bad'); else moveItem(rf,{k:'inv',i:f}); } });
+    const lines=d.gear?gearInfo(it):d.info?d.info():[d.name+(d.badge?' '+d.badge():''),d.desc||'']; tip.innerHTML='<b>'+lines[0]+'</b>'+lines.slice(1).map(l=>'<div>'+l+'</div>').join('');
+    if(d.slot==='weapon'){ const on=rf.k==='eq'&&rf.id==='w1'; tip.dataset.ref=JSON.stringify(rf); tip.innerHTML+=`<button class="btn" data-weq="${on?'off':'on'}" style="margin-top:6px;padding:3px 14px">${on?'Çıkar':'Kuşan'}</button>`; }
+    if(d.gear){ const on=rf.k==='eq'; tip.dataset.ref=JSON.stringify(rf); tip.innerHTML+=`<div style="margin-top:6px;display:flex;gap:8px;justify-content:center"><button class="btn" data-geq="${on?'off':'on'}" style="padding:3px 12px">${on?'Çıkar':'Kuşan'}</button>${(it.u|0)<GEAR_MAX?'<button class="btn" data-gup="1" style="padding:3px 12px">Yükselt</button>':''}</div>`; }
+    tip.style.display='block'; clearTimeout(tipT); tipT=setTimeout(hideTip,d.gear?15000:5000); });
+  tip.addEventListener('click',e=>{ const g=e.target.closest('[data-geq],[data-gup]'); if(g){ const rf=JSON.parse(tip.dataset.ref||'null'); if(!rf) return; clearTimeout(tipT); tipT=setTimeout(hideTip,15000);
+      if(g.dataset.gup){ if(upgradeGear(rf)){ const it=slotAt(rf); if(it&&itemOf(it)){ const ln=gearInfo(it); tip.innerHTML='<b>'+ln[0]+'</b>'+ln.slice(1).map(l=>'<div>'+l+'</div>').join('')+`<div style="margin-top:6px;display:flex;gap:8px;justify-content:center"><button class="btn" data-geq="${rf.k==='eq'?'off':'on'}" style="padding:3px 12px">${rf.k==='eq'?'Çıkar':'Kuşan'}</button>${(it.u|0)<GEAR_MAX?'<button class="btn" data-gup="1" style="padding:3px 12px">Yükselt</button>':''}</div>`; } } return; }
+      hideTip(); const it=slotAt(rf), d=itemOf(it); if(!d) return;
+      if(g.dataset.geq==='on'){ const sl=EQS.filter(x=>x.type===d.slot), to=sl.find(x=>!S.eq[x.id])||sl[0]; if(to) moveItem(rf,{k:'eq',id:to.id}); }
+      else { const f=firstEmpty(); if(f<0) say('Envanter dolu.','c-bad'); else moveItem(rf,{k:'inv',i:f}); } return; }
+    const b=e.target.closest('[data-weq]'); if(!b) return; const rf=JSON.parse(tip.dataset.ref||'null'); hideTip(); if(!rf) return;
+    if(b.dataset.weq==='on') moveItem(rf,{k:'eq',id:'w1'}); else { const f=firstEmpty(); if(f<0) say('Envanter dolu.','c-bad'); else moveItem(rf,{k:'inv',i:f}); } });
   document.addEventListener('pointerdown',e=>{ if(!e.target.closest('#itemTip,.m2c.has,.m2s.has')) hideTip(); },true);
 })();
 let skSig='', SKSEL='cut';
@@ -2646,8 +2683,8 @@ function renderMenu(force){
   const el=$('pg-'+t); let h='';
   if(t==='inv'){
     syncPots(); const pg=INVPG; let cells=''; for(let i=0;i<INVN;i++){ const gi=pg*INVN+i, it=S.inv[gi], d=itemOf(it), n=d?(d.cnt?d.cnt():it.n):0;
-      cells+=`<div class="m2c${d?' has':''}${d&&d.leg?' leg':''}" data-ci="${gi}"${d&&d.use!==undefined?` data-use="${d.use}"`:''}${d?` title="${d.name}${d.desc?' — '+d.desc:''}"`:''}>${d?`<img src="${d.icon||UIIMG[d.img]||''}" alt="${d.name}">${d.badge?`<span class="n">${d.badge()}</span>`:n>1?`<span class="n">${n}</span>`:''}`:''}</div>`; }
-    const dollSlots=EQS.map(e=>{ const it=S.eq[e.id], d=itemOf(it); return `<div class="m2s${d?' has':''}${d&&d.leg?' leg':''}" data-eq="${e.id}" title="${d?d.name:e.lb}" style="left:${((e.x-.095)*100).toFixed(2)}%;top:${((e.y-.082)*100).toFixed(2)}%;width:19%;height:16.4%">${d?`<img src="${d.icon||UIIMG[d.img]||''}" alt=""><span class="n">${d.badge?d.badge():''}</span>`:`<span class="lb">${e.lb}</span>`}</div>`; }).join('');
+      cells+=`<div class="m2c${d?' has':''}${d&&d.leg?' leg':''}" data-ci="${gi}"${d&&d.use!==undefined?` data-use="${d.use}"`:''}${d?` title="${d.name}${d.desc?' — '+d.desc:''}"`:''}>${d?`<img src="${d.icon||UIIMG[d.img]||''}" alt="${d.name}">${d.badge?`<span class="n">${d.badge()}</span>`:d.gear&&it.u?`<span class="n">+${it.u}</span>`:n>1?`<span class="n">${n}</span>`:''}`:''}</div>`; }
+    const dollSlots=EQS.map(e=>{ const it=S.eq[e.id], d=itemOf(it); return `<div class="m2s${d?' has':''}${d&&d.leg?' leg':''}" data-eq="${e.id}" title="${d?d.name:e.lb}" style="left:${((e.x-.095)*100).toFixed(2)}%;top:${((e.y-.082)*100).toFixed(2)}%;width:19%;height:16.4%">${d?`<img src="${d.icon||UIIMG[d.img]||''}" alt=""><span class="n">${d.badge?d.badge():d.gear&&it.u?'+'+it.u:''}</span>`:`<span class="lb">${e.lb}</span>`}</div>`; }).join('');
     h=`<div class="m2t">Envanter</div><button class="m2x" data-close="mw" aria-label="Kapat"></button>
       <div class="m2tabs">${['I','II','III','IV'].map((r,i)=>`<button data-ipg="${i}" class="${i===pg?'on':''}">${r}</button>`).join('')}</div>
       <div class="m2doll">${dollSlots}</div>
@@ -3488,8 +3525,9 @@ async function boot(){
 }
 /* Hesap sistemi (auth/ modülleri) karakter seçilince bunu çağırır. Oyun motoru hesap koduna bağımlı değildir. */
 /* gizli test komutu: sol üstteki karakter adına 7 kez hızlı dokun → Sv.99 + 10.000.000 yang (yalnızca bu cihazdaki kayıt) */
-function devBoost(){ S.lvl=99; S.exp=0; S.qd=3; S.yang=10000000; S.pts=Math.max(S.pts,0)+3*98; S.hp=maxHP(); S.sp=maxSP(); saveGame(); updateHUD(); banner('Sv. 99 · 10.000.000 Yang'); say('Test komutu: Seviye 99, 10.000.000 yang verildi. Stat puanı: '+S.pts+' (V)','c-sys'); SFX.level(); pillarFx(P.pos,0xffd24a); }
+function devBoost(){ S.lvl=99; S.exp=0; S.qd=3; S.yang=10000000; S.pts=Math.max(S.pts,0)+3*98; { const have=stoneCount(); if(have<999) addItem('ustone',999-have); for(const id of [...Object.keys(GEAR),...Object.keys(ARMOR_ITEMS)]) if(!hasItem(id)) addItem(id); } S.hp=maxHP(); S.sp=maxSP(); saveGame(); updateHUD(); banner('Sv. 99 · 10.000.000 Yang'); say('Test komutu: Seviye 99, 10.000.000 yang, 999 Yükseltme Taşı ve zırh seti verildi. Stat puanı: '+S.pts+' (V)','c-sys'); SFX.level(); pillarFx(P.pos,0xffd24a); }
 window.__devBoost=devBoost;
+window.__gear={S,stoneCount,upgradeGear,moveItem,EQS,GEAR,ITEMS,maxHP,defPow,atkPow,initInv,saveGame,get key(){return SAVEKEY}};
 (function(){ const n=$('meName'); let c=0,t=0; n.style.pointerEvents='auto'; n.addEventListener('click',()=>{ c++; clearTimeout(t); t=setTimeout(()=>c=0,1500); if(c>=7){ c=0; devBoost(); } }); })();
 (function(){ const b=$('authOut'); let t=0; b.addEventListener('click',()=>{ if(!b.classList.contains('arm')){ b.classList.add('arm'); b.textContent='Emin misin? Çıkış'; saveGame(); t=setTimeout(()=>{ b.classList.remove('arm'); b.textContent='⎋ Çıkış'; },3500); } else { clearTimeout(t); window.ValkorAuth&&window.ValkorAuth.logout(); } }); b.addEventListener('pointerdown',e=>e.stopPropagation()); })();
 async function mountAuthUI(){
