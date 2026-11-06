@@ -192,7 +192,24 @@ body{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-c
 .prog i{display:block;height:100%;width:0;background:linear-gradient(#f7d869,#a8841c);transition:width .2s}
 .help{margin-top:14px;font-size:13px;color:var(--mut);line-height:1.45;text-align:left}
 .help b{color:var(--ink)}
-#death{background:rgba(60,0,0,.55);z-index:15}
+/* ---- Ölüm ekranı (Metin2 tarzı: ortada kırmızı yazı, altında iki seçenek; oyun görünür kalır) ---- */
+#death{position:fixed;inset:0;z-index:25;pointer-events:none;display:grid;place-items:center;padding:12px}
+#death .dvig{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 46%,rgba(40,0,0,0) 12%,rgba(70,0,0,.32) 55%,rgba(18,0,0,.88) 100%);opacity:0;transition:opacity 1.8s ease}
+#death.show .dvig{opacity:1}
+#death .dbox{position:relative;text-align:center;transform:translateY(-3vh)}
+#death h1{margin:0;font:700 clamp(34px,min(13vw,19vh),96px)/1 var(--display);letter-spacing:.14em;padding-left:.14em;color:#b01410;text-shadow:0 0 14px rgba(255,40,16,.55),0 0 44px rgba(140,0,0,.7),0 3px 0 #2a0403,0 0 2px #000;opacity:0;transform:scale(1.18);filter:blur(7px);transition:opacity 1.5s ease-out,transform 1.7s cubic-bezier(.2,.7,.2,1),filter 1.5s ease-out}
+#death.show h1{opacity:1;transform:scale(1);filter:blur(0);animation:dthPulse 3.2s ease-in-out 1.8s infinite}
+@keyframes dthPulse{0%,100%{text-shadow:0 0 14px rgba(255,40,16,.5),0 0 44px rgba(140,0,0,.65),0 3px 0 #2a0403,0 0 2px #000}50%{text-shadow:0 0 22px rgba(255,60,30,.8),0 0 60px rgba(170,0,0,.85),0 3px 0 #2a0403,0 0 2px #000}}
+#death .dline{height:2px;width:0;margin:clamp(8px,2vh,16px) auto clamp(10px,2.6vh,22px);background:linear-gradient(90deg,transparent,#a37d3a 30%,#e6c273 50%,#a37d3a 70%,transparent);transition:width 1.4s ease .5s}
+#death.show .dline{width:min(380px,72vw)}
+#death .dbtns{display:flex;flex-direction:column;align-items:center;gap:clamp(6px,1.6vh,11px);opacity:0;transform:translateY(8px);transition:opacity .6s ease,transform .6s ease}
+#death.btns .dbtns{opacity:1;transform:none}
+#death .dbtn{pointer-events:none;width:min(310px,78vw);padding:clamp(7px,1.8vh,12px) 14px;cursor:pointer;font:700 clamp(15px,min(4.4vw,3.6vh),21px) var(--display);letter-spacing:.07em;color:#ead6a4;text-shadow:0 1px 2px #000;
+  background:radial-gradient(circle at 20% 30%,rgba(255,255,255,.05) 0 1px,transparent 2px) 0 0/7px 7px,radial-gradient(circle at 70% 60%,rgba(0,0,0,.25) 0 1px,transparent 2px) 0 0/5px 5px,linear-gradient(180deg,#4b4640,#2c2926 55%,#211f1c);
+  border:1px solid #8c6f39;border-radius:2px;box-shadow:inset 0 0 0 1px #14100c,inset 0 1px 0 rgba(255,236,190,.18),inset 0 -8px 14px rgba(0,0,0,.35),0 2px 9px rgba(0,0,0,.8)}
+#death.btns .dbtn{pointer-events:auto}
+#death .dbtn:hover,#death .dbtn:focus-visible{color:#fff3d0;border-color:#e0bb6a;outline:0;background:radial-gradient(circle at 20% 30%,rgba(255,255,255,.07) 0 1px,transparent 2px) 0 0/7px 7px,linear-gradient(180deg,#5d564c,#37322c 55%,#2a2723);box-shadow:inset 0 0 0 1px #14100c,inset 0 1px 0 rgba(255,236,190,.25),0 0 14px rgba(214,160,70,.35),0 2px 9px #000}
+#death .dbtn:active{transform:translateY(1px);filter:brightness(.9)}
 #err{color:#ff9a8a;margin-top:10px;font-size:14px}
 @media (max-height:520px){
   :root{--slot:clamp(30px,10.5vh,42px)}
@@ -465,7 +482,7 @@ body{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-c
     <div class="help"><b>Dokunmatik:</b> sol alttaki joystick ile yürü, boş ekranı sürükleyerek kamerayı çevir, iki parmakla yakınlaştır. Sağ alttaki büyük tuş saldırır; çevresindeki yuvarlak tuşlar beceriler (Sv.5'te açılır), altındakiler iksirler.</div>
   </div>
 </div>
-<div id="death" class="screen hidden"><div class="card panel"><h1 class="logo" style="font-size:42px;color:#ff8b7a">Öldün</h1><p class="sub">Canavarlar seni yendi. Köyde yeniden doğabilirsin.</p><button class="btn" id="respawn" style="font-size:18px;padding:9px 26px">Köyde Yeniden Başla</button></div></div>
+<div id="death" class="hidden"><div class="dvig"></div><div class="dbox"><h1>ÖLDÜNÜZ</h1><div class="dline"></div><div class="dbtns"><button class="dbtn" id="reHere" type="button">Burada Yeniden Başla</button><button class="dbtn" id="reCity" type="button">Şehirde Yeniden Başla</button></div></div></div>
 
 <script type="importmap">
 {"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
@@ -2025,13 +2042,37 @@ function playerHit(m,mul,crit=false,quiet=false,col=0){
   if(m.type==='stone'){ const frac=m.hp/m.maxHp; const stage=frac<.25?3:frac<.5?2:frac<.75?1:0; while(m.spawned<stage){ m.spawned++; banner('Mühür Taşı canavar çağırdı!'); for(let i=0;i<3;i++){ const a=R()*6.28; const zt=zoneTypeAt(m.group.position.x,m.group.position.z), w=spawnMob(zt.type,clamp(m.lvl-1,zt.l0,zt.l1),m.group.position.x+Math.cos(a)*4,m.group.position.z+Math.sin(a)*4,true); w.state='chase'; } } }
   if(m.hp<=0) killMob(m);
 }
+/* ---- Ölüm / yeniden doğma: tek seferlik tetik, harita bazlı doğma noktası (MAPS[id].spawn) ---- */
+const DEATH={t:0,busy:false,grace:0,count:0};
+function killPlayer(){
+  if(S.dead) return;                                                  // yalnız bir kez tetiklenir
+  S.hp=0; S.dead=true; S.shield=0; S.shieldT=0; S.haste=0; S.regenT=0; S.combat=0; P.dash=null; P.target=null; P.dest=null; P.atk=null; P.flinch=0; DEATH.count++;
+  for(const k in keys) keys[k]=false; joy.on=false; joy.x=joy.y=0;
+  const d=$('death'); clearTimeout(DEATH.t); d.classList.remove('hidden','show','btns'); void d.offsetWidth; d.classList.add('show'); DEATH.t=setTimeout(()=>d.classList.add('btns'),1800);
+  SFX.die(); say('Öldünüz.','c-bad');
+}
+async function respawnPlayer(mode){                                    // mode: 'here' | 'city'
+  if(!S.dead||DEATH.busy||TRAVEL.busy) return; DEATH.busy=true; const d=$('death'); clearTimeout(DEATH.t); d.classList.remove('btns');
+  try{
+    mapFadeTxt.textContent=''; mapFadeSub.textContent=''; mapFadeEl.style.pointerEvents='auto'; mapFadeEl.style.opacity='1'; await wait(380);
+    if(!S.dead) return;
+    if(mode==='city'){ const sp=MAPS[MAP.id].spawn; placePlayer(sp.x,sp.z,sp.yaw); }          // bulunduğu haritanın tanımlı doğma noktası
+    else { P.pos.y=hAt(P.pos.x,P.pos.z); }                                                       // öldüğü yerde
+    const k=mode==='city'?1:.5; S.dead=false; S.hp=Math.max(1,Math.round(maxHP()*k)); S.sp=Math.round(maxSP()*k);
+    S.shield=0; S.shieldT=0; S.haste=0; S.regenT=0; S.combat=0; P.dest=null; P.target=null; P.atk=null; P.dash=null; P.flinch=0; P.deadAt=0; P.deadT=0; P.mounted=false;
+    HOLDER.rotation.set(0,0,0); HOLDER.position.y=HBASE; try{ setAnim('idle',.1); }catch(e){}
+    DEATH.grace=performance.now()+2500;                                                           // kısa süreli koruma: anında tekrar öldürülmesin
+    d.classList.remove('show','btns'); d.classList.add('hidden');
+    say(mode==='city'?'Şehirde yeniden doğdunuz.':'Öldüğünüz yerde yeniden doğdunuz.','c-sys');
+  } finally { await wait(260); mapFadeEl.style.opacity='0'; await wait(380); if(!TRAVEL.busy) mapFadeEl.style.pointerEvents='none'; DEATH.busy=false; }
+}
 function damagePlayer(n,src){
-  if(S.dead) return; if(R()<dodgeCh()){ popup('KAÇTI',P.pos.clone().setY(P.pos.y+2.1),'heal'); return; } const red=(S.buff>0?(S.buffRed||.75):1); n=CORE.damageToPlayer(n,defPow(),red); S.combat=6;
+  if(S.dead||performance.now()<DEATH.grace) return; if(R()<dodgeCh()){ popup('KAÇTI',P.pos.clone().setY(P.pos.y+2.1),'heal'); return; } const red=(S.buff>0?(S.buffRed||.75):1); n=CORE.damageToPlayer(n,defPow(),red); S.combat=6;
   if(S.shield>0){ const ab=Math.min(S.shield,n); S.shield-=ab; n-=ab; popup('Emildi '+ab,P.pos.clone().setY(P.pos.y+2.1),'heal'); iceHitFx(ab); if(S.shield<=0){ S.shield=0; S.shieldT=0; iceBreakFx(); say('Buz Kalkanı kırıldı.','c-sys'); } if(n<=0) return; }
   S.hp-=n; P.flinch=.25;
   popup(String(n),P.pos.clone().setY(P.pos.y+2.1),'me'); SFX.hurt();
   if(HAS3&&actions.dmg&&S.hp>0&&!P.atk&&!P.mounted&&(P.anim==='idle'||P.anim==='cidle')&&performance.now()-lastDmgAnim>1200){ lastDmgAnim=performance.now(); setAnim('dmg',.08); }
-  if(S.hp<=0){ S.hp=0; S.dead=true; S.shield=0; S.shieldT=0; S.haste=0; S.regenT=0; P.dash=null; P.target=null; P.dest=null; P.atk=null; $('death').classList.remove('hidden'); SFX.die(); say('Öldün.','c-bad'); }
+  if(S.hp<=0) killPlayer();
 }
 /* ============================== SKİLLER (8 skill + 2 iksir, 10 slot) ============================== */
 const SKD={
@@ -2461,7 +2502,7 @@ function renderMenu(force){
   el.innerHTML=h;
 }
 
-$('respawn').onclick=()=>{ $('death').classList.add('hidden'); S.dead=false; S.hp=maxHP()*.5; S.sp=maxSP()*.5; P.pos.set(0,0,7); P.yaw=Math.PI; P.dest=null; P.target=null; say('Köyde yeniden doğdun.','c-sys'); if(MAP.id!=='village') travelTo('village',{respawn:true}); };
+$('reHere').onclick=()=>respawnPlayer('here'); $('reCity').onclick=()=>respawnPlayer('city');
 
 /* ============================== haritalar: Köy ↔ Kızıl Orman ============================== */
 /* Her harita ayrı nesne kümesi (MAPS[id].objs), kendi arazisi/yüksekliği (hAt), engelleri (OBS), bitki setleri ve canavarları ile yönetilir.
@@ -3241,7 +3282,7 @@ async function boot(){
     myTag=document.createElement('div'); myTag.className='pn'; $('pops').appendChild(myTag);
     $('loading').classList.add('hidden'); $('login').classList.remove('hidden');
     const has=loadGame(); if(has){ $('nameIn').value=S.name; document.querySelector(`input[name=king][value="${S.king}"]`).checked=true; }
-    window.__game={drawMini,updateHUD2:()=>{},lakeE,LAKE_B,LAKE_WL,FROG_SPOTS,CROC_SPOTS,hForest,placePlayer,spawnMob,respawn,fxAttack,fxDeath,get LAKE_STATS(){return LAKE_STATS},get LAKE_MOBS(){return LAKE_MOBS},get CROC(){return CROC},CORE,rankOf,rankReward,grantRank,plateHTML,refreshPlate,RANKS,RANK_REWARD,get plateKey(){return plateKey},get myTag(){return myTag},TYPES,guards,updateGuards,addTime:d=>{time+=d},get ATK_HOLD(){return ATK_HOLD},equipWeaponModel,WMODELS,get sword(){return sword},updateSmith,upgradeWeapon,buyStone,fixWeapon,WLV,swRoll,wAtk,wMag,aspd,swEq,applySwordLook,updateSwordFx,SEAT,yawFix,get FOREST_STATS(){return FOREST_STATS},zoneAt,updateMount,groundFix,get GOFF(){return GOFF},get S(){return S},ITEMS,EQS,registerItem,addItem,moveItem,initInv,addStat,resetStats,qOf,expNeed,get PLANT_SETS(){return PLANT_SETS},renderMenu,setTab,toggleWin,closeWins,skillUp,skPoints,skL,skv,skStats,saveGame,loadGame,renderSkillWin,gainExp,updatePlayer,updateMobs,updateProjectiles,updateSkills,updateCamera,updateHUD,SKD,SLOT_DEF,SK,cds,fx2,pt2,sched,projectiles,SHAKE,clearSkillFx,MAPS,TRAVEL,travelTo,get MAP(){return MAP;},get obstacles(){return obstacles;},get MAP(){return MAP;},get renderer(){return renderer;},npcs,vRoadD,MAPS,hAt,get HAS3(){return HAS3;},get A3META(){return A3META;},damagePlayer,get COMBO(){return COMBO;},horseRear,horseAnim,playerHit,killMob,fxPlay,fxStep,get FROG2(){return FROG2;},MOUNT,toggleMount,get mixer(){return mixer},rotW,overlayPose,S,P,mobs,cam,actions,bones,setAnim,useSlot,clickAt,THREE,scene,camera,renderer,model,get tIdle(){return tIdle;},get TURN_DELTA(){return TURN_DELTA;}};
+    window.__game={MAPS,keys,useSlot,killPlayer,respawnPlayer,DEATH,drawMini,updateHUD2:()=>{},lakeE,LAKE_B,LAKE_WL,FROG_SPOTS,CROC_SPOTS,hForest,placePlayer,spawnMob,respawn,fxAttack,fxDeath,get LAKE_STATS(){return LAKE_STATS},get LAKE_MOBS(){return LAKE_MOBS},get CROC(){return CROC},CORE,rankOf,rankReward,grantRank,plateHTML,refreshPlate,RANKS,RANK_REWARD,get plateKey(){return plateKey},get myTag(){return myTag},TYPES,guards,updateGuards,addTime:d=>{time+=d},get ATK_HOLD(){return ATK_HOLD},equipWeaponModel,WMODELS,get sword(){return sword},updateSmith,upgradeWeapon,buyStone,fixWeapon,WLV,swRoll,wAtk,wMag,aspd,swEq,applySwordLook,updateSwordFx,SEAT,yawFix,get FOREST_STATS(){return FOREST_STATS},zoneAt,updateMount,groundFix,get GOFF(){return GOFF},get S(){return S},ITEMS,EQS,registerItem,addItem,moveItem,initInv,addStat,resetStats,qOf,expNeed,get PLANT_SETS(){return PLANT_SETS},renderMenu,setTab,toggleWin,closeWins,skillUp,skPoints,skL,skv,skStats,saveGame,loadGame,renderSkillWin,gainExp,updatePlayer,updateMobs,updateProjectiles,updateSkills,updateCamera,updateHUD,SKD,SLOT_DEF,SK,cds,fx2,pt2,sched,projectiles,SHAKE,clearSkillFx,MAPS,TRAVEL,travelTo,get MAP(){return MAP;},get obstacles(){return obstacles;},get MAP(){return MAP;},get renderer(){return renderer;},npcs,vRoadD,MAPS,hAt,get HAS3(){return HAS3;},get A3META(){return A3META;},damagePlayer,get COMBO(){return COMBO;},horseRear,horseAnim,playerHit,killMob,fxPlay,fxStep,get FROG2(){return FROG2;},MOUNT,toggleMount,get mixer(){return mixer},rotW,overlayPose,S,P,mobs,cam,actions,bones,setAnim,useSlot,clickAt,THREE,scene,camera,renderer,model,get tIdle(){return tIdle;},get TURN_DELTA(){return TURN_DELTA;}};
   }catch(err){ console.error(err); $('loadTxt').textContent='Yükleme başarısız oldu.'; $('loadTxt').style.color='#ff8a80'; $('err').textContent=String(err&&err.message||err); }
 }
 $('go').onclick=()=>{
