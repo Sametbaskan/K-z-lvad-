@@ -129,6 +129,13 @@ for gi, kb in enumerate(gnames):
     k0, h0, M = XF[kb]
     Vn[m] += w[m, None] * (h0 + (V[m] - k0) @ M.T)
 
+# ayak: Meshy'nin bileği daha yüksek; bilek altındaki kısım savaşçının bilek-zemin yüksekliğine sıkıştırılır (taban zemine oturur)
+for side in ('Left', 'Right'):
+    fy = HW[side + 'Foot'][1]; m = (Vn[:, 1] < fy) & (np.sign(Vn[:, 0]) == (1 if side == 'Left' else -1))
+    if m.any():
+        lo = Vn[m, 1].min(); k = (fy - 0.4) / max(fy - lo, 1e-6)
+        Vn[m, 1] = fy - (fy - Vn[m, 1]) * k
+        print('ayak', side, 'taban', round(lo, 1), '-> 0.4 cm, sıkıştırma', round(k, 2))
 # ---------------- ağırlıkları Mixamo adlarına çevir
 BI = {n: i for i, n in enumerate(BN)}
 Wh = np.zeros((NV, len(BN)))
@@ -143,7 +150,10 @@ skin = (lum > 0.26) & (vcol[:, 0] - vcol[:, 2] > 0.06)          # çıplak deri 
 hair = (lum > 0.42) | skin | (hn > 0.3)                          # saç, deri, başa bağlı köşeler
 FULL = os.environ.get('FULL') == '1'   # tam kostüm: hiçbir şey kesilmez, baş + saç ayrı 'bas' parçası olur
 if FULL: hair[:] = False
+collar = np.zeros(NV, bool)   # yaka bölgesi: boyun çevresi + omuz üstü (saç kökleri); yerine boyunluk parçası gelir
 headreg = np.isin(HDOM, ['Head', 'Neck'])
+if not FULL:
+    collar = (Vn[:, 1] > HW['Neck'][1] - 14) & (np.abs(Vn[:, 0]) < 21)
 if FULL: headreg[:] = False
 def piece_of(i):
     b = HDOM[i]; p = Vn[i]
@@ -163,7 +173,7 @@ def piece_of(i):
 vp = np.array([piece_of(i) for i in range(NV)], dtype=object)
 groups = {}
 for ti, (t, l) in enumerate(zip(TRI, TLOOP)):
-    if hair[t].sum() >= 2 or headreg[t].sum() >= 2: continue
+    if hair[t].sum() >= 2 or headreg[t].sum() >= 2 or collar[t].sum() >= 1: continue
     ps = [vp[i] for i in t]; p = max(set(ps), key=ps.count)
     if p is None: continue
     groups.setdefault(p, []).append(ti)

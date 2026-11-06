@@ -19,3 +19,14 @@ python3 -I render_icons.py -- out ../../www/img/armor kara_sovalye
 
 Oyun: `www/index.html` → `ARMOR_PIECES` (parça adı + takılıyken gizlenen gövde bölgesi), `ARMOR_SETS` (ortak dokular),
 `ARMOR_ITEMS` (eşya → parçalar, savunma, fiyat), `syncArmor()` / `armorBody()`.
+
+## Saçsız (yamalı) sürüm
+Meshy modelinde saç sırta/omuzlara kaynaşık olduğu için saç ve yaka bölgesi kesilir; açıkta kalan yerler
+`gen_extras.py` ile üretilen ek parçalarla örtülür (Meshy zırhının dış yüzeyine göre konumlanır):
+- `boyunluk` — boyundan omuz hattına açılan yaka (zırh eşyasının parçası)
+- `pelerin` — sırt plakasının dışında, diz hizasına inen yırtık kızıl pelerin (zırh eşyasının parçası)
+- `migfer` — taç dikenli kapalı miğfer, ayrı eşya (Kara Şövalye Miğferi, kask slotu)
+```
+python3 -I gen_extras.py -- ../../www/models/hero.json extras out     # out = fit_meshy_armor.py çıktısı
+python3 -I render_glb_icon.py -- extras/migfer.glb ../../www/img/armor/kara_sovalye_migfer.webp
+```
