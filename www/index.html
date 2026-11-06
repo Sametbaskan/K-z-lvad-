@@ -1739,17 +1739,19 @@ function prepFrog2(glb){
   if(!sk) throw new Error('GLB içinde iskeletli mesh bulunamadı');
   for(const need of ['idle','hop','death']) if(!clips[need]) console.error('[Kurbağa] GLB içinde gerekli animasyon bulunamadı: '+need+' (mevcut klipler: '+glb.animations.map(a=>a.name).join(', ')+')');
   console.info('[Kurbağa] klip eşleşmesi: '+report.join(', '));
+  fixVC(glb,1);
   FROG2={scene:glb.scene,clips,h:.2*FROG2_SCALE+.3};
 }
 function makeFrog2(){
-  const root=cloneSkinned(FROG2.scene); root.scale.setScalar(FROG2_SCALE); const g=new THREE.Group(); g.add(root);
-  root.traverse(o=>{ if(o.isSkinnedMesh){ o.material=o.material.clone(); o.material.color.multiplyScalar(.72); o.material.roughness=.6; o.castShadow=!coarse; o.frustumCulled=false; } });
+  const root=cloneSkinned(FROG2.scene); root.scale.setScalar(FROG2_SCALE); const g=new THREE.Group(); g.add(root); let tongue=null;
+  root.traverse(o=>{ if(o.isSkinnedMesh){ o.material=o.material.clone(); o.material.color.multiplyScalar(o.geometry.attributes.color?.95:.72); o.material.roughness=.6; if(o.name==='Frog_Model_2'){ tongue=o; o.visible=false; } o.castShadow=!coarse; o.frustumCulled=false; } });
   const mixer=new THREE.AnimationMixer(root), acts={};
   for(const k in FROG2.clips){ const a=mixer.clipAction(FROG2.clips[k]); acts[k]=a; if(k!=='idle'&&k!=='hop'){ a.setLoop(THREE.LoopOnce,1); a.clampWhenFinished=true; } }
   const dur=k=>acts[k]?acts[k].getClip().duration:0;
   const fx={mixer,acts,cur:'idle',curA:acts.idle||null,lockT:0,atkT:0,dead:false,sinceHit:9,nextCroak:rr(5,14),nextFly:rr(25,60),
     ts:{hop:1.15,land:1.5,hit:1.5,tongue:1.0,bigjump:1,croak:1,catchfly:1,death:1}, hopDur:dur('hop')};
   fx.atkDur=(dur('tongue')||.5)/fx.ts.tongue; fx.atkImpact=acts.tongue?.35/fx.ts.tongue:fx.atkDur*.5;   // dil en uzağa ~0.35 sn'de ulaşıyor
+  fx.tongue=tongue;
   if(acts.idle){ acts.idle.play(); acts.idle.time=R()*dur('idle'); }
   return {g,legs:[],arms:[],head:null,tail:null,h:FROG2.h,fx,root};
 }
@@ -1757,7 +1759,7 @@ function fxPlay(fx,name,fade=.15){
   const to=fx.acts[name]; if(!to||fx.dead&&name!=='death') return false;
   const from=fx.curA; to.reset(); to.timeScale=fx.ts[name]||1; to.setEffectiveWeight(1); to.play();
   if(from&&from!==to) from.crossFadeTo(to,fade,false); else to.fadeIn(fade);
-  fx.cur=name; fx.curA=to; return true;
+  fx.cur=name; fx.curA=to; if(fx.tongue) fx.tongue.visible=(name==='tongue'||name==='catchfly'); return true;
 }
 function fxCanAtk(fx){ return !fx.dead&&fx.atkT<=0&&fx.lockT<=0&&fx.cur!=='hop'&&!!fx.acts.tongue; }
 function fxAttack(fx){ if(!fxCanAtk(fx)) return; fxPlay(fx,'tongue',.1); fx.atkT=fx.atkDur; fx.lockT=0; }
