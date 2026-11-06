@@ -1,6 +1,6 @@
 /* VALKOR giriş sistemi — karanlık fantezi / siyah-kızıl-altın */
 #auth{position:fixed;inset:0;z-index:30;background:#070304;color:#f1e6cf;font-family:var(--body,'Trebuchet MS',sans-serif)}
-#auth.gone{display:none}
+#auth.gone,#auth.pre{display:none}
 #auth .abg{position:absolute;inset:0;overflow:hidden}
 #auth .aimg{position:absolute;inset:-6%;background:url(../img/valkor_loading.jpg) center/cover;filter:saturate(.8) brightness(.5) contrast(1.1);animation:akb 40s ease-in-out infinite alternate}
 @keyframes akb{from{transform:scale(1.02) translate(0,0)}to{transform:scale(1.14) translate(-1.5%,1%)}}

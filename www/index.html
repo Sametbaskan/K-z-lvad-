@@ -465,7 +465,7 @@ body{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-c
     <p id="loadTxt">Valkor Dünyasına Hoş Geldin…</p><div id="err"></div></div>
 </div>
 <link rel="stylesheet" href="auth/auth.css">
-<div id="auth"></div>
+<div id="auth" class="pre"></div>
 <button id="authOut" class="hidden" type="button" aria-label="Çıkış yap">⎋ Çıkış</button>
 <div id="death" class="hidden"><div class="dvig"></div><div class="dbox"><h1>ÖLDÜNÜZ</h1><div class="dline"></div><div class="dbtns"><button class="dbtn" id="reHere" type="button">Burada Yeniden Başla</button><button class="dbtn" id="reCity" type="button">Şehirde Yeniden Başla</button></div></div></div>
 
@@ -3272,7 +3272,7 @@ async function boot(){
 /* Hesap sistemi (auth/ modülleri) karakter seçilince bunu çağırır. Oyun motoru hesap koduna bağımlı değildir. */
 (function(){ const b=$('authOut'); let t=0; b.addEventListener('click',()=>{ if(!b.classList.contains('arm')){ b.classList.add('arm'); b.textContent='Emin misin? Çıkış'; saveGame(); t=setTimeout(()=>{ b.classList.remove('arm'); b.textContent='⎋ Çıkış'; },3500); } else { clearTimeout(t); window.ValkorAuth&&window.ValkorAuth.logout(); } }); b.addEventListener('pointerdown',e=>e.stopPropagation()); })();
 async function mountAuthUI(){
-  try{ const m=await import('./auth/auth-ui.js'); await m.mountAuth({root:$('auth'),onEnter:enterGame}); }
+  $('auth').classList.remove('pre'); try{ const m=await import('./auth/auth-ui.js'); await m.mountAuth({root:$('auth'),onEnter:enterGame}); }
   catch(e){ console.error('[Hesap] arayüz yüklenemedi',e); $('auth').innerHTML='<div style="position:absolute;inset:0;display:grid;place-items:center;color:#ffb4a8;padding:20px;text-align:center">Giriş ekranı yüklenemedi. Uygulamayı yeniden aç.</div>'; }
 }
 function enterGame({uid,username,character}){
