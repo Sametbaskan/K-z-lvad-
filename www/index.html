@@ -177,6 +177,7 @@ body{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-c
 #splPct{position:absolute;left:66.9%;top:87.6%;font:700 12px/2.2 var(--body,serif);color:#e9c98a;text-shadow:0 1px 2px #000;width:5%}
 #loadTxt{position:absolute;left:0;right:0;top:94.4%;margin:0;text-align:center;font:13px var(--body,serif);color:transparent}
 #err{position:absolute;left:10%;right:10%;top:80%;text-align:center;color:#ff8a80;font:13px var(--body,sans-serif);text-shadow:0 1px 3px #000}
+#heroPick{display:none;position:fixed;left:max(10px,env(safe-area-inset-left));bottom:max(8px,env(safe-area-inset-bottom));z-index:60;font:700 12px var(--body);color:#e8d9b0;background:rgba(15,8,5,.7);border:1px solid rgba(180,140,70,.7);border-radius:14px;padding:6px 12px}#auth.sel~#heroPick{display:block}#heroPick:active{filter:brightness(1.3)}
 #authOut{position:fixed;top:max(6px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:21;pointer-events:auto;font:700 12px var(--body);color:#d8c79e;background:rgba(15,8,5,.55);border:1px solid rgba(124,98,52,.7);border-radius:12px;padding:3px 10px;opacity:.6}#authOut:active,#authOut.arm{opacity:1;background:#5a1410;color:#fff}
 .screen{position:fixed;inset:0;display:grid;place-items:center;z-index:20;padding:16px;pointer-events:auto;
   background:radial-gradient(ellipse at 50% 30%,#3a1a12 0%,#150d09 60%,#0a0605 100%)}
@@ -471,6 +472,7 @@ body{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-c
 </div>
 <link rel="stylesheet" href="auth/auth.css">
 <div id="auth" class="pre"></div>
+<button id="heroPick" type="button" aria-label="Karakter modelini değiştir"></button>
 <button id="authOut" class="hidden" type="button" aria-label="Çıkış yap">⎋ Çıkış</button>
 <div id="death" class="hidden"><div class="dvig"></div><div class="dbox"><h1>ÖLDÜNÜZ</h1><div class="dline"></div><div class="dbtns"><button class="dbtn" id="reHere" type="button">Burada Yeniden Başla</button><button class="dbtn" id="reCity" type="button">Şehirde Yeniden Başla</button></div></div></div>
 
@@ -634,6 +636,7 @@ const HALF = 105;              // dünya yarı genişliği
 const VILL_R = 15;             // köy yarıçapı (güvenli bölge)
 let RUN_CLIP_SPEED = 1.98;   // jogging klibinin gömülü hızı (m/sn)
 const RUN_SPEED = 3.3;
+let HERO_PICK='classic'; try{ if(localStorage.getItem('valkor.hero')==='cc') HERO_PICK='cc'; }catch(e){}   // karakter modeli: 'classic' (Mixamo Ch44) | 'cc' (Unity.zip / Character Creator gövdesi) — ana ekrandaki düğmeyle değişir
 const ANIM_SET='yeni';   // bekleme+koşu animasyon seti: 'yeni' (Standing_Idle__1 + Unarmed_Run_Forward) | 'eski' (önceki Standing_Idle + Run_With_Sword) — eski dosyalar silinmedi
 
 const FOREST_CLEAR=12;                      // Kızıl Orman: dönüş kapısı etrafındaki güvenli açıklık
@@ -3688,7 +3691,7 @@ async function boot(){
     const b=JSON.parse(tc); try{ const t2=await get('models/frog2.glb.b64.txt',()=>{}); const g2=await new Promise((ok,no)=>new GLTFLoader().parse(dec(t2),'',ok,no)); prepFrog2(g2); }catch(e){ FROG2=null; console.error('[Kurbağa] Animasyonlu kurbağa GLB yüklenemedi, yedek model kullanılacak:',e); try{ prepFrog(JSON.parse(await get('models/frog.json',()=>{}))); }catch(e2){ FROG=null; console.error('[Kurbağa] Yedek kurbağa da yüklenemedi, kurt modeli kullanılacak:',e2); } }
     let hero=null, HJ=null; try{ HJ=JSON.parse(await get('models/hero.json',()=>{})); try{ HJ.death=JSON.parse(await get('models/hero_death.json',()=>{})); }catch(e){ console.error('[Anim] hero_death.json yüklenemedi:',e); } try{ HJ.run=JSON.parse(await get('models/hero_run.json',()=>{})); }catch(e){ console.error('[Anim] hero_run.json yüklenemedi:',e); }
       try{ HJ.heal=JSON.parse(await get('models/hero_heal.json',()=>{})); }catch(e){ console.error('[Anim] hero_heal.json yüklenemedi:',e); }
-      if(ANIM_SET==='yeni'){ try{ const ni=JSON.parse(await get('models/hero_idle2.json',()=>{})), nr=JSON.parse(await get('models/hero_run2.json',()=>{})); HJ.clip=ni; HJ.run=nr; console.info('[Anim] yeni bekleme+koşu seti kullanılıyor'); }catch(e){ console.error('[Anim] yeni set yüklenemedi, eskisi kullanılıyor:',e); } } try{ HJ.combo=JSON.parse(await get('models/hero_combo.json',()=>{})); }catch(e){ console.error('[Anim] hero_combo.json yüklenemedi:',e); } try{ HJ.powerup=JSON.parse(await get('models/hero_powerup.json',()=>{})); }catch(e){ console.error('[Anim] hero_powerup.json yüklenemedi:',e); } hero=buildBrute(HJ); }catch(e){ console.error('[Karakter] hero.json yüklenemedi:',e); }
+      if(ANIM_SET==='yeni'){ try{ const ni=JSON.parse(await get('models/hero_idle2.json',()=>{})), nr=JSON.parse(await get('models/hero_run2.json',()=>{})); HJ.clip=ni; HJ.run=nr; console.info('[Anim] yeni bekleme+koşu seti kullanılıyor'); }catch(e){ console.error('[Anim] yeni set yüklenemedi, eskisi kullanılıyor:',e); } } try{ HJ.combo=JSON.parse(await get('models/hero_combo.json',()=>{})); }catch(e){ console.error('[Anim] hero_combo.json yüklenemedi:',e); } try{ HJ.powerup=JSON.parse(await get('models/hero_powerup.json',()=>{})); }catch(e){ console.error('[Anim] hero_powerup.json yüklenemedi:',e); } if(HERO_PICK==='cc'){ try{ const HC=JSON.parse(await get('models/cc/hero_cc.json',()=>{})); for(const k of ['death','run','combo','powerup','heal']) HC[k]=JSON.parse(await get('models/cc/'+k+'.json',()=>{})); const t0=buildBrute(HC); HJ=HC; hero=t0; console.info('[Karakter] yeni karakter (Unity/CC) yüklendi'); }catch(e){ console.error('[Karakter] yeni karakter yüklenemedi, klasik karakter kullanılıyor:',e); HERO_PICK='classic'; } } if(!hero) hero=buildBrute(HJ); }catch(e){ console.error('[Karakter] hero.json yüklenemedi:',e); }
     if(!hero) throw new Error('Karakter modeli yüklenemedi');
     try{ const tsw=await get('models/sword10.b64.txt',()=>{}); SWORD_GLB=await new Promise((ok,no)=>new GLTFLoader().parse(dec(tsw),'',ok,no)); }catch(e){ console.error('[Kılıç] yeni kılıç modeli yüklenemedi, eski kılıç kullanılacak:',e); }
     WGLB.sword10=SWORD_GLB; try{ const tk=await get('models/kyanite.b64.txt',()=>{}); WGLB.kyanite=await new Promise((ok,no)=>new GLTFLoader().parse(dec(tk),'',ok,no)); }catch(e){ console.error('[Kılıç] Kyanite yüklenemedi, Demir Kılıç kullanılacak:',e); WMODEL='sword10'; }
@@ -3716,6 +3719,8 @@ function devBoost(){ S.lvl=99; S.exp=0; S.qd=3; S.yang=10000000; S.pts=Math.max(
 window.__devBoost=devBoost;
 window.__gear={useSlot,P,SLOT_DEF,fitZone,S,stoneCount,upgradeGear,moveItem,EQS,GEAR,ITEMS,maxHP,defPow,atkPow,initInv,saveGame,get key(){return SAVEKEY}};
 (function(){ const n=$('meName'); let c=0,t=0; n.style.pointerEvents='auto'; n.addEventListener('click',()=>{ c++; clearTimeout(t); t=setTimeout(()=>c=0,1500); if(c>=7){ c=0; devBoost(); } }); })();
+(function(){ const b=$('heroPick'); const lab=()=>{ b.textContent='Karakter modeli: '+(HERO_PICK==='cc'?'Yeni (Unity)':'Klasik')+'  (değiştir)'; }; lab();
+  b.addEventListener('click',()=>{ try{ localStorage.setItem('valkor.hero',HERO_PICK==='cc'?'classic':'cc'); }catch(e){} b.textContent='Yükleniyor…'; setTimeout(()=>location.reload(),60); }); })();
 (function(){ const b=$('authOut'); let t=0; b.addEventListener('click',()=>{ if(!b.classList.contains('arm')){ b.classList.add('arm'); b.textContent='Emin misin? Çıkış'; saveGame(); t=setTimeout(()=>{ b.classList.remove('arm'); b.textContent='⎋ Çıkış'; },3500); } else { clearTimeout(t); window.ValkorAuth&&window.ValkorAuth.logout(); } }); b.addEventListener('pointerdown',e=>e.stopPropagation()); })();
 async function mountAuthUI(){
   $('auth').classList.remove('pre'); try{ const m=await import('./auth/auth-ui.js'); await m.mountAuth({root:$('auth'),onEnter:enterGame,preview:charPreview,info:charInfo,purge:charPurge}); }
