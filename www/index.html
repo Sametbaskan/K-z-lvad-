@@ -1301,7 +1301,7 @@ const ARMOR_PIECES={gogusluk:{name:'Göğüslük',hide:['Spine1','Spine2']},sirt
   tum:{name:'Tek parça zırh (maske, hale, gövde, pelerin, çizmeler)',hide:['Hips','Spine','Spine1','Spine2','Neck','Head','HeadTop_End','LeftShoulder','RightShoulder','LeftArm','RightArm','LeftForeArm','RightForeArm','LeftHand*','RightHand*',
     'LeftUpLeg','RightUpLeg','LeftLeg','RightLeg','LeftFoot','RightFoot','LeftToeBase','RightToeBase','LeftToe_End','RightToe_End']},
   boyunluk:{name:'Boyunluk',hide:['Neck','LeftShoulder','RightShoulder']},pelerin:{name:'Pelerin',hide:[]},migfer:{name:'Miğfer',hide:['Head','HeadTop_End']}};   // hide: parça takılıyken gizlenen gövde bölgeleri (kemik adı)
-const ARMOR_SETS={gunes_sovalyesi:{ownBind:true,cloth:true,glow:0xffb040,tex:{base:'models/armor/gunes_sovalyesi/tex/base.jpg',mr:'models/armor/gunes_sovalyesi/tex/mr.jpg',normal:'models/armor/gunes_sovalyesi/tex/normal.jpg'}},
+const ARMOR_SETS={gunes_sovalyesi:{ownBind:true,cloth:true,glow:0xffb040,fx:{metal:0x9a1206,mist:0x4a0806,spark:0xff3a1a},tex:{base:'models/armor/gunes_sovalyesi/tex/base.jpg',mr:'models/armor/gunes_sovalyesi/tex/mr.jpg',normal:'models/armor/gunes_sovalyesi/tex/normal.jpg'}},
   kara_sovalye:{tex:{base:'models/armor/kara_sovalye/tex/base.jpg',mr:'models/armor/kara_sovalye/tex/mr.jpg',normal:'models/armor/kara_sovalye/tex/normal.jpg'}}};
 const ARMOR_ITEMS={
   kara_sovalye_zirh:{name:'Kara Şövalye Zırhı',slot:'armor',set:'kara_sovalye',reqLv:20,price:150000,def:22,
@@ -1464,7 +1464,7 @@ function addSwordFx(g){ swHalo=[]; for(const y of [.3,.75,1.15]){ const sp=new T
 function applySwordLook(n){ n=Math.max(0,Math.min(9,n|0)); const L=SWL[n]; swFxLv=n;
   if(swMat){ swMat.color.setHex(L.c); swMat.emissive.setHex(L.e); swMat.emissiveIntensity=L.ei; if(swMat.map&&!swMat.emissiveMap) swMat.emissiveMap=swMat.map; swMat.needsUpdate=true; }
   swHalo.forEach(s=>s.material.color.setHex(SWHC[n])); if(swAura) swAura.material.color.setHex(n>=9?0xff6a10:0xffffff); }
-function updateSwordFx(dt,time){ syncArmor(); updateArmorCloth(dt); const want=handWant(); if(want!==SWKEY) swapHandWeapon(want); if(!sword) return;
+function updateSwordFx(dt,time){ syncArmor(); updateArmorCloth(dt); updateArmorFx(dt,time); const want=handWant(); if(want!==SWKEY) swapHandWeapon(want); if(!sword) return;
   if(SWKEY!=='base'){ updateLegendFx(dt,time); return; } sword.visible=true;
   const n=Math.max(0,Math.min(9,S.weap|0)); if(n!==swFxLv) applySwordLook(n);
   const L=SWL[n], pul=.5+.5*Math.sin(time*(n>=9?5.5:3));
@@ -1488,9 +1488,44 @@ function armorMat(mt,set){ const key=set+'|'+mt.name; let m=ARMOR.mats[key]; if(
   const T=ARMOR_SETS[set]&&ARMOR_SETS[set].tex;
   if(T&&mt.name===set){ const tl=new THREE.TextureLoader(), ld=(u,srgb)=>{ const t=tl.load(u); t.flipY=false; if(srgb) t.colorSpace=THREE.SRGBColorSpace; t.anisotropy=4; return t; };
     const mr=ld(T.mr,false); m=new THREE.MeshStandardMaterial({map:ld(T.base,true),normalMap:ld(T.normal,false),roughnessMap:mr,metalnessMap:mr,metalness:1,roughness:1,envMap:weaponEnv(),envMapIntensity:.7}); m.name=key;
+    if(ARMOR_SETS[set].fx) armorFxPatch(m,ARMOR_SETS[set].fx);
   }
   else { m=mt; m.envMap=weaponEnv(); m.envMapIntensity=.55; m.side=THREE.DoubleSide; m.needsUpdate=true; }
   ARMOR.mats[key]=m; return m; }
+/* ===== zırh yükseltme efekti (+0..+10): set başına ARMOR_SETS[set].fx = {metal, mist, spark} renkleri =====
+   metal: metal yüzeylerde (metalik haritası) yumuşak, kenarda biraz güçlenen parlama — damar/çizgi yok;
+   mist: binicinin çevresinde birkaç büyük, yavaş dönen yumuşak sis lekesi (sabit havuz, en fazla 8 sprite);
+   spark: zırhın metal köşelerinden ara sıra yükselen küçük kıvılcım (mevcut burst havuzu, saniyede en fazla ~1,4).
+   Seviye zırh slotundaki eşyanın yükseltmesinden (it.u) okunur; zırh çıkarılınca hepsi kapanır. Yeni zırh: ARMOR_SETS'e fx ekle. */
+const ARMOR_FX_LV=[ // metal parlama, sis opaklığı, sis lekesi sayısı, kıvılcım/sn
+  [0,0,0,0],[.07,0,0,0],[.11,0,0,0],[.14,.07,4,0],[.17,.1,4,0],[.21,.12,5,.35],[.25,.14,6,.5],[.32,.17,6,.8],[.33,.2,7,1],[.4,.23,8,1.1],[.48,.26,8,1.3]];
+const AFX={set:null,lv:0,mist:[],acc:0,cand:null,candMesh:null,t:0};
+function armorFxState(){ if(!S.eq) return null; for(const e of EQS){ const it=S.eq[e.id], A=it&&ARMOR_ITEMS[it.id]; if(A&&A.slot==='armor'&&ARMOR_SETS[A.set]&&ARMOR_SETS[A.set].fx) return {set:A.set,lv:Math.max(0,Math.min(10,it.u|0))}; } return null; }
+function armorFxPatch(m,fx){ if(m.userData.fxU) return; const U={uFx:{value:0},uFxCol:{value:new THREE.Color(fx.metal)}}; m.userData.fxU=U;
+  const prev=m.onBeforeCompile; m.onBeforeCompile=(sh,r)=>{ if(prev&&prev!==THREE.Material.prototype.onBeforeCompile) prev.call(m,sh,r); Object.assign(sh.uniforms,U);
+    sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nuniform float uFx; uniform vec3 uFxCol;')
+      .replace('#include <emissivemap_fragment>','#include <emissivemap_fragment>\nif(uFx>0.){ float fr=pow(1.-abs(dot(normalize(normal),normalize(vViewPosition))),2.); totalEmissiveRadiance+=uFxCol*uFx*metalnessFactor*(.45+.9*fr); }'); };
+  const pk=m.customProgramCacheKey; m.customProgramCacheKey=()=>(pk?pk.call(m):'')+'|armorFx'; m.needsUpdate=true; }
+const _afV=new THREE.Vector3(), _afH=new THREE.Vector3();
+function updateArmorFx(dt,time){ const st=armorFxState(); AFX.t+=dt;
+  const on=st&&ARMOR.on&&Object.keys(ARMOR.on).some(k=>k.startsWith(st.set+'/'));
+  const L=on?ARMOR_FX_LV[st.lv]:ARMOR_FX_LV[0], fx=on?ARMOR_SETS[st.set].fx:null, pul=.85+.15*Math.sin(AFX.t*1.6);
+  // metal parlama: o setin bütün malzemelerine
+  for(const k in ARMOR.mats){ const m=ARMOR.mats[k]; if(!m.userData.fxU) continue; m.userData.fxU.uFx.value=(on&&k.startsWith(st.set+'|'))?L[0]*pul:0; }
+  // sis
+  if(fx&&AFX.mist.length===0) for(let i=0;i<8;i++){ const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,color:fx.mist,transparent:true,opacity:0,depthWrite:false,fog:false})); sp.visible=false; sp.userData={a:i*2.4,r:.32+.06*(i%3),y:-.85+.12*(i%5),s:.9+.15*(i%4),sp:.12+.04*(i%3)}; scene.add(sp); AFX.mist.push(sp); }
+  const hb=bones&&bones.Hips; if(hb) hb.getWorldPosition(_afH);
+  const mounted=MOUNT.ready&&MOUNT.blend>.5, vis=on&&playerGroup.visible&&!!hb;
+  AFX.mist.forEach((sp,i)=>{ const u=sp.userData, show=vis&&i<L[2]; sp.visible=show; if(!show) return; if(fx) sp.material.color.setHex(fx.mist);
+    const a=u.a+AFX.t*u.sp, r=u.r*(mounted?1.45:1); sp.position.set(_afH.x+Math.sin(a)*r,_afH.y+(mounted?u.y*.55-.15:u.y),_afH.z+Math.cos(a)*r);
+    sp.scale.setScalar(u.s*(mounted?1.35:1)*(1+.08*Math.sin(AFX.t*.7+i))); sp.material.opacity=L[1]*(.75+.25*Math.sin(AFX.t*.9+i*1.7)); sp.material.rotation=a*.3; });
+  // kıvılcım: zırhın metal köşelerinden (kumaş/hale hariç), mevcut burst havuzu
+  if(!vis||L[3]<=0){ AFX.acc=0; return; }
+  let mesh=null; for(const k in ARMOR.on) if(k.startsWith(st.set+'/')){ mesh=ARMOR.on[k][0]; break; } if(!mesh) return;
+  if(AFX.candMesh!==mesh){ AFX.candMesh=mesh; const g=mesh.geometry, n=g.attributes.position.count, cl=g.attributes._cloth, gl=g.attributes._glow, c=[];
+    for(let i=0;i<n;i+=7){ if(cl&&cl.getZ(i)>0) continue; if(gl&&gl.getX(i)>0) continue; c.push(i); } AFX.cand=c; }
+  AFX.acc+=dt*L[3]; while(AFX.acc>=1){ AFX.acc-=1; if(!AFX.cand.length) break; const i=AFX.cand[Math.floor(Math.random()*AFX.cand.length)];
+    mesh.getVertexPosition(i,_afV); _afV.applyMatrix4(mesh.matrixWorld); burst(_afV,fx.spark,1,.25,.7+Math.random()*.4,.045+Math.random()*.02,-.5); } }
 /* ===== kumaş: hafif parçacık ızgarası (Verlet) + gölgelendiricide yumuşak yer değiştirme =====
    Pelerin/etek köşeleri leğene katı bağlıdır. GLB'deki ızgara (sütun = leğen çevresinde açı, satır = sarkma) dünya uzayında simüle edilir:
    yerçekimi, atalet (koşunca geriye savrulur), hafif rüzgâr, tasarım şekline geri çekme, satır/sütun mesafe kısıtları (uzama sınırı);
@@ -1536,7 +1571,7 @@ function clothMaterial(m,glow,grid){ if(m.userData.clothReady) return; m.userDat
   const U={uOffTex:{value:offTex},uCapA:{value:Array.from({length:NCAP},()=>new THREE.Vector4(0,0,0,0))},uCapB:{value:Array.from({length:NCAP},()=>new THREE.Vector3())},
     uGround:{value:new THREE.Vector4(0,1,0,1e5)},uMount:{value:0},uGlow:{value:.35},uGlowCol:{value:new THREE.Color(glow)}};
   CLOTH.u=U;
-  m.onBeforeCompile=sh=>{ Object.assign(sh.uniforms,U);
+  const prevOBC=m.onBeforeCompile; m.onBeforeCompile=(sh,rr)=>{ Object.assign(sh.uniforms,U);
     sh.vertexShader=sh.vertexShader.replace('#include <common>',`#include <common>
 #define CCOLS ${C}
 #define CROWS ${R}
@@ -1557,7 +1592,8 @@ if(_cloth.z>0.001){ transformed+=clothOff(_cloth.xy)*_cloth.z;
   float gd=dot(uGround.xyz,transformed)+uGround.w; if(gd<0.) transformed-=uGround.xyz*gd*_cloth.z; }`);
     sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying float vGlow; uniform float uGlow; uniform vec3 uGlowCol;')
       .replace('#include <emissivemap_fragment>','#include <emissivemap_fragment>\ntotalEmissiveRadiance+=diffuseColor.rgb*uGlowCol*vGlow*uGlow*2.;'); };
-  m.customProgramCacheKey=()=>'armorCloth'+C+'x'+R+'n'+NCAP; m.needsUpdate=true; }
+  const _ob=m.onBeforeCompile; m.onBeforeCompile=(sh,rr)=>{ _ob(sh,rr); if(prevOBC&&prevOBC!==THREE.Material.prototype.onBeforeCompile) prevOBC.call(m,sh,rr); };
+  m.customProgramCacheKey=()=>'armorCloth'+C+'x'+R+'n'+NCAP+(m.userData.fxU?'|armorFx':''); m.needsUpdate=true; }
 const _clA=new THREE.Vector3(), _clB=new THREE.Vector3(), _clV=new THREE.Vector3(), _clW=new THREE.Vector3(), _clM=new THREE.Matrix4(), _clQ=new THREE.Vector3();
 function clothCaps(){ // dünya uzayında kapsüller: [a, b, r]
   const caps=[], v=k=>{ const b=bones[k]; return b?b.getWorldPosition(new THREE.Vector3()):null; }, s=CLOTH.s, LR=CLOTH.grid.legR||{thigh:10,shin:10};
@@ -3664,7 +3700,7 @@ async function boot(){
     initMapUI(); initVillageMap(); setAtmos('village'); try{ warmFx(); }catch(e){ console.warn('[Efekt] ısınma atlandı',e); } setP(100);
     myTag=document.createElement('div'); myTag.className='pn'; $('pops').appendChild(myTag);
     $('loading').classList.add('hidden'); mountAuthUI();
-    window.__game={enterGame,MAPS,keys,useSlot,killPlayer,respawnPlayer,DEATH,drawMini,updateHUD2:()=>{},lakeE,LAKE_B,LAKE_WL,FROG_SPOTS,CROC_SPOTS,hForest,placePlayer,spawnMob,respawn,fxAttack,fxDeath,get LAKE_STATS(){return LAKE_STATS},get LAKE_MOBS(){return LAKE_MOBS},get CROC(){return CROC},CORE,rankOf,rankReward,grantRank,plateHTML,refreshPlate,RANKS,RANK_REWARD,get plateKey(){return plateKey},get myTag(){return myTag},TYPES,guards,updateGuards,addTime:d=>{time+=d},get ATK_HOLD(){return ATK_HOLD},equipWeaponModel,WMODELS,get sword(){return sword},charPreview,CLOTH,updateArmorCloth,horseCaps,clothCaps,ARMOR,ARMOR_ITEMS,syncArmor,armorDef,defPow,LEGEND_WEAPONS,legEq,LGLB,LFAIL,loadLegend,get SWKEY(){return SWKEY},weapName,wCrit,critCh,buyLegend,SWCFG,refreshWins,updateSmith,upgradeWeapon,buyStone,fixWeapon,WLV,swRoll,wAtk,wMag,aspd,swEq,applySwordLook,updateSwordFx,SEAT,yawFix,get FOREST_STATS(){return FOREST_STATS},zoneAt,updateMount,groundFix,get GOFF(){return GOFF},get S(){return S},ITEMS,EQS,registerItem,addItem,moveItem,initInv,addStat,resetStats,qOf,expNeed,get PLANT_SETS(){return PLANT_SETS},renderMenu,setTab,toggleWin,closeWins,skillUp,skPoints,skL,skv,skStats,saveGame,loadGame,renderSkillWin,gainExp,updatePlayer,updateMobs,updateProjectiles,updateSkills,updateCamera,updateHUD,SKD,SLOT_DEF,SK,cds,fx2,pt2,sched,projectiles,SHAKE,clearSkillFx,MAPS,TRAVEL,travelTo,get MAP(){return MAP;},get obstacles(){return obstacles;},get MAP(){return MAP;},get renderer(){return renderer;},npcs,vRoadD,MAPS,hAt,get HAS3(){return HAS3;},get A3META(){return A3META;},damagePlayer,get COMBO(){return COMBO;},horseRear,horseAnim,playerHit,killMob,fxPlay,fxStep,get FROG2(){return FROG2;},MOUNT,toggleMount,get mixer(){return mixer},rotW,overlayPose,S,P,mobs,cam,actions,bones,setAnim,useSlot,clickAt,THREE,scene,camera,renderer,model,get tIdle(){return tIdle;},get TURN_DELTA(){return TURN_DELTA;}};
+    window.__game={enterGame,MAPS,keys,useSlot,killPlayer,respawnPlayer,DEATH,drawMini,updateHUD2:()=>{},lakeE,LAKE_B,LAKE_WL,FROG_SPOTS,CROC_SPOTS,hForest,placePlayer,spawnMob,respawn,fxAttack,fxDeath,get LAKE_STATS(){return LAKE_STATS},get LAKE_MOBS(){return LAKE_MOBS},get CROC(){return CROC},CORE,rankOf,rankReward,grantRank,plateHTML,refreshPlate,RANKS,RANK_REWARD,get plateKey(){return plateKey},get myTag(){return myTag},TYPES,guards,updateGuards,addTime:d=>{time+=d},get ATK_HOLD(){return ATK_HOLD},equipWeaponModel,WMODELS,get sword(){return sword},charPreview,CLOTH,updateArmorCloth,AFX,updateArmorFx,ARMOR_FX_LV,horseCaps,clothCaps,ARMOR,ARMOR_ITEMS,syncArmor,armorDef,defPow,LEGEND_WEAPONS,legEq,LGLB,LFAIL,loadLegend,get SWKEY(){return SWKEY},weapName,wCrit,critCh,buyLegend,SWCFG,refreshWins,updateSmith,upgradeWeapon,buyStone,fixWeapon,WLV,swRoll,wAtk,wMag,aspd,swEq,applySwordLook,updateSwordFx,SEAT,yawFix,get FOREST_STATS(){return FOREST_STATS},zoneAt,updateMount,groundFix,get GOFF(){return GOFF},get S(){return S},ITEMS,EQS,registerItem,addItem,moveItem,initInv,addStat,resetStats,qOf,expNeed,get PLANT_SETS(){return PLANT_SETS},renderMenu,setTab,toggleWin,closeWins,skillUp,skPoints,skL,skv,skStats,saveGame,loadGame,renderSkillWin,gainExp,updatePlayer,updateMobs,updateProjectiles,updateSkills,updateCamera,updateHUD,SKD,SLOT_DEF,SK,cds,fx2,pt2,sched,projectiles,SHAKE,clearSkillFx,MAPS,TRAVEL,travelTo,get MAP(){return MAP;},get obstacles(){return obstacles;},get MAP(){return MAP;},get renderer(){return renderer;},npcs,vRoadD,MAPS,hAt,get HAS3(){return HAS3;},get A3META(){return A3META;},damagePlayer,get COMBO(){return COMBO;},horseRear,horseAnim,playerHit,killMob,fxPlay,fxStep,get FROG2(){return FROG2;},MOUNT,toggleMount,get mixer(){return mixer},rotW,overlayPose,S,P,mobs,cam,actions,bones,setAnim,useSlot,clickAt,THREE,scene,camera,renderer,model,get tIdle(){return tIdle;},get TURN_DELTA(){return TURN_DELTA;}};
   }catch(err){ console.error(err); $('loadTxt').textContent='Yükleme başarısız oldu.'; $('loadTxt').style.color='#ff8a80'; $('err').textContent=String(err&&err.message||err); }
 }
 /* Hesap sistemi (auth/ modülleri) karakter seçilince bunu çağırır. Oyun motoru hesap koduna bağımlı değildir. */
