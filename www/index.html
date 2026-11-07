@@ -1020,13 +1020,42 @@ function fireBlast(c,r){
     fxAdd(rg3,1.15,(e,k,dt)=>{ for(const me of rocks){ const v=me.userData.v; v[1]-=16*dt; me.position.x+=v[0]*dt; me.position.y+=v[1]*dt; me.position.z+=v[2]*dt; me.rotation.x+=me.userData.w[0]*dt; me.rotation.z+=me.userData.w[1]*dt; const gl=hAt(c.x+me.position.x,c.z+me.position.z)-gy+.1; if(me.position.y<gl){ me.position.y=gl; v[0]*=.4; v[2]*=.4; v[1]=Math.abs(v[1])*.25; } me.scale.multiplyScalar(k>.8?.97:1); } }); }
   { const dm=addMat(FT.smoke,0x000000,.55,THREE.NormalBlending); dm.polygonOffset=true; dm.polygonOffsetFactor=-2; const dc=new THREE.Mesh(GEO.plane,dm); dc.position.set(c.x,gy+.1,c.z); dc.scale.setScalar(r*1.7); fxAdd(dc,3.2,(e,k)=>{ dm.opacity=.55*(1-k); },{mats:[dm]}); }
 }
+/* ---- buz kalkanı varlıkları: düzensiz kristal geometrileri, çatlak dokusu, zemin donma dokusu (bir kez, tembel üretilir) ---- */
+let ICEA=null;
+function iceAssets(){ if(ICEA) return ICEA;
+  const rs=(()=>{ let x=1234567; return ()=>{ x=(x*1664525+1013904223)>>>0; return x/4294967296; }; })();
+  const cv=(w,h,fn)=>{ const c=document.createElement('canvas'); c.width=w; c.height=h; fn(c.getContext('2d'),w,h); const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; t.wrapS=t.wrapT=THREE.RepeatWrapping; return t; };
+  /* kristal içi: soluk yüzeyler + iç çatlaklar */
+  const crack=cv(128,128,(g,w,h)=>{ g.fillStyle='#dcebf6'; g.fillRect(0,0,w,h);
+    for(let i=0;i<26;i++){ g.fillStyle=`rgba(${150+rs()*80|0},${185+rs()*55|0},${215+rs()*40|0},${.12+rs()*.2})`; g.beginPath(); const x=rs()*w,y=rs()*h; g.moveTo(x,y); g.lineTo(x+(rs()-.5)*60,y+(rs()-.5)*60); g.lineTo(x+(rs()-.5)*60,y+(rs()-.5)*60); g.closePath(); g.fill(); }
+    g.lineCap='round'; for(let i=0;i<9;i++){ let x=rs()*w,y=rs()*h,a=rs()*6.283; g.strokeStyle=rs()<.5?'rgba(255,255,255,.95)':'rgba(70,115,160,.85)'; g.lineWidth=.8+rs()*1.1; g.beginPath(); g.moveTo(x,y); for(let k=0;k<5;k++){ a+=(rs()-.5)*1.1; x+=Math.cos(a)*(8+rs()*14); y+=Math.sin(a)*(8+rs()*14); g.lineTo(x,y); } g.stroke(); } });
+  /* zemin: merkezden dallanan ince donma çatlakları */
+  const frost=cv(256,256,(g,w,h)=>{ g.translate(128,128); const rg=g.createRadialGradient(0,0,0,0,0,124); rg.addColorStop(0,'rgba(225,240,250,.30)'); rg.addColorStop(.55,'rgba(210,230,245,.12)'); rg.addColorStop(1,'rgba(210,230,245,0)'); g.fillStyle=rg; g.fillRect(-128,-128,256,256);
+    g.lineCap='round'; g.lineJoin='round';
+    const branch=(x,y,a,len,wd,d)=>{ g.lineWidth=wd; g.strokeStyle=`rgba(235,247,255,${.45+.45*Math.min(1,wd/1.6)})`; g.beginPath(); g.moveTo(x,y); let px=x,py=y,pa=a; const n=Math.max(2,len/9|0); for(let i=0;i<n;i++){ pa+=(rs()-.5)*.8; px+=Math.cos(pa)*9; py+=Math.sin(pa)*9; if(Math.hypot(px,py)>122) break; g.lineTo(px,py); if(d<3&&rs()<.22) { g.stroke(); branch(px,py,pa+(rs()<.5?-1:1)*(.5+rs()*.7),len*.5,wd*.6,d+1); g.lineWidth=wd; g.strokeStyle=`rgba(235,247,255,${.45+.45*Math.min(1,wd/1.6)})`; g.beginPath(); g.moveTo(px,py); } } g.stroke(); };
+    for(let i=0;i<11;i++){ const a=i/11*6.283+rs()*.4; branch(Math.cos(a)*14,Math.sin(a)*14,a,90+rs()*40,1.7,0); }
+    g.strokeStyle='rgba(235,247,255,.4)'; g.lineWidth=.8; for(const r of [34,62,92]){ g.beginPath(); for(let i=0;i<=18;i++){ const a=i/18*6.283, rr2=r*(.9+rs()*.2); g[i?'lineTo':'moveTo'](Math.cos(a)*rr2,Math.sin(a)*rr2); } g.stroke(); } });
+  /* düzensiz altıgen prizma + eğri uç: 4 çeşit */
+  const geos=[]; for(let v=0;v<4;v++){ const N=6, pos=[], uv=[]; const ring=(y,r,j)=>{ const a=[]; for(let i=0;i<N;i++){ const t=i/N*6.283+(rs()-.5)*.35, rr2=r*(1+(rs()-.5)*j); a.push([Math.cos(t)*rr2,y,Math.sin(t)*rr2]); } return a; };
+    const b=ring(0,1,.35), m=ring(.55+rs()*.12,.58,.45), tip=[(rs()-.5)*.35,1.0,(rs()-.5)*.35];
+    const tri=(p,q,r)=>{ for(const c of [p,q,r]){ pos.push(c[0],c[1],c[2]); uv.push(c[0]*.5+.5+c[2]*.2,c[1]); } };
+    for(let i=0;i<N;i++){ const j=(i+1)%N; tri(b[i],b[j],m[j]); tri(b[i],m[j],m[i]); tri(m[i],m[j],tip); }
+    const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3)); g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2)); g.computeVertexNormals(); geos.push(g); }
+  const mat=new THREE.MeshStandardMaterial({color:0xd6e8f4,map:crack,transparent:true,opacity:.6,roughness:.14,metalness:0,envMap:weaponEnv(),envMapIntensity:1.25,emissive:0x5a86ad,emissiveIntensity:.24,emissiveMap:crack,flatShading:true,depthWrite:false,side:THREE.DoubleSide,fog:false});
+  ICEA={crack,frost,geos,mat,rs}; return ICEA; }
+/* kristal: yükseklik h, genişlik w, yana yatma (lean, yön az) */
+function iceCrystal(mat,h,w,az,lean){ const IA=iceAssets(); const m=new THREE.Mesh(IA.geos[(IA.rs()*4)|0],mat); m.userData.h=h; m.userData.w=w; m.rotation.set(Math.sin(az)*lean,IA.rs()*6.283,-Math.cos(az)*lean); m.scale.set(.001,.001,.001); m.frustumCulled=false; return m; }
+const iceGrow=(m,k)=>{ k=Math.max(0,Math.min(1,k)); const e=1-Math.pow(1-k,3); m.scale.set(m.userData.w*e,m.userData.h*e,m.userData.w*e); };
 /* ---- savunma aurası (kalıcı kubbe) ---- */
 function makeAura(kind){
-  const gold=kind==='gold'; const g=new THREE.Group(); const u={time:{value:0},opacity:{value:0},flash:{value:0},c1:C3(gold?0xd99a1a:0x1f5cff),c2:C3(gold?0xfff0a8:0xa8d8ff)};
+  const gold=kind==='gold'; const g=new THREE.Group(); const u={time:{value:0},opacity:{value:0},flash:{value:0},c1:C3(gold?0xd99a1a:0x6f93b5),c2:C3(gold?0xfff0a8:0xe3f0f9)};
   const dm=shMat(DOME_FS,u); dm.vertexShader=DOME_VS; const dome=new THREE.Mesh(GEO.dome,dm); const rad=gold?1.75:1.55; dome.scale.setScalar(rad); dome.scale.y=rad*1.15; g.add(dome);
   const rm=addMat(FT.rune,gold?0xffc94a:0x4a8cff,.7); const ring=new THREE.Mesh(GEO.plane,rm); ring.scale.setScalar(rad*2.1); ring.position.y=.1; g.add(ring);
   const A={g,dome,dm,u,ring,rm,op:0,shards:null,t:0,gold};
-  if(!gold){ const sg=new THREE.Group(); const smat=new THREE.MeshBasicMaterial({color:0x7fc0ff,transparent:true,opacity:.8,blending:THREE.AdditiveBlending,depthWrite:false,fog:false}); for(let i=0;i<6;i++){ const m=new THREE.Mesh(GEO.cone,smat); const a=i/6*6.283; m.position.set(Math.cos(a)*1.25,.9+Math.sin(i*2)*.25,Math.sin(a)*1.25); m.scale.set(.22,.75,.22); m.rotation.z=-Math.cos(a)*.3; m.rotation.x=Math.sin(a)*.3; sg.add(m); } g.add(sg); A.shards=sg; A.smat=smat; }
+  if(!gold){ const IA=iceAssets(); const sg=new THREE.Group(); const cr=[]; const N=coarse?8:12;
+    for(let i=0;i<N;i++){ const a=i/N*6.283+(IA.rs()-.5)*.5, r=1.15+IA.rs()*.8, h=.55+IA.rs()*1.0, w=.12+IA.rs()*.14; const m=iceCrystal(IA.mat,h,w,a,.12+IA.rs()*.42); m.position.set(Math.cos(a)*r,-.03,Math.sin(a)*r); m.userData.d=.05+IA.rs()*.45; cr.push(m); sg.add(m); }
+    g.add(sg); A.shards=sg; A.cr=cr; A.mist=0;
+    const fm=addMat(IA.frost,0xe4f1fa,.7,THREE.NormalBlending); fm.polygonOffset=true; fm.polygonOffsetFactor=-2; fm.polygonOffsetUnits=-2; ring.material=fm; A.rm=fm; ring.scale.setScalar(4.6); ring.position.y=.07; }
   g.visible=false; playerGroup.add(g); return A;
 }
 function updateAuras(dt){
@@ -1034,9 +1063,12 @@ function updateAuras(dt){
   for(const kind of ['gold','ice']){ let A=AU[kind]; if(!A){ if(!want[kind]) continue; A=AU[kind]=makeAura(kind); }
     const tgt=want[kind]?1:0; A.op+=(tgt-A.op)*(1-Math.exp(-6*dt)); if(A.op<.01&&!want[kind]){ A.g.visible=false; continue; } A.g.visible=true; A.t+=dt;
     A.g.scale.setScalar(A.k||1); A.u.time.value=A.t; A.u.flash.value=Math.max(0,A.u.flash.value-dt*1.6); const pulse=.8+.2*Math.sin(A.t*3);
-    A.u.opacity.value=A.op*(A.gold?.55:.7)*pulse; A.rm.opacity=.55*A.op; A.ring.rotation.y+=dt*(A.gold?.9:-.7);
+    A.u.opacity.value=A.op*(A.gold?.55:.2)*pulse; A.rm.opacity=(A.gold?.55:.7)*A.op; if(A.gold) A.ring.rotation.y+=dt*.9;
     if(A.gold){ if(R()<dt*7*FXN){ const a=R()*6.283; _tv.set(P.pos.x+Math.cos(a)*1.5,P.pos.y+.2,P.pos.z+Math.sin(a)*1.5); emit('glow',_tv,0,rr(.8,1.8),0,{color:0xffd460,size:.16,size1:.03,life:1}); } }
-    else { A.shards.rotation.y+=dt*1.6; A.smat.opacity=.55+.25*pulse; if(R()<dt*6*FXN){ const a=R()*6.283; _tv.set(P.pos.x+Math.cos(a)*1.4,P.pos.y+rr(.3,1.8),P.pos.z+Math.sin(a)*1.4); emit('glow',_tv,0,rr(-.3,.4),0,{color:0xcff4ff,size:.14,size1:.03,life:.8}); } } }
+    else { for(const c of A.cr){ const d=c.userData.d; iceGrow(c,(A.op-d)/(1-d)*1.05); }
+      const k=A.k||1; if(R()<dt*3.2*FXN){ const a=R()*6.283, rd=rr(.9,2.3)*k; _tv.set(P.pos.x+Math.cos(a)*rd,P.pos.y+rr(.1,.45),P.pos.z+Math.sin(a)*rd); emit('smoke',_tv,Math.cos(a+1.6)*.18,rr(.04,.14),Math.sin(a+1.6)*.18,{color:0xc9dcea,size:.9,size1:1.9,life:2,a0:.17}); }
+      if(R()<dt*8*FXN){ const a=R()*6.283, rd=rr(.3,2.4)*k; _tv.set(P.pos.x+Math.cos(a)*rd,P.pos.y+rr(1.6,2.6),P.pos.z+Math.sin(a)*rd); emit('glow',_tv,rr(-.15,.15),rr(-.55,-.3),rr(-.15,.15),{color:0xf2f9ff,size:.085,size1:.05,life:2,a0:.85}); }
+      if(R()<dt*2.4*FXN){ const c=A.cr[(R()*A.cr.length)|0]; _tv.set(P.pos.x+c.position.x*k,P.pos.y+c.userData.h*c.scale.y/Math.max(.001,c.userData.h)*.8*k,P.pos.z+c.position.z*k); emit('star',_tv,0,.05,0,{color:0xeaf7ff,size:.24,size1:.03,life:.55,rot:R()*3,rs:1.2}); } } }
 }
 function ironWillFx(){
   const A=(P.auras||(P.auras={})).gold||(P.auras.gold=makeAura('gold')); A.u.flash.value=1.2; SHAKE.v=Math.max(SHAKE.v,.12);
@@ -1048,14 +1080,18 @@ function ironWillFx(){
 }
 /* ---- buz kalkanı ---- */
 function iceFx(){
-  SHAKE.v=Math.max(SHAKE.v,.12); const A=(P.auras||(P.auras={})).ice||(P.auras.ice=makeAura('ice')); A.u.flash.value=1.2;
-  const rm=addMat(FT.rune,0x4a8cff,.9); const rg=new THREE.Mesh(GEO.plane,rm); fxAdd(rg,.9,(e,k)=>{ rg.scale.setScalar(1+k*9.5); rm.opacity=.9*(1-k); rg.rotation.y+=.1; },{mats:[rm],follow:()=>_tp.set(P.pos.x,P.pos.y+.16,P.pos.z)});
-  const sg=new THREE.Group(); const cm=new THREE.MeshBasicMaterial({color:0x6ab4ff,transparent:true,opacity:.85,blending:THREE.AdditiveBlending,depthWrite:false,fog:false}); const sp=[];
-  for(let i=0;i<Math.round(12*Math.max(.7,FXN));i++){ const a=i/12*6.283+R()*.3, r=rr(1.6,3.9)*(1+(FXL-1)*.4), m=new THREE.Mesh(GEO.cone,cm); const x=P.pos.x+Math.cos(a)*r, z=P.pos.z+Math.sin(a)*r; m.position.set(x,hAt(x,z)-.05,z); m.userData.h=rr(1.1,2.7); m.userData.d=rr(0,.12); m.rotation.z=Math.cos(a)*.25; m.rotation.x=-Math.sin(a)*.25; m.scale.set(.001,.001,.001); sp.push(m); sg.add(m); }
-  fxAdd(sg,1.5,(e,k)=>{ for(const m of sp){ const g=Math.min(1,Math.max(0,(k-m.userData.d)/.14)), sh=k>.75?1-(k-.75)/.25:1; m.scale.set(.5*g*sh,m.userData.h*g*sh,.5*g*sh); } cm.opacity=.85*(k>.75?1-(k-.75)/.25:1); },{mats:[cm]});
-  for(let i=0;i<Math.round(26*FXN);i++){ const a=R()*6.283, s=rr(2,6); _tv.set(P.pos.x,P.pos.y+.6,P.pos.z); emit('glow',_tv,Math.cos(a)*s,rr(.5,3),Math.sin(a)*s,{color:R()<.5?0xbfeaff:0xffffff,size:.2,size1:.04,life:rr(.5,1),grav:3,drag:1}); }
-  for(let i=0;i<Math.round(8*FXN);i++){ const a=R()*6.283, s=rr(1,3); _tv.set(P.pos.x,P.pos.y+.4,P.pos.z); emit('smoke',_tv,Math.cos(a)*s,rr(.3,1),Math.sin(a)*s,{color:0xaee0ff,size:.9,size1:2.8,life:1.1,a0:.35,delay:rr(0,.2)}); }
-  emit('star',_tv.set(P.pos.x,P.pos.y+1,P.pos.z),0,0,0,{color:0xbfeaff,size:.6,size1:3.4,life:.4});
+  SHAKE.v=Math.max(SHAKE.v,.1); const A=(P.auras||(P.auras={})).ice||(P.auras.ice=makeAura('ice')); A.u.flash.value=.6; const IA=iceAssets();
+  /* zeminde yayılan donma çatlakları */
+  const fm=addMat(IA.frost,0xe4f1fa,.8,THREE.NormalBlending); fm.polygonOffset=true; fm.polygonOffsetFactor=-3; fm.polygonOffsetUnits=-3; const fg=new THREE.Mesh(GEO.plane,fm);
+  fxAdd(fg,1.1,(e,k)=>{ const g=1-Math.pow(1-Math.min(1,k/.45),3); fg.scale.setScalar(1.5+g*5.4*(1+(FXL-1)*.3)); fg.rotation.y+=.004; fm.opacity=.8*(k>.6?1-(k-.6)/.4:1); },{mats:[fm],follow:()=>_tp.set(P.pos.x,P.pos.y+.09,P.pos.z)});
+  /* dış halkada büyük, düzensiz kristaller: hızla yükselir, kısa süre durur, erir */
+  const sg=new THREE.Group(), cm=IA.mat.clone(), cr=[]; const N=Math.round(9*Math.max(.7,FXN*1.2));
+  for(let i=0;i<N;i++){ const a=i/N*6.283+(R()-.5)*.6, r=rr(2,3.7)*(1+(FXL-1)*.4), x=P.pos.x+Math.cos(a)*r, z=P.pos.z+Math.sin(a)*r; const m=iceCrystal(cm,rr(1.0,2.5),rr(.18,.4),a,rr(.15,.55)); m.position.set(x,hAt(x,z)-.06,z); m.userData.d=rr(0,.12); cr.push(m); sg.add(m); }
+  fxAdd(sg,1.9,(e,k)=>{ for(const m of cr){ iceGrow(m,(k-m.userData.d)/.14); } cm.opacity=.6*(k>.7?1-(k-.7)/.3:1); },{mats:[cm]});
+  /* soğuk sis + kar + parıltı */
+  for(let i=0;i<Math.round(9*FXN);i++){ const a=R()*6.283, s=rr(.8,2.2); _tv.set(P.pos.x,P.pos.y+.25,P.pos.z); emit('smoke',_tv,Math.cos(a)*s,rr(.1,.5),Math.sin(a)*s,{color:0xc9dcea,size:.9,size1:2.8,life:1.6,a0:.28,delay:rr(0,.25),drag:1.2}); }
+  for(let i=0;i<Math.round(16*FXN);i++){ const a=R()*6.283, s=rr(1,3.2); _tv.set(P.pos.x+Math.cos(a)*.6,P.pos.y+rr(.3,1.2),P.pos.z+Math.sin(a)*.6); emit('glow',_tv,Math.cos(a)*s,rr(.6,2.2),Math.sin(a)*s,{color:R()<.5?0xe8f5ff:0xffffff,size:.11,size1:.03,life:rr(.6,1.1),grav:3.5,drag:1}); }
+  for(let i=0;i<Math.round(6*FXN);i++){ const a=R()*6.283, r=rr(1.8,3.6); _tv.set(P.pos.x+Math.cos(a)*r,P.pos.y+rr(.4,1.8),P.pos.z+Math.sin(a)*r); emit('star',_tv,0,.1,0,{color:0xeaf7ff,size:.3,size1:.04,life:rr(.5,.9),rot:R()*3,rs:1.5,delay:rr(.1,.5)}); }
 }
 function iceHitFx(a){ const A=P.auras&&P.auras.ice; if(A) A.u.flash.value=1; for(let i=0;i<Math.round(8*FXN)+2;i++){ const ang=R()*6.283; _tv.set(P.pos.x+Math.cos(ang)*1.4,P.pos.y+rr(.4,1.7),P.pos.z+Math.sin(ang)*1.4); emit('glow',_tv,Math.cos(ang)*2.5,rr(0,2.5),Math.sin(ang)*2.5,{color:0xcff4ff,size:.2,size1:.03,life:.45,grav:5}); } }
 function iceBreakFx(){ SHAKE.v=Math.max(SHAKE.v,.14); const rm=addMat(FT.ring,0xbfeaff,.9); const rg=new THREE.Mesh(GEO.plane,rm); fxAdd(rg,.45,(e,k)=>{ rg.scale.setScalar(.8+k*5); rm.opacity=.9*(1-k); },{mats:[rm],follow:()=>_tp.set(P.pos.x,P.pos.y+1,P.pos.z)});
