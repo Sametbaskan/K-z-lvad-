@@ -47,3 +47,9 @@ for f in out/*.glb; do base64 -w0 $f > ../../www/models/armor/gunes_sovalyesi/$(
 python3 -I render_statue_icons.py -- out/_cut.blend PBR_Textures.jpeg ikon/      # zırh + maske ikonları
 python3 -I render_glb_icon.py -- out/botlar.glb ikon/gunes_bot.webp out/tex/base.jpg
 ```
+
+### v2 (tek parça + rüzgâr)
+- Zırh tek GLB (`tum.glb`): maske, hale, gövde, pelerin ve çizmeler tek eşya (Güneş Şövalyesi Zırhı, Sv.75).
+- Kumaş ayrımı doku renginden (kızıl kumaş r/g > 2); çizmeler ve bacağa yapışık kayışlar renge bakılmadan bacağa, yumruktaki kabza sargısı ele bağlanır.
+- Kumaş leğene katı bağlıdır; köşe özniteliği `_cloth` = [sarkma, ön/arka]. Oyunda `clothMaterial()` köşe gölgelendiricisinde rüzgâr dalgası,
+  koşuda arkaya savrulma ve bacak itme (ön etek bacağın önünde, arka pelerin arkasında) uygular; `_glow` hale köşelerini parlatır.
