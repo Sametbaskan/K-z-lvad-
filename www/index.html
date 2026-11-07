@@ -1715,7 +1715,7 @@ function makeSword(){
   let g; swMats=[];
   const WM=WMODELS[WMODEL], WG=WGLB[WMODEL]||SWORD_GLB;
   if(WG){ g=new THREE.Group(); const sc=WGLB[WMODEL]?WM.scale:.75, m=WG.scene.clone(true); m.scale.setScalar(sc); m.position.y=-(WGLB[WMODEL]?WM.grip:-.02)*sc;   // kabza ortası elde, uç yukarı
-    m.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.frustumCulled=false; o.material=o.material.clone(); o.material.side=THREE.DoubleSide; const mt=o.material; if(['Altin','AltinKoyu','Sargi'].includes(mt.name)){ mt.userData.be=mt.emissive.clone().multiplyScalar(mt.emissiveIntensity); swMats.push(mt); } } }); g.add(m); }
+    m.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.frustumCulled=false; o.material=o.material.clone(); o.material.side=THREE.DoubleSide; const mt=o.material; if(['Altin','AltinKoyu','Sargi'].includes(mt.name)){ mt.userData.be=mt.emissive.clone().multiplyScalar(mt.emissiveIntensity); mt.envMap=weaponEnv(); mt.envMapIntensity=7.5; mt.metalness=.82; mt.needsUpdate=true; swMats.push(mt); } else if(mt.name==='Safir'){ mt.envMap=weaponEnv(); mt.envMapIntensity=1.6; mt.needsUpdate=true; } } }); g.add(m); }
   else g=makeSwordProc();
   addSwordFx(g); return g; }
 function B(name){ return bones[name]||null; }
