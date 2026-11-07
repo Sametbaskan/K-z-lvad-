@@ -1285,12 +1285,15 @@ const LEGEND_WEAPONS={
     fx:{col:0x30805a,op:.12,size:.1,emi:[.6,.3],pulse:.8,env:.35,part:{kind:'smoke',col:0x1c1a18,rate:2.2,size:.06,life:1.6}}},
   olumsuzun_sonu:{name:'Ölümsüzün Sonu',reqLv:30,price:180000,atk:88,mag:84,aspd:24,crit:7,
     desc:'Ölümsüzleri bile sonlandırdığı söylenen efsane. Altın merkez kristali ve kadim altın rünleri karanlıkta parlar.',
-    fx:{col:0xffc040,op:.34,size:.14,emi:[.85,.55],pulse:1.5,env:.7,part:{kind:'rune',col:0xffd060,rate:3,size:.035,life:1.0}}}
+    fx:{col:0xffc040,op:.34,size:.14,emi:[.85,.55],pulse:1.5,env:.7,part:{kind:'rune',col:0xffd060,rate:3,size:.035,life:1.0}}},
+  gunes_mizragi:{name:'Güneş Mızrağı',cls:'Mızrak',kind:'mızrak',reqLv:35,price:260000,atk:98,mag:92,aspd:18,crit:6,grip:0,scale:1,
+    desc:'Güneş Tarikatı\'nın kutsal altınından dövülmüş üç dişli mızrak. İnce dişlerindeki kancalar zırhı yırtar, ortasındaki safir madalyon güneş ışığını toplar.',
+    fx:{col:0xffb830,op:.26,size:.14,emi:[.55,.4],pulse:1.4,env:1.6,part:{kind:'spark',col:0xffd070,rate:2.4,size:.03,life:.9}}}
 };
 for(const [id,L] of Object.entries(LEGEND_WEAPONS)){
-  Object.assign(L,{id,cls:'Tek elli kılıç',rarity:'Efsanevi',grip:L.grip??.04,scale:L.scale??1,
+  Object.assign(L,{id,cls:L.cls||'Tek elli kılıç',rarity:'Efsanevi',grip:L.grip??.04,scale:L.scale??1,
     model:L.model||`models/weapons/${id}.glb.b64.txt`, icon:L.icon||`img/weapons/${id}.webp`});
-  registerItem(id,{name:L.name,img:'lw_'+id,icon:L.icon,slot:'weapon',kind:'kılıç',leg:true,reqLv:L.reqLv,desc:L.desc,
+  registerItem(id,{name:L.name,img:'lw_'+id,icon:L.icon,slot:'weapon',kind:L.kind||'kılıç',leg:true,reqLv:L.reqLv,desc:L.desc,
     info:()=>[`<span style="color:#ffb84a">${L.name}</span>`,`${L.cls} · <span style="color:#ffb84a">${L.rarity}</span> · Sv.${L.reqLv}${S.lvl<L.reqLv?' <span style="color:#f88">(seviyen yetmiyor)</span>':''}`,
       `Saldırı: ${L.atk} · Büyü saldırısı: ${L.mag}`,`Saldırı hızı: +${L.aspd} · Kritik: +%${L.crit}`,`<i style="color:#cdbb9a">${L.desc}</i>`]});
 }
