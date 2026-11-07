@@ -168,7 +168,7 @@ def allowed(g1, g2, z1, z2):
     if g1 == g2: return True
     pr = {g1, g2}
     if pr == {'torso', 'cloak'} or pr in ({'torso', 'legL'}, {'torso', 'legR'}): return True
-    if pr == {'head', 'torso'}: return True
+    if pr in ({'head', 'torso'}, {'head', 'cloak'}): return True
     if len(pr & {'armL', 'armR'}) == 1 and (pr - {'armL', 'armR'}) <= {'torso', 'cloak'} and len(pr) == 2: return min(z1, z2) > 104   # yalnız omuz hattında
     return False
 AL = np.array([allowed(GRP[i], GRP[j], z[i], z[j]) for i, j in E]); EA = E[AL]
@@ -202,6 +202,8 @@ for s_ in ('Left', 'Right'):
     CHILD[s_ + 'Hand'] = (s_ + 'HandTip', s_ + 'HandMiddle4')
 PAR = {SH[i]: (SH[b['p']] if b['p'] >= 0 else None) for i, b in enumerate(J['bones'])}
 D, M = {}, {}
+REG = float(os.environ.get('REG', '30'))   # dönüş/ölçek düzenlileştirme (yüksek = katıya yakın, eklem sapması artar)
+MAPMODE = os.environ.get('MAPMODE', 'old')   # 'new' (eklem-tutarlı afin) ölçümde daha iyi sonuç vermedi
 def aff(lin, src, dst):  # x -> dst + lin (x - src)
     A_ = np.eye(4); A_[:3, :3] = lin; A_[:3, 3] = dst - lin @ src; return A_
 for n in SH:                                                          # hero.json: ebeveyn her zaman önce gelir
@@ -209,9 +211,25 @@ for n in SH:                                                          # hero.jso
     if n in CHILD and n in JP:
         kc, hc = CHILD[n]; hv = HW[hc] - HW[n]; sv = JP[kc] - JP[n]
         D[n] = swing(Dp @ hv, sv) @ Dp
-        u = hv / np.linalg.norm(hv); f = float(np.clip((np.linalg.norm(sv) / np.linalg.norm(hv)) ** 0.5, 0.85, 1.2))   # boy farkının yarısı ölçekle, yarısı eklemde
-        M[n] = aff(D[n] @ (np.eye(3) + (f - 1) * np.outer(u, u)), HW[n], JP[n])
-        print(f'  {n:>14} boy oranı {np.linalg.norm(sv) / np.linalg.norm(hv):.2f}')
+        # eklem-tutarlı afin: kemiğin kendi eklemi ve BÜTÜN çocuk eklemleri tam oturur (dallanan omurga/leğen dahil),
+        # dönüş D'ye yakın tutulur. Komşu kemikler ortak eklemi aynı yere taşıdığı için iki kemiğe bağlı köşeler yırtılmaz.
+        if MAPMODE == 'old':
+            u = hv / np.linalg.norm(hv); f = float(np.clip((np.linalg.norm(sv) / np.linalg.norm(hv)) ** 0.5, 0.85, 1.2))
+            M[n] = aff(D[n] @ (np.eye(3) + (f - 1) * np.outer(u, u)), HW[n], JP[n]); continue
+        cons = [(HW[n], JP[n])] + [(HW[hc], JP[kc])]
+        for c_ in SH:
+            if PAR[c_] == n and c_ in JP and c_ != hc: cons.append((HW[c_], JP[c_]))
+        rows, rhs = [], []
+        for src, dst in cons:
+            for r_ in range(3):
+                e = np.zeros(12); e[r_ * 3:(r_ + 1) * 3] = src * 100; e[9 + r_] = 100; rows.append(e); rhs.append(dst[r_] * 100)
+        for r_ in range(3):
+            for c2 in range(3):
+                e = np.zeros(12); e[r_ * 3 + c2] = REG; rows.append(e); rhs.append(D[n][r_, c2] * REG)
+        sol = np.linalg.lstsq(np.array(rows), np.array(rhs), rcond=None)[0]
+        A_ = np.eye(4); A_[:3, :3] = sol[:9].reshape(3, 3); A_[:3, 3] = sol[9:]; M[n] = A_
+        err = max(np.linalg.norm(A_[:3, :3] @ s_ + A_[:3, 3] - d_) for s_, d_ in cons)
+        print(f'  {n:>14} boy oranı {np.linalg.norm(sv) / np.linalg.norm(hv):.2f}  eklem sapması {err:.2f} cm  çocuk {len(cons) - 1}')
     else:                                                             # parmaklar, uçlar: ebeveyne katı bağlı
         D[n] = Dp; M[n] = M[p_] if p_ else np.eye(4)
 INV = np.stack([HINV[n] @ np.linalg.inv(M[n]) for n in SH])
@@ -254,7 +272,36 @@ for _ in range(3):   # kumaş içinde yumuşat
     acc = np.zeros(NV); cnt = np.zeros(NV); m_ = CLOAK[EA[:, 0]] & CLOAK[EA[:, 1]]; e_ = EA[m_]
     np.add.at(acc, e_[:, 0], hang[e_[:, 1]]); np.add.at(acc, e_[:, 1], hang[e_[:, 0]]); np.add.at(cnt, e_[:, 0], 1); np.add.at(cnt, e_[:, 1], 1)
     hang = np.where(cnt > 0, 0.5 * hang + 0.5 * acc / np.maximum(cnt, 1), hang)
-CLOTHV = np.stack([hang, side], 1).astype(np.float32); GLOWV = halo.astype(np.float32)
+# ---- kumaş parçacık ızgarası: sütun = leğen ekseni etrafında açı (ön = 0), satır = sarkma (0 bağlantı .. 1 etek)
+CC, CR = 24, 14
+P3c = HW['Hips'] + G * (np.stack([x, z, -y], 1) - KS['Hips'])      # bağlama uzayı (savaşçı, cm)
+ang = np.arctan2(P3c[:, 0] - HW['Hips'][0], P3c[:, 2] - HW['Hips'][2])
+colf = ((ang + math.pi) / (2 * math.pi) * CC) % CC; rowf = hang * (CR - 1)
+free = np.where(CLOAK, np.clip((hang - 0.03) / 0.17, 0, 1) ** 2 * (3 - 2 * np.clip((hang - 0.03) / 0.17, 0, 1)), 0.0)
+acc = np.zeros((CC, CR, 3)); wsum = np.zeros((CC, CR))
+for i in np.nonzero(CLOAK)[0]:
+    c0 = int(colf[i]) % CC; c1 = (c0 + 1) % CC; fc = colf[i] - int(colf[i]); r0 = min(int(rowf[i]), CR - 1); r1 = min(r0 + 1, CR - 1); fr = rowf[i] - r0
+    for cc, wc in ((c0, 1 - fc), (c1, fc)):
+        for rr, wr in ((r0, 1 - fr), (r1, fr)):
+            acc[cc, rr] += wc * wr * P3c[i]; wsum[cc, rr] += wc * wr
+REST = np.where(wsum[..., None] > 1e-3, acc / np.maximum(wsum, 1e-9)[..., None], np.nan)
+for _ in range(200):   # boş hücreler komşulardan (açı sarmalı)
+    nanm = np.isnan(REST[..., 0])
+    if not nanm.any(): break
+    nb = np.stack([np.roll(REST, 1, 0), np.roll(REST, -1, 0), np.concatenate([REST[:, :1], REST[:, :-1]], 1), np.concatenate([REST[:, 1:], REST[:, -1:]], 1)])
+    avg = np.nanmean(np.where(np.isnan(nb), np.nan, nb), 0)
+    REST = np.where(nanm[..., None] & ~np.isnan(avg), avg, REST)
+LEGR = {}
+for part_, (a_, b_) in {'thigh': ('UpLeg', 'Leg'), 'shin': ('Leg', 'Foot'), 'foot': ('Foot', 'ToeBase')}.items():
+    ds = []
+    for sd_ in ('Left', 'Right'):
+        gm = (GRP == ('leg' + sd_[0])) & (np.array([str(q) for q in np.array(SH)[W.argmax(1)]]) == sd_ + a_)
+        if gm.any(): ds.append(segd(P3c[gm], JP[sd_ + a_], JP[sd_ + b_])[0])
+    LEGR[part_] = round(float(np.percentile(np.concatenate(ds), 95)) + 1.5, 1) if ds else 12.0   # zırhın dış yüzü (çıkıntılar dahil) + pay
+print('bacak zırhı yarıçapı (cm)', LEGR)
+CLOTHGRID = {'legR': LEGR, 'cols': CC, 'rows': CR, 'rest': np.round(REST, 2).reshape(-1, 3).tolist(), 'filled': (wsum.reshape(-1) > 1e-3).astype(int).tolist()}
+print('kumaş ızgarası', CC, 'x', CR, 'dolu hücre', int((wsum > 1e-3).sum()))
+CLOTHV = np.stack([colf, rowf, free], 1).astype(np.float32); GLOWV = halo.astype(np.float32)
 print('kumaş: sarkan köşe', int((hang > 0.05).sum()), 'hale köşesi', int(halo.sum()))
 def write_glb(path, name, mat, vids, tris):
     remap = np.full(NV, -1); remap[vids] = np.arange(len(vids))
@@ -264,7 +311,7 @@ def write_glb(path, name, mat, vids, tris):
         for k_, li in zip(TRI[t], TLOOP[t]):
             u_, v_ = LUV[li]; sk = (k_, TG[t]) if (k_, TG[t]) in SEAM else None; isc = TG[t] == 'cloak'; key = (k_, round(u_, 5), round(v_, 5), sk, isc)
             if key not in keys:
-                keys[key] = len(pos); pos.append(P3[k_]); nrm.append(N3[k_]); uv.append((u_, 1 - v_)); clv.append(CLOTHV[k_] if isc else (0.0, 0.0)); glv.append(GLOWV[k_])
+                keys[key] = len(pos); pos.append(P3[k_]); nrm.append(N3[k_]); uv.append((u_, 1 - v_)); clv.append(CLOTHV[k_] if isc else (0.0, 0.0, 0.0)); glv.append(GLOWV[k_])
                 if sk: wf = SEAM[sk]; oo = np.argsort(-wf)[:4]; wv = wf[oo] / wf[oo].sum(); jj.append(oo); ww.append(wv)
                 else: jj.append(order[k_]); ww.append(Wt[k_])
             idx.append(keys[key])
@@ -284,11 +331,11 @@ def write_glb(path, name, mat, vids, tris):
            {'bufferView': 4, 'componentType': 5126, 'count': len(pos), 'type': 'VEC4'},
            {'bufferView': 5, 'componentType': 5125, 'count': len(idx), 'type': 'SCALAR'},
            {'bufferView': 6, 'componentType': 5126, 'count': len(BN), 'type': 'MAT4'},
-           {'bufferView': 7, 'componentType': 5126, 'count': len(pos), 'type': 'VEC2'},
+           {'bufferView': 7, 'componentType': 5126, 'count': len(pos), 'type': 'VEC3'},
            {'bufferView': 8, 'componentType': 5126, 'count': len(pos), 'type': 'SCALAR'}]
     nodes = [{'name': name, 'mesh': 0, 'skin': 0}] + [{'name': n} for n in BN]
     gl = {'asset': {'version': '2.0', 'generator': 'VALKOR fit_static_armor'}, 'scene': 0, 'scenes': [{'nodes': list(range(len(nodes)))}], 'nodes': nodes,
-          'meshes': [{'name': name, 'primitives': [{'attributes': {'POSITION': 0, 'NORMAL': 1, 'TEXCOORD_0': 2, 'JOINTS_0': 3, 'WEIGHTS_0': 4, '_CLOTH': 7, '_GLOW': 8}, 'indices': 5, 'material': 0}]}],
+          'meshes': [{'name': name, 'extras': {'cloth': CLOTHGRID}, 'primitives': [{'attributes': {'POSITION': 0, 'NORMAL': 1, 'TEXCOORD_0': 2, 'JOINTS_0': 3, 'WEIGHTS_0': 4, '_CLOTH': 7, '_GLOW': 8}, 'indices': 5, 'material': 0}]}],
           'materials': [{'name': mat, 'pbrMetallicRoughness': {'metallicFactor': 1, 'roughnessFactor': 1}}],
           'skins': [{'joints': list(range(1, len(nodes))), 'inverseBindMatrices': 6}],
           'accessors': acc, 'bufferViews': views, 'buffers': [{'byteLength': len(bin_)}]}
