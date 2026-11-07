@@ -1044,10 +1044,14 @@ function iceAssets(){ if(ICEA) return ICEA;
   const mat=new THREE.MeshStandardMaterial({color:0xd6e8f4,map:crack,transparent:true,opacity:.6,roughness:.14,metalness:0,envMap:weaponEnv(),envMapIntensity:1.25,emissive:0x5a86ad,emissiveIntensity:.24,emissiveMap:crack,flatShading:true,depthWrite:false,side:THREE.DoubleSide,fog:false});
   const nova=new THREE.TextureLoader().load('img/fx/ice_nova.webp'); nova.colorSpace=THREE.SRGBColorSpace; nova.repeat.set(1/7,1/6);   // 7x6 kare sayfası (ilk 3 kare boş)
   ICEA={crack,frost,geos,mat,rs,nova}; return ICEA; }
-/* hazır buz patlaması (sprite sayfası): dünyada oyuncunun ayaklarına bağlı, kamera yönüne bakan tek sprite; 30 kare/sn, bir kez oynar */
+/* hazır buz patlaması (sprite sayfası): zemine yatık düz plaka (perspektifli elips dairesel zemine gerilir), oyuncuya bağlı; 30 kare/sn, bir kez oynar */
 function iceNovaFx(){ const IA=iceAssets(); const T=IA.nova; if(!T.image) return;
-  const mt=new THREE.SpriteMaterial({map:T,color:0xdbeaf5,transparent:true,opacity:.8,depthWrite:false,blending:THREE.AdditiveBlending,fog:false}); const sp=new THREE.Sprite(mt); const w=8.6*(1+(FXL-1)*.25); sp.scale.set(w,w*131/230,1); sp.center.set(.5,.5);
-  const NF=36; fxAdd(sp,NF/30,(e,k)=>{ const f=Math.min(NF-1,Math.floor(k*NF)), c=f%7, r=(f/7)|0; T.offset.set(c/7,1-(r+1)/6); mt.opacity=.72*(k<.08?k/.08:1)*(k<.3?.7:1)*(k>.8?1-(k-.8)/.2:1); },{mats:[mt],follow:()=>_tp.set(P.pos.x,P.pos.y+1.15,P.pos.z)}); }
+  const mt=new THREE.MeshBasicMaterial({map:T,color:0xdbeaf5,transparent:true,opacity:.8,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide,fog:false}); mt.polygonOffset=true; mt.polygonOffsetFactor=-4; mt.polygonOffsetUnits=-4;
+  mt.onBeforeCompile=sh=>{ sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying vec2 vEdge;').replace('#include <begin_vertex>','#include <begin_vertex>\nvEdge=uv;');   // plaka kenarlarında yumuşak sönme: kırpma çizgisi görünmesin
+    sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying vec2 vEdge;').replace('#include <opaque_fragment>','vec2 ed=min(vEdge,1.-vEdge); diffuseColor.a*=smoothstep(0.,.16,ed.x)*smoothstep(0.,.2,ed.y);\n#include <opaque_fragment>'); };
+  const pl=new THREE.Mesh(GEO.plane,mt), k0=1+(FXL-1)*.25; pl.scale.set(8.65*k0,1,8.73*k0); pl.renderOrder=2;
+  const NF=36; T.repeat.set(1/7,(84/131)/6);   // pencere: elipsin olduğu bant (kubbe üst sıçraması kırpılır)
+  fxAdd(pl,NF/30,(e,k)=>{ const f=Math.min(NF-1,Math.floor(k*NF)), c=f%7, r=(f/7)|0; T.offset.set(c/7,1-(r+1)/6+(17/131)/6); mt.opacity=.8*(k<.08?k/.08:1)*(k>.78?1-(k-.78)/.22:1); },{mats:[mt],follow:()=>_tp.set(P.pos.x,hAt(P.pos.x,P.pos.z)+.12,P.pos.z)}); }
 /* kristal: yükseklik h, genişlik w, yana yatma (lean, yön az) */
 function iceCrystal(mat,h,w,az,lean){ const IA=iceAssets(); const m=new THREE.Mesh(IA.geos[(IA.rs()*4)|0],mat); m.userData.h=h; m.userData.w=w; m.rotation.set(Math.sin(az)*lean,IA.rs()*6.283,-Math.cos(az)*lean); m.scale.set(.001,.001,.001); m.frustumCulled=false; return m; }
 const iceGrow=(m,k)=>{ k=Math.max(0,Math.min(1,k)); const e=1-Math.pow(1-k,3); m.scale.set(m.userData.w*e,m.userData.h*e,m.userData.w*e); };
