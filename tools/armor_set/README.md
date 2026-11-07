@@ -53,3 +53,10 @@ python3 -I render_glb_icon.py -- out/botlar.glb ikon/gunes_bot.webp out/tex/base
 - Kumaş ayrımı doku renginden (kızıl kumaş r/g > 2); çizmeler ve bacağa yapışık kayışlar renge bakılmadan bacağa, yumruktaki kabza sargısı ele bağlanır.
 - Kumaş leğene katı bağlıdır; köşe özniteliği `_cloth` = [sarkma, ön/arka]. Oyunda `clothMaterial()` köşe gölgelendiricisinde rüzgâr dalgası,
   koşuda arkaya savrulma ve bacak itme (ön etek bacağın önünde, arka pelerin arkasında) uygular; `_glow` hale köşelerini parlatır.
+
+### v3 (pelerin: yırtılma, zemin ve at)
+- Kaynak: kumaş köşeleri leğene katı bağlıydı, yalnız gölgelendiricide hesaplanan itmeyle (rüzgâr, bacak itme) oynatılıyordu; komşu köşeler
+  farklı miktarlarda itilince üçgenler gerilip "yırtık" gibi açılıyordu; zemin ve at hiç hesaba katılmıyordu.
+- Yeni: GLB `extras.cloth` = 24x14 kumaş ızgarası (sütun = leğen çevresinde açı, satır = sarkma) + bacak zırhı yarıçapları; köşede `_cloth` = [sütun, satır, serbestlik].
+  Oyunda ızgara dünya uzayında Verlet ile çözülür (yerçekimi, atalet, hafif rüzgâr, uzama sınırı, zemin, binicinin bacakları/çizmeleri,
+  atın gövde dilimleri ve uzuv kapsülleri); köşeler ızgara ofsetini çift doğrusal alır (komşular hep birlikte hareket eder → kopma yok).

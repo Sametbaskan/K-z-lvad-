@@ -1488,49 +1488,130 @@ function armorMat(mt,set){ const key=set+'|'+mt.name; let m=ARMOR.mats[key]; if(
   const T=ARMOR_SETS[set]&&ARMOR_SETS[set].tex;
   if(T&&mt.name===set){ const tl=new THREE.TextureLoader(), ld=(u,srgb)=>{ const t=tl.load(u); t.flipY=false; if(srgb) t.colorSpace=THREE.SRGBColorSpace; t.anisotropy=4; return t; };
     const mr=ld(T.mr,false); m=new THREE.MeshStandardMaterial({map:ld(T.base,true),normalMap:ld(T.normal,false),roughnessMap:mr,metalnessMap:mr,metalness:1,roughness:1,envMap:weaponEnv(),envMapIntensity:.7}); m.name=key;
-    if(ARMOR_SETS[set].cloth) clothMaterial(m,ARMOR_SETS[set].glow||0xffb040); }
+  }
   else { m=mt; m.envMap=weaponEnv(); m.envMapIntensity=.55; m.side=THREE.DoubleSide; m.needsUpdate=true; }
   ARMOR.mats[key]=m; return m; }
-/* ===== kumaş: GPU'da rüzgâr + koşu savrulması + bacak itme =====
-   Pelerin/etek köşeleri leğene katı bağlıdır; _cloth=[sarkma 0..1, yön +1 ön/-1 arka]. Her karede bacak eklemleri (kalça, diz, bilek, parmak)
-   zırhın bağlama uzayına çevrilip uLeg ile gönderilir; ön kumaş bacağın önünde, arka kumaş arkasında kalacak kadar itilir (bacak kumaşı delmez).
-   _glow: hale köşeleri altın nabızla parlar. Ek maliyet: köşe başına birkaç işlem, ek çizim çağrısı yok. */
-const CLOTH={u:null,speed:0,last:null};
-function clothMaterial(m,glow){ const U={uTime:{value:0},uSpeed:{value:0},uLeg:{value:Array.from({length:8},()=>new THREE.Vector3(0,-999,0))},uGlow:{value:.35},uGlowCol:{value:new THREE.Color(glow)}};
+/* ===== kumaş: hafif parçacık ızgarası (Verlet) + gölgelendiricide yumuşak yer değiştirme =====
+   Pelerin/etek köşeleri leğene katı bağlıdır. GLB'deki ızgara (sütun = leğen çevresinde açı, satır = sarkma) dünya uzayında simüle edilir:
+   yerçekimi, atalet (koşunca geriye savrulur), hafif rüzgâr, tasarım şekline geri çekme, satır/sütun mesafe kısıtları (uzama sınırı);
+   çarpışma: zemin, binicinin bacakları ve binili iken atın gövdesi/sağrısı/boynu/bacakları (kapsüller).
+   Her köşe kendi (sütun, satır) noktasındaki ızgara ofsetini çift doğrusal karışımla alır (_cloth.z = serbestlik, bağlantıda 0) → kumaş kopmaz;
+   ayrıca köşe düzeyinde aynı kapsüllere ve zemine karşı itilir. Maliyet: 140 parçacık / kare (CPU), köşe başına birkaç kapsül testi. */
+const CLOTH={on:false,u:null,speed:0,last:null,mesh:null,p:null,pp:null,T:null,grid:null,k:new THREE.Matrix4(),ki:new THREE.Matrix4(),t:0,dbg:null};
+const NCAP=32;
+/* atın çarpışma kapsülleri modelin kendisinden: her kemiğe baskın bağlı köşeler kemiğin bağlama uzayında toplanır,
+   ana eksen boyunca %4–%96 uçlar ve %90 dik yarıçap → kemikle birlikte hareket eden kapsül (bir kez hesaplanır) */
+const HORSE_LIMB_BONES=['calf_L','calf_R','foot_L','foot_R','forearm_L','forearm_R','hand_L','hand_R','neck_01','neck_02','tail_01'];
+const HORSE_TRUNK_BONES=['pelvis','spine_01','spine_02','spine_03','scapula_L','scapula_R','thigh_L','thigh_R','upperarm_L','upperarm_R'];
+function horseCaps(){ if(MOUNT.capFit!==undefined) return MOUNT.capFit; const fit=[]; MOUNT.capFit=fit; const v=new THREE.Vector3(), q=new THREE.Vector3();
+  MOUNT.o.traverse(o=>{ if(!o.isSkinnedMesh) return; const g=o.geometry, P=g.attributes.position, SI=g.attributes.skinIndex, SW=g.attributes.skinWeight, sk=o.skeleton, by=new Map(), trunk=[];
+    const bindPos=nm=>{ const i=sk.bones.findIndex(b=>b.name===nm); return i<0?null:new THREE.Vector3().applyMatrix4(new THREE.Matrix4().copy(sk.boneInverses[i]).invert()); };
+    for(let i=0;i<P.count;i++){ let b=0,bw=-1; for(let c=0;c<4;c++){ const w=SW.getComponent(i,c); if(w>bw){ bw=w; b=SI.getComponent(i,c); } } const nm=sk.bones[b].name;
+      v.fromBufferAttribute(P,i).applyMatrix4(o.bindMatrix);
+      if(HORSE_TRUNK_BONES.includes(nm)) trunk.push([v.x,v.y,v.z,b]);
+      if(HORSE_LIMB_BONES.includes(nm)&&bw>=.45){ if(!by.has(b)) by.set(b,[]); by.get(b).push(v.clone().applyMatrix4(sk.boneInverses[b]).toArray()); } }
+    // uzuvlar: kemik uzayında ana eksen kapsülü
+    for(const [b,pts] of by){ if(pts.length<25) continue; const n=pts.length, c=[0,0,0]; for(const p of pts) for(let k=0;k<3;k++) c[k]+=p[k]/n;
+      const Cv=[[0,0,0],[0,0,0],[0,0,0]]; for(const p of pts) for(let a=0;a<3;a++) for(let bb=0;bb<3;bb++) Cv[a][bb]+=(p[a]-c[a])*(p[bb]-c[bb]);
+      const ax=new THREE.Vector3(1,1,1).normalize(); for(let it=0;it<30;it++){ const x=[0,1,2].map(a=>Cv[a][0]*ax.x+Cv[a][1]*ax.y+Cv[a][2]*ax.z); ax.set(x[0],x[1],x[2]).normalize(); }
+      const ts=[], rs=[], cv=new THREE.Vector3(...c); for(const p of pts){ q.set(p[0]-c[0],p[1]-c[1],p[2]-c[2]); const t=q.dot(ax); ts.push(t); rs.push(q.addScaledVector(ax,-t).length()); }
+      ts.sort((a,b)=>a-b); rs.sort((a,b)=>a-b); const r=rs[Math.floor(rs.length*.9)], t0=ts[Math.floor(ts.length*.04)], t1=ts[Math.floor(ts.length*.96)], sh=Math.max(0,Math.min(r,(t1-t0)/2)*.9);
+      fit.push({bone:sk.bones[b],a:cv.clone().addScaledVector(ax,t0+sh),b:cv.clone().addScaledVector(ax,t1-sh),r:r*1.04}); }
+    // gövde: ön-arka eksende 12 cm dilimler, her dilime genişlik = yarıçap olan dik kapsül (elips kesite yakın "stadyum")
+    const pv=bindPos('pelvis'), nk=bindPos('neck_01'); if(!pv||!nk||trunk.length<50) return;
+    const fw=nk.clone().sub(pv); fw.y=0; fw.normalize(); const up=new THREE.Vector3(0,1,0), sd=new THREE.Vector3().crossVectors(fw,up).normalize();
+    const backTop=Math.max(...['pelvis','spine_01','spine_02','spine_03'].map(n=>{ const q2=bindPos(n); return q2?q2.y:-1e9; }))+.09;
+    let tmin=1e9,tmax=-1e9; for(const p of trunk){ const t=(p[0]-pv.x)*fw.x+(p[2]-pv.z)*fw.z; tmin=Math.min(tmin,t); tmax=Math.max(tmax,t); }
+    for(let t=tmin+.06;t<tmax-.03;t+=.12){ const sl=trunk.filter(p=>Math.abs((p[0]-pv.x)*fw.x+(p[2]-pv.z)*fw.z-t)<.07); if(sl.length<30) continue;
+      const lat=sl.map(p=>(p[0]-pv.x)*sd.x+(p[2]-pv.z)*sd.z).sort((a,b)=>a-b), ys=sl.map(p=>p[1]).sort((a,b)=>a-b);
+      const lc=(lat[Math.floor(lat.length*.03)]+lat[Math.floor(lat.length*.97)])/2, rx=(lat[Math.floor(lat.length*.97)]-lat[Math.floor(lat.length*.03)])/2;
+      const ylo=ys[Math.floor(ys.length*.04)], yhi=ys[Math.floor(ys.length*.97)];
+      const cnt=new Map(); for(const p of sl) cnt.set(p[3],(cnt.get(p[3])||0)+1); const bi=[...cnt].sort((a,b)=>b[1]-a[1])[0][0];
+      const base=pv.clone().addScaledVector(fw,t).addScaledVector(sd,lc); base.y=0;
+      const A=base.clone(), B=base.clone(); A.y=Math.min(ylo+rx,(ylo+yhi)/2); B.y=Math.max(yhi-rx,(ylo+yhi)/2);
+      fit.push({bone:sk.bones[bi],a:A.applyMatrix4(sk.boneInverses[bi]),b:B.applyMatrix4(sk.boneInverses[bi]),r:rx*1.03,trunk:true}); } });
+  console.info('[Kumaş] at kapsülleri: '+fit.length+' (gövde dilimi '+fit.filter(f=>f.trunk).length+')'); return fit; }
+function clothMaterial(m,glow,grid){ if(m.userData.clothReady) return; m.userData.clothReady=true; const C=grid.cols,R=grid.rows;
+  const offTex=new THREE.DataTexture(new Float32Array(C*R*4),C,R,THREE.RGBAFormat,THREE.FloatType); offTex.magFilter=offTex.minFilter=THREE.NearestFilter; offTex.needsUpdate=true;   // ızgara ofsetleri dokuda (uniform sınırına takılmaz)
+  const U={uOffTex:{value:offTex},uCapA:{value:Array.from({length:NCAP},()=>new THREE.Vector4(0,0,0,0))},uCapB:{value:Array.from({length:NCAP},()=>new THREE.Vector3())},
+    uGround:{value:new THREE.Vector4(0,1,0,1e5)},uMount:{value:0},uGlow:{value:.35},uGlowCol:{value:new THREE.Color(glow)}};
   CLOTH.u=U;
   m.onBeforeCompile=sh=>{ Object.assign(sh.uniforms,U);
     sh.vertexShader=sh.vertexShader.replace('#include <common>',`#include <common>
-attribute vec2 _cloth; attribute float _glow; varying float vGlow; uniform float uTime; uniform float uSpeed; uniform vec3 uLeg[8];
-float legZ(int L,float y,out float lx,out float zmin){ float zmax=-1e4; zmin=1e4; lx=0.; bool hit=false;
-  for(int i=0;i<3;i++){ vec3 P=uLeg[L*4+i], Q=uLeg[L*4+i+1]; float lo=min(P.y,Q.y), hi=max(P.y,Q.y);
-    if(y>=lo&&y<=hi&&hi-lo>.01){ float t=(y-P.y)/(Q.y-P.y); float zz=mix(P.z,Q.z,t); zmax=max(zmax,zz); zmin=min(zmin,zz); lx=mix(P.x,Q.x,t); hit=true; } }
-  if(!hit){ float bot=min(min(uLeg[L*4+2].y,uLeg[L*4+3].y),uLeg[L*4+1].y); if(y<bot){ zmax=max(uLeg[L*4+2].z,uLeg[L*4+3].z); zmin=min(uLeg[L*4+2].z,uLeg[L*4+3].z); lx=uLeg[L*4+2].x; hit=true; } }
-  return hit?zmax:-1e4; }`).replace('#include <begin_vertex>',`#include <begin_vertex>
+#define CCOLS ${C}
+#define CROWS ${R}
+#define NCAP ${NCAP}
+attribute vec3 _cloth; attribute float _glow; varying float vGlow;
+uniform sampler2D uOffTex; uniform vec4 uCapA[NCAP]; uniform vec3 uCapB[NCAP]; uniform vec4 uGround; uniform float uMount;
+vec3 offAt(int c,int r){ return texture2D(uOffTex,vec2((float(c)+.5)/float(CCOLS),(float(r)+.5)/float(CROWS))).xyz; }
+vec3 clothOff(vec2 cr){ int c0=int(floor(cr.x)); float fc=cr.x-float(c0); if(c0>=CCOLS) c0-=CCOLS; if(c0<0) c0+=CCOLS; int c1=c0+1; if(c1>=CCOLS) c1=0;
+  int r0=int(floor(cr.y)); if(r0>CROWS-1) r0=CROWS-1; if(r0<0) r0=0; int r1=r0+1; if(r1>CROWS-1) r1=CROWS-1; float fr=clamp(cr.y-float(r0),0.,1.);
+  vec3 a=mix(offAt(c0,r0),offAt(c0,r1),fr), b=mix(offAt(c1,r0),offAt(c1,r1),fr); return mix(a,b,fc); }`).replace('#include <begin_vertex>',`#include <begin_vertex>
 vGlow=_glow;
-if(_cloth.x>.001){ float h=_cloth.x, sd=_cloth.y, hh=h*h;
-  float w=sin(uTime*1.7+transformed.y*.045+transformed.x*.06)*.6+sin(uTime*2.9+transformed.x*.11+transformed.y*.02)*.4;
-  float back=step(sd,0.)+.35*step(0.,sd)*(1.-step(sd,0.));
-  transformed.z-=hh*(2.+uSpeed*16.+w*(1.6+uSpeed*3.))*back;
-  transformed.x+=sin(uTime*1.2+transformed.y*.05)*.9*hh;
-  transformed.y+=hh*uSpeed*4.*back;
-  for(int L=0;L<2;L++){ float lx, zmin; float zmax=legZ(L,transformed.y,lx,zmin); if(zmax<-1e3) continue;
-    float wx=1.-smoothstep(9.,20.,abs(transformed.x-lx));
-    if(sd>0.){ float need=(zmax+13.)-transformed.z; transformed.z+=max(need,0.)*wx*min(1.,sd*2.); }
-    else { float need=transformed.z-(zmin-13.); transformed.z-=max(need,0.)*wx*min(1.,-sd*2.); } } }`);
+if(_cloth.z>0.001){ transformed+=clothOff(_cloth.xy)*_cloth.z;
+  float ang=_cloth.x/float(CCOLS)*6.2831853-3.1415927; vec3 bias=normalize(vec3(sin(ang)*1.2,0.55,0.));   // binili: yan sütunlar kendi böğrüne, ön/arka üstten aşar
+  for(int i=0;i<NCAP;i++){ vec4 A=uCapA[i]; if(A.w<=0.) continue; vec3 ab=uCapB[i]-A.xyz; float t=clamp(dot(transformed-A.xyz,ab)/max(dot(ab,ab),1e-4),0.,1.);
+    vec3 c=A.xyz+ab*t; vec3 q=transformed-c; float L=length(q); if(L<A.w){ vec3 n0=L>1e-3?q/L:vec3(0.,0.,-1.);
+      vec3 n=normalize(mix(n0,normalize(n0*.35+bias),uMount)); float b=dot(q,n); float sx=-b+sqrt(max(b*b-(L*L-A.w*A.w),0.));
+      transformed=transformed+n*min(sx,12.)*_cloth.z; } }   // en fazla 12 cm: derin temas parçacık ızgarasıyla çözülür, kumaş kırılmaz
+  float gd=dot(uGround.xyz,transformed)+uGround.w; if(gd<0.) transformed-=uGround.xyz*gd*_cloth.z; }`);
     sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying float vGlow; uniform float uGlow; uniform vec3 uGlowCol;')
       .replace('#include <emissivemap_fragment>','#include <emissivemap_fragment>\ntotalEmissiveRadiance+=diffuseColor.rgb*uGlowCol*vGlow*uGlow*2.;'); };
-  m.customProgramCacheKey=()=>'armorCloth'; m.needsUpdate=true; }
-const _clM=new THREE.Matrix4(), _clV=new THREE.Vector3();
-function updateArmorCloth(dt){ const U=CLOTH.u; if(!U) return; let mesh=null; for(const k in ARMOR.on) for(const m of ARMOR.on[k]) if(m.userData.cloth) mesh=m; if(!mesh) return;
-  U.uTime.value+=dt; U.uGlow.value=.3+.12*Math.sin(U.uTime.value*1.8);
-  // hız: oyuncunun yer değiştirmesi (önizlemede 0)
-  const p=playerGroup.position; if(CLOTH.last&&dt>0){ const v=Math.hypot(p.x-CLOTH.last.x,p.z-CLOTH.last.z)/dt; CLOTH.speed+=(Math.min(1,v/6)-CLOTH.speed)*Math.min(1,dt*4); } CLOTH.last=(CLOTH.last||new THREE.Vector3()).copy(p);
-  if(started&&P.anim==='jog') CLOTH.speed=Math.max(CLOTH.speed,.6*Math.min(1,(actions.jog?actions.jog.getEffectiveWeight():1)));
-  U.uSpeed.value=CLOTH.speed;
-  // bacak eklemleri -> zırhın bağlama uzayı (leğen kemiğine göre): p = (Hips.world · Inv_hips · bind)^-1 · dünya
+  m.customProgramCacheKey=()=>'armorCloth'+C+'x'+R+'n'+NCAP; m.needsUpdate=true; }
+const _clA=new THREE.Vector3(), _clB=new THREE.Vector3(), _clV=new THREE.Vector3(), _clW=new THREE.Vector3(), _clM=new THREE.Matrix4(), _clQ=new THREE.Vector3();
+function clothCaps(){ // dünya uzayında kapsüller: [a, b, r]
+  const caps=[], v=k=>{ const b=bones[k]; return b?b.getWorldPosition(new THREE.Vector3()):null; }, s=CLOTH.s, LR=CLOTH.grid.legR||{thigh:10,shin:10};
+  for(const sd of ['Left','Right']){ const a=v(sd+'UpLeg'),b=v(sd+'Leg'),c=v(sd+'Foot'),d=v(sd+'ToeBase'); if(a&&b) caps.push([a,b,LR.thigh*s]); if(b&&c) caps.push([b,c,LR.shin*s]); if(c&&d) caps.push([c.clone().addScaledVector(d.clone().sub(c),-.45),d,(LR.foot||9)*s]); }   // çizme (topuk dahil: bileğin arkasına uzar) pelerini delmesin
+  if(MOUNT.ready&&MOUNT.blend>.02&&MOUNT.o){ const e=Math.min(1,MOUNT.blend*1.5);
+    for(const f of horseCaps()){ const M=f.bone.matrixWorld, sc=new THREE.Vector3().setFromMatrixColumn(M,0).length();
+      caps.push([f.a.clone().applyMatrix4(M),f.b.clone().applyMatrix4(M),(f.r*sc+.015)*e]); } }
+  return caps; }
+function updateArmorCloth(dt){ const U=CLOTH.u; let mesh=null; for(const k in ARMOR.on) for(const m of ARMOR.on[k]) if(m.userData.clothGrid) mesh=m;
+  if(!mesh||!U){ CLOTH.mesh=null; return; }
+  const grid=mesh.userData.clothGrid, C=grid.cols, R=grid.rows, N=C*R;
+  if(CLOTH.mesh!==mesh){ CLOTH.mesh=mesh; CLOTH.grid=grid; CLOTH.p=null; CLOTH.rest=grid.rest.map(a=>new THREE.Vector3(a[0],a[1],a[2])); }
+  CLOTH.t+=dt; U.uGlow.value=.3+.12*Math.sin(CLOTH.t*1.8);
+  // K: bağlama uzayı (leğene katı köşeler) -> dünya
   const sk=mesh.skeleton, hi=mesh.userData.hipsIdx; if(hi<0) return;
-  _clM.multiplyMatrices(sk.bones[hi].matrixWorld,sk.boneInverses[hi]).multiply(mesh.bindMatrix).invert();
-  let i=0; for(const s of ['Left','Right']) for(const n of ['UpLeg','Leg','Foot','ToeBase']){ const b=bones[s+n]; if(b){ b.getWorldPosition(_clV); U.uLeg.value[i].copy(_clV.applyMatrix4(_clM)); } i++; } }
+  mesh.updateMatrixWorld(); CLOTH.k.copy(mesh.matrixWorld).multiply(mesh.bindMatrixInverse).multiply(_clM.multiplyMatrices(sk.bones[hi].matrixWorld,sk.boneInverses[hi])).multiply(mesh.bindMatrix);
+  CLOTH.ki.copy(CLOTH.k).invert(); const s=CLOTH.s=new THREE.Vector3().setFromMatrixColumn(CLOTH.k,0).length();
+  const mb=MOUNT.ready?Math.max(0,Math.min(1,(MOUNT.blend-.15)/.6)):0; U.uMount.value=mb;
+  if(!CLOTH.bias||CLOTH.bias.length!==C){ CLOTH.bias=Array.from({length:C},(_,c)=>{ const a=(c+.5)/C*Math.PI*2-Math.PI; return new THREE.Vector3(Math.sin(a)*1.2,.55,0).normalize(); }); }
+  const BW=CLOTH.bw=CLOTH.bw||Array.from({length:C},()=>new THREE.Vector3()); for(let c=0;c<C;c++) BW[c].copy(CLOTH.bias[c]).transformDirection(CLOTH.k);
+  const T=CLOTH.T=CLOTH.T||Array.from({length:N},()=>new THREE.Vector3()); for(let i=0;i<N;i++) T[i].copy(CLOTH.rest[i]).applyMatrix4(CLOTH.k);
+  if(!CLOTH.p||dt<=0&&!CLOTH.p){ CLOTH.p=T.map(v=>v.clone()); CLOTH.pp=T.map(v=>v.clone()); }
+  const p=CLOTH.p, pp=CLOTH.pp, caps=clothCaps(), mounted=MOUNT.ready&&MOUNT.blend>.02;
+  const gx=playerGroup.position.x, gz=playerGroup.position.z, H0=hAt(gx,gz), dhx=(hAt(gx+.6,gz)-hAt(gx-.6,gz))/1.2, dhz=(hAt(gx,gz+.6)-hAt(gx,gz-.6))/1.2;
+  const gY=H0+.025, gN=_clW.set(-dhx,1,-dhz).normalize().clone();   // eğimli zemin düzlemi (ölümde yere yatan pelerin yokuşa gömülmesin)
+  const groundAt=(x,z)=>H0+dhx*(x-gx)+dhz*(z-gz)+.025;
+  // sabit adım (mobilde kare süresi oynasa da kararlı)
+  const h=1/60; CLOTH.acc=Math.min(.1,(CLOTH.acc||0)+Math.max(0,dt)); let steps=0;
+  const gust=Math.sin(CLOTH.t*1.3)*.5+Math.sin(CLOTH.t*2.7+1.)*.3;
+  const fwd=_clW.set(0,0,1).applyQuaternion(playerGroup.quaternion);
+  while(CLOTH.acc>=h&&steps<4){ CLOTH.acc-=h; steps++;
+    for(let i=0;i<N;i++){ const r=i%R; if(r===0){ pp[i].copy(p[i]); p[i].copy(T[i]); continue; }
+      const q=p[i], o=pp[i]; _clV.subVectors(q,o).multiplyScalar(mounted?.9:.93); o.copy(q); q.add(_clV);
+      q.y-=9.8*h*h*(mounted?1:.55); const wk=(mounted?.25:1)*(r/(R-1)); q.addScaledVector(fwd,-(.00045+.00035*gust)*wk); q.x+=Math.sin(CLOTH.t*1.1+i*.37)*.00012*wk;
+      const rr=r/(R-1), st=mounted?(rr<.12?.3:.004):.06+(1-rr)*.25; q.lerp(T[i],st); }   // binili: alt satırlar serbest (ata örtünür, tasarım şekline geri çekilip ata gömülmez)
+    for(let it=0;it<(mounted?6:3);it++){
+      for(let c=0;c<C;c++) for(let r=1;r<R;r++){ const i=c*R+r, j=i-1; const L0=CLOTH.rest[i].distanceTo(CLOTH.rest[j])*s; _clV.subVectors(p[i],p[j]); const L=_clV.length();
+        if(L>L0*1.04){ _clV.multiplyScalar((L-L0*1.04)/L); if(r-1===0) p[i].sub(_clV); else { p[i].addScaledVector(_clV,-.5); p[j].addScaledVector(_clV,.5); } } }
+      for(let r=1;r<R;r++) for(let c=0;c<C;c++){ const i=c*R+r, j=((c+1)%C)*R+r; const L0=CLOTH.rest[i].distanceTo(CLOTH.rest[j])*s; _clV.subVectors(p[i],p[j]); const L=_clV.length();
+        if(L>L0*1.15){ _clV.multiplyScalar((L-L0*1.15)/L); p[i].addScaledVector(_clV,-.5); p[j].addScaledVector(_clV,.5); } }
+      const last=mounted||it===2;
+      for(let i=0;i<N;i++){ if(i%R===0) continue; const q=p[i];
+        _clV.subVectors(q,T[i]); const mx=.42*(i%R)/(R-1)+.05; if(_clV.length()>mx) q.copy(T[i]).add(_clV.setLength(mx));
+        const bw=BW[Math.floor(i/R)];
+        if(last) for(const [a,b,rad] of caps){ _clA.subVectors(b,a); const tt=Math.max(0,Math.min(1,_clQ.subVectors(q,a).dot(_clA)/Math.max(_clA.lengthSq(),1e-6))); _clB.copy(a).addScaledVector(_clA,tt); _clV.subVectors(q,_clB); const L=_clV.length();
+          if(L<rad){ const n0=L>1e-5?_clV.clone().divideScalar(L):_clW.set(0,0,-1).clone(); const nn=n0.clone().lerp(n0.clone().multiplyScalar(.35).add(bw).normalize(),mb).normalize();
+            const bb=_clV.dot(nn), sx=-bb+Math.sqrt(Math.max(bb*bb-(L*L-rad*rad),0)); q.addScaledVector(nn,sx); } }
+        const gq=groundAt(q.x,q.z); if(q.y<gq) q.y=gq; } } }
+  // ofsetler (bağlama uzayı) + çarpışma kapsülleri / zemin düzlemi gölgelendiriciye
+  const OT=U.uOffTex.value, od=OT.image.data, OF=CLOTH.off=CLOTH.off&&CLOTH.off.length===N?CLOTH.off:Array.from({length:N},()=>new THREE.Vector3());
+  for(let i=0;i<N;i++){ OF[i].copy(p[i]).applyMatrix4(CLOTH.ki).sub(CLOTH.rest[i]); const c=Math.floor(i/R), r=i%R, t=(r*C+c)*4; od[t]=OF[i].x; od[t+1]=OF[i].y; od[t+2]=OF[i].z; } OT.needsUpdate=true;
+  for(let k=0;k<NCAP;k++){ const c=caps[k]; if(!c){ U.uCapA.value[k].w=0; continue; } _clA.copy(c[0]).applyMatrix4(CLOTH.ki); _clB.copy(c[1]).applyMatrix4(CLOTH.ki); U.uCapA.value[k].set(_clA.x,_clA.y,_clA.z,c[2]/s); U.uCapB.value[k].copy(_clB); }
+  _clA.set(gx,gY,gz).applyMatrix4(CLOTH.ki); _clB.copy(gN).transformDirection(CLOTH.ki);
+  U.uGround.value.set(_clB.x,_clB.y,_clB.z,-_clB.dot(_clA)); }
 /* gövde gizleme: takılı parçaların kapattığı kemik bölgelerindeki gövde üçgenleri çizilmez (zırhın içinden taşmasın) */
 function armorBody(){ let hide=new Set(); for(const k in ARMOR.on){ const p=ARMOR_PIECES[k.split('/')[1]]; if(p) p.hide.forEach(h=>hide.add(h)); }
   const sig=[...hide].sort().join(','); if(sig===ARMOR.bodySig) return; ARMOR.bodySig=sig;
@@ -1549,7 +1630,7 @@ function attachArmor(k){ let hs=null; model.traverse(o=>{ if(!hs&&o.isSkinnedMes
       const mats=(Array.isArray(o.material)?o.material:[o.material]).map(mt=>armorMat(mt,set));
       const m=new THREE.SkinnedMesh(o.geometry.clone(),mats.length>1?mats:mats[0]); m.name='armor:'+k; m.userData.armor=k; m.frustumCulled=false; m.castShadow=true;
       hs.parent.add(m); m.bind(new THREE.Skeleton(bones,o.skeleton.boneInverses.map(x=>x.clone())),hs.bindMatrix.clone()); list.push(m);   // kendi duruşunda bağlı: tek karışım
-      if(ARMOR_SETS[set].cloth){ m.userData.cloth=true; m.userData.hipsIdx=bones.findIndex(b=>/Hips$/.test(b.name)); }
+      const cg=o.userData&&o.userData.cloth; if(ARMOR_SETS[set].cloth&&cg){ m.userData.clothGrid=cg; m.userData.hipsIdx=bones.findIndex(b=>/Hips$/.test(b.name)); clothMaterial(mats[0],ARMOR_SETS[set].glow||0xffb040,cg); CLOTH.p=null; }
       return; }
     const g=o.geometry.clone(), si=g.attributes.skinIndex, map=o.skeleton.bones.map(b=>idx.has(b.name)?idx.get(b.name):-1);
     if(map.includes(-1)) console.warn('[Zırh] '+k+': eşleşmeyen kemik var');
@@ -3583,7 +3664,7 @@ async function boot(){
     initMapUI(); initVillageMap(); setAtmos('village'); try{ warmFx(); }catch(e){ console.warn('[Efekt] ısınma atlandı',e); } setP(100);
     myTag=document.createElement('div'); myTag.className='pn'; $('pops').appendChild(myTag);
     $('loading').classList.add('hidden'); mountAuthUI();
-    window.__game={enterGame,MAPS,keys,useSlot,killPlayer,respawnPlayer,DEATH,drawMini,updateHUD2:()=>{},lakeE,LAKE_B,LAKE_WL,FROG_SPOTS,CROC_SPOTS,hForest,placePlayer,spawnMob,respawn,fxAttack,fxDeath,get LAKE_STATS(){return LAKE_STATS},get LAKE_MOBS(){return LAKE_MOBS},get CROC(){return CROC},CORE,rankOf,rankReward,grantRank,plateHTML,refreshPlate,RANKS,RANK_REWARD,get plateKey(){return plateKey},get myTag(){return myTag},TYPES,guards,updateGuards,addTime:d=>{time+=d},get ATK_HOLD(){return ATK_HOLD},equipWeaponModel,WMODELS,get sword(){return sword},charPreview,CLOTH,updateArmorCloth,ARMOR,ARMOR_ITEMS,syncArmor,armorDef,defPow,LEGEND_WEAPONS,legEq,LGLB,LFAIL,loadLegend,get SWKEY(){return SWKEY},weapName,wCrit,critCh,buyLegend,SWCFG,refreshWins,updateSmith,upgradeWeapon,buyStone,fixWeapon,WLV,swRoll,wAtk,wMag,aspd,swEq,applySwordLook,updateSwordFx,SEAT,yawFix,get FOREST_STATS(){return FOREST_STATS},zoneAt,updateMount,groundFix,get GOFF(){return GOFF},get S(){return S},ITEMS,EQS,registerItem,addItem,moveItem,initInv,addStat,resetStats,qOf,expNeed,get PLANT_SETS(){return PLANT_SETS},renderMenu,setTab,toggleWin,closeWins,skillUp,skPoints,skL,skv,skStats,saveGame,loadGame,renderSkillWin,gainExp,updatePlayer,updateMobs,updateProjectiles,updateSkills,updateCamera,updateHUD,SKD,SLOT_DEF,SK,cds,fx2,pt2,sched,projectiles,SHAKE,clearSkillFx,MAPS,TRAVEL,travelTo,get MAP(){return MAP;},get obstacles(){return obstacles;},get MAP(){return MAP;},get renderer(){return renderer;},npcs,vRoadD,MAPS,hAt,get HAS3(){return HAS3;},get A3META(){return A3META;},damagePlayer,get COMBO(){return COMBO;},horseRear,horseAnim,playerHit,killMob,fxPlay,fxStep,get FROG2(){return FROG2;},MOUNT,toggleMount,get mixer(){return mixer},rotW,overlayPose,S,P,mobs,cam,actions,bones,setAnim,useSlot,clickAt,THREE,scene,camera,renderer,model,get tIdle(){return tIdle;},get TURN_DELTA(){return TURN_DELTA;}};
+    window.__game={enterGame,MAPS,keys,useSlot,killPlayer,respawnPlayer,DEATH,drawMini,updateHUD2:()=>{},lakeE,LAKE_B,LAKE_WL,FROG_SPOTS,CROC_SPOTS,hForest,placePlayer,spawnMob,respawn,fxAttack,fxDeath,get LAKE_STATS(){return LAKE_STATS},get LAKE_MOBS(){return LAKE_MOBS},get CROC(){return CROC},CORE,rankOf,rankReward,grantRank,plateHTML,refreshPlate,RANKS,RANK_REWARD,get plateKey(){return plateKey},get myTag(){return myTag},TYPES,guards,updateGuards,addTime:d=>{time+=d},get ATK_HOLD(){return ATK_HOLD},equipWeaponModel,WMODELS,get sword(){return sword},charPreview,CLOTH,updateArmorCloth,horseCaps,clothCaps,ARMOR,ARMOR_ITEMS,syncArmor,armorDef,defPow,LEGEND_WEAPONS,legEq,LGLB,LFAIL,loadLegend,get SWKEY(){return SWKEY},weapName,wCrit,critCh,buyLegend,SWCFG,refreshWins,updateSmith,upgradeWeapon,buyStone,fixWeapon,WLV,swRoll,wAtk,wMag,aspd,swEq,applySwordLook,updateSwordFx,SEAT,yawFix,get FOREST_STATS(){return FOREST_STATS},zoneAt,updateMount,groundFix,get GOFF(){return GOFF},get S(){return S},ITEMS,EQS,registerItem,addItem,moveItem,initInv,addStat,resetStats,qOf,expNeed,get PLANT_SETS(){return PLANT_SETS},renderMenu,setTab,toggleWin,closeWins,skillUp,skPoints,skL,skv,skStats,saveGame,loadGame,renderSkillWin,gainExp,updatePlayer,updateMobs,updateProjectiles,updateSkills,updateCamera,updateHUD,SKD,SLOT_DEF,SK,cds,fx2,pt2,sched,projectiles,SHAKE,clearSkillFx,MAPS,TRAVEL,travelTo,get MAP(){return MAP;},get obstacles(){return obstacles;},get MAP(){return MAP;},get renderer(){return renderer;},npcs,vRoadD,MAPS,hAt,get HAS3(){return HAS3;},get A3META(){return A3META;},damagePlayer,get COMBO(){return COMBO;},horseRear,horseAnim,playerHit,killMob,fxPlay,fxStep,get FROG2(){return FROG2;},MOUNT,toggleMount,get mixer(){return mixer},rotW,overlayPose,S,P,mobs,cam,actions,bones,setAnim,useSlot,clickAt,THREE,scene,camera,renderer,model,get tIdle(){return tIdle;},get TURN_DELTA(){return TURN_DELTA;}};
   }catch(err){ console.error(err); $('loadTxt').textContent='Yükleme başarısız oldu.'; $('loadTxt').style.color='#ff8a80'; $('err').textContent=String(err&&err.message||err); }
 }
 /* Hesap sistemi (auth/ modülleri) karakter seçilince bunu çağırır. Oyun motoru hesap koduna bağımlı değildir. */
