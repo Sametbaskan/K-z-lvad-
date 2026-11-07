@@ -1206,7 +1206,12 @@ const EQS=[  // id, tür, etiket, merkez x/y (kukla kutusuna göre 0..1)
 const eqDef=id=>EQS.find(e=>e.id===id);
 const itemOf=it=>it&&ITEMS[it.id];
 const cpIt=it=>{ const o={id:it.id,n:Math.max(1,it.n|0||1)}; if(ITEMS[it.id]&&ITEMS[it.id].gear) o.u=Math.max(0,Math.min(10,it.u|0)); return o; };
-function initInv(){ if(!Array.isArray(S.inv)) S.inv=[]; S.inv.length=INVN*INVPAGES; for(let i=0;i<S.inv.length;i++){ const it=S.inv[i]; S.inv[i]=(it&&ITEMS[it.id])?cpIt(it):null; }
+const RETIRED={gunes_migfer:['Güneş Şövalyesi Maskesi',900000],gunes_bot:['Güneş Şövalyesi Çizmeleri',700000]};   // tek parça zırha katıldı: eski kayıtta varsa Yang iade
+function retireItems(){ let back=0; const names=[]; const chk=it=>{ const r=it&&RETIRED[it.id]; if(r){ back+=r[1]; names.push(r[0]); return true; } return false; };
+  if(Array.isArray(S.inv)) for(let i=0;i<S.inv.length;i++) if(chk(S.inv[i])) S.inv[i]=null;
+  if(S.eq&&typeof S.eq==='object') for(const k in S.eq) if(chk(S.eq[k])) delete S.eq[k];
+  if(back){ S.yang+=back; setTimeout(()=>{ try{ say(`${names.join(', ')} artık Güneş Şövalyesi Zırhı'nın içinde (tek parça). ${fmt(back)} Yang iade edildi.`,'c-yang'); saveGame(); }catch(e){} },1500); } }
+function initInv(){ retireItems(); if(!Array.isArray(S.inv)) S.inv=[]; S.inv.length=INVN*INVPAGES; for(let i=0;i<S.inv.length;i++){ const it=S.inv[i]; S.inv[i]=(it&&ITEMS[it.id])?cpIt(it):null; }
   if(!S.eq||typeof S.eq!=='object'||Array.isArray(S.eq)) S.eq={w1:{id:'sword',n:1}};
   const eq={}; for(const e of EQS){ const it=S.eq[e.id]; if(it&&ITEMS[it.id]&&ITEMS[it.id].slot===e.type) eq[e.id]=cpIt(it); } S.eq=eq;
   // kılıç hiçbir yerde yoksa (eski kayıt) ilk silah slotuna koy
@@ -1293,10 +1298,10 @@ const ARMOR_PIECES={gogusluk:{name:'Göğüslük',hide:['Spine1','Spine2']},sirt
   omuzluk_l:{name:'Sol omuzluk',hide:[]},omuzluk_r:{name:'Sağ omuzluk',hide:[]},kol_l:{name:'Sol kol koruması',hide:['LeftForeArm']},kol_r:{name:'Sağ kol koruması',hide:['RightForeArm']},
   eldiven:{name:'Eldivenler',hide:['LeftHand*','RightHand*']},bel:{name:'Bel zırhı',hide:[]},bacak_l:{name:'Sol bacak zırhı',hide:['LeftUpLeg','LeftLeg']},bacak_r:{name:'Sağ bacak zırhı',hide:['RightUpLeg','RightLeg']},
   botlar:{name:'Botlar',hide:['LeftFoot','RightFoot','LeftToeBase','RightToeBase','LeftToe_End','RightToe_End']},
-  govde:{name:'Gövde, kollar ve eldivenler',hide:['Spine','Spine1','Spine2','Neck','LeftShoulder','RightShoulder','LeftArm','RightArm','LeftForeArm','RightForeArm','LeftHand*','RightHand*']},
-  bacak:{name:'Bacak zırhları',hide:['Hips','LeftUpLeg','RightUpLeg','LeftLeg','RightLeg']},bas:{name:'Maske-miğfer',hide:['Head','HeadTop_End','Neck']},hale:{name:'Güneş halesi',hide:[]},
+  tum:{name:'Tek parça zırh (maske, hale, gövde, pelerin, çizmeler)',hide:['Hips','Spine','Spine1','Spine2','Neck','Head','HeadTop_End','LeftShoulder','RightShoulder','LeftArm','RightArm','LeftForeArm','RightForeArm','LeftHand*','RightHand*',
+    'LeftUpLeg','RightUpLeg','LeftLeg','RightLeg','LeftFoot','RightFoot','LeftToeBase','RightToeBase','LeftToe_End','RightToe_End']},
   boyunluk:{name:'Boyunluk',hide:['Neck','LeftShoulder','RightShoulder']},pelerin:{name:'Pelerin',hide:[]},migfer:{name:'Miğfer',hide:['Head','HeadTop_End']}};   // hide: parça takılıyken gizlenen gövde bölgeleri (kemik adı)
-const ARMOR_SETS={gunes_sovalyesi:{ownBind:true,glow:0xffb040,tex:{base:'models/armor/gunes_sovalyesi/tex/base.jpg',mr:'models/armor/gunes_sovalyesi/tex/mr.jpg',normal:'models/armor/gunes_sovalyesi/tex/normal.jpg'}},
+const ARMOR_SETS={gunes_sovalyesi:{ownBind:true,cloth:true,glow:0xffb040,tex:{base:'models/armor/gunes_sovalyesi/tex/base.jpg',mr:'models/armor/gunes_sovalyesi/tex/mr.jpg',normal:'models/armor/gunes_sovalyesi/tex/normal.jpg'}},
   kara_sovalye:{tex:{base:'models/armor/kara_sovalye/tex/base.jpg',mr:'models/armor/kara_sovalye/tex/mr.jpg',normal:'models/armor/kara_sovalye/tex/normal.jpg'}}};
 const ARMOR_ITEMS={
   kara_sovalye_zirh:{name:'Kara Şövalye Zırhı',slot:'armor',set:'kara_sovalye',reqLv:20,price:150000,def:22,
@@ -1304,12 +1309,8 @@ const ARMOR_ITEMS={
     desc:'Kızıl damarlı kara çelik plakalar, katmanlı omuzluklar ve ağır bacaklıklar. Göğüslük, sırt, boyunluk, pelerin, omuzluklar, kol korumaları, eldivenler, bel ve bacak zırhları.'},
   kara_sovalye_migfer:{name:'Kara Şövalye Miğferi',slot:'helmet',set:'kara_sovalye',reqLv:20,price:30000,def:6,pieces:['migfer'],
     desc:'Göz yarığından kızıl ışık sızan, taç dikenli kapalı kara çelik miğfer.'},
-  gunes_zirh:{name:'Güneş Şövalyesi Zırhı',slot:'armor',set:'gunes_sovalyesi',reqLv:75,price:2500000,def:68,pieces:['govde','bacak','pelerin'],
-    desc:'Unutulmuş Güneş Tarikatı\'nın son şövalyesinin zırhı. İşlemeli bronz omuzluklar, kat kat plaka ve yerlere dökülen koyu pelerin. Sv.75 efsanevi set.'},
-  gunes_migfer:{name:'Güneş Şövalyesi Maskesi',slot:'helmet',set:'gunes_sovalyesi',reqLv:75,price:900000,def:20,pieces:['bas','hale'],
-    desc:'Gagalı kara maske ve arkasında altın ışınlarla parlayan güneş halesi.'},
-  gunes_bot:{name:'Güneş Şövalyesi Çizmeleri',slot:'boots',set:'gunes_sovalyesi',reqLv:75,price:700000,def:16,pieces:['botlar'],
-    desc:'Güneş tarikatının ağır, işlemeli savaş çizmeleri.'},
+  gunes_zirh:{name:'Güneş Şövalyesi Zırhı',slot:'armor',set:'gunes_sovalyesi',reqLv:75,price:4000000,def:104,pieces:['tum'],
+    desc:'Unutulmuş Güneş Tarikatı\'nın son şövalyesinin tek parça zırhı: gagalı maske ve altın güneş halesi, işlemeli bronz omuzluklar, kat kat plaka, rüzgârda dalgalanan pelerin ve ağır çizmeler. Sv.75 efsanevi.'},
   kara_sovalye_bot:{name:'Kara Şövalye Botları',slot:'boots',set:'kara_sovalye',reqLv:20,price:40000,def:7,pieces:['botlar'],
     desc:'Kat kat plakalı, kalın tabanlı kara çelik savaş botları.'}
 };
@@ -1463,7 +1464,7 @@ function addSwordFx(g){ swHalo=[]; for(const y of [.3,.75,1.15]){ const sp=new T
 function applySwordLook(n){ n=Math.max(0,Math.min(9,n|0)); const L=SWL[n]; swFxLv=n;
   if(swMat){ swMat.color.setHex(L.c); swMat.emissive.setHex(L.e); swMat.emissiveIntensity=L.ei; if(swMat.map&&!swMat.emissiveMap) swMat.emissiveMap=swMat.map; swMat.needsUpdate=true; }
   swHalo.forEach(s=>s.material.color.setHex(SWHC[n])); if(swAura) swAura.material.color.setHex(n>=9?0xff6a10:0xffffff); }
-function updateSwordFx(dt,time){ syncArmor(); const want=handWant(); if(want!==SWKEY) swapHandWeapon(want); if(!sword) return;
+function updateSwordFx(dt,time){ syncArmor(); updateArmorCloth(dt); const want=handWant(); if(want!==SWKEY) swapHandWeapon(want); if(!sword) return;
   if(SWKEY!=='base'){ updateLegendFx(dt,time); return; } sword.visible=true;
   const n=Math.max(0,Math.min(9,S.weap|0)); if(n!==swFxLv) applySwordLook(n);
   const L=SWL[n], pul=.5+.5*Math.sin(time*(n>=9?5.5:3));
@@ -1486,10 +1487,50 @@ function loadArmor(k){ if(ARMOR.pend[k]||ARMOR.glb[k]||ARMOR.fail[k]) return; co
 function armorMat(mt,set){ const key=set+'|'+mt.name; let m=ARMOR.mats[key]; if(m) return m;   // set başına tek malzeme: dokular bir kez yüklenir
   const T=ARMOR_SETS[set]&&ARMOR_SETS[set].tex;
   if(T&&mt.name===set){ const tl=new THREE.TextureLoader(), ld=(u,srgb)=>{ const t=tl.load(u); t.flipY=false; if(srgb) t.colorSpace=THREE.SRGBColorSpace; t.anisotropy=4; return t; };
-    const mr=ld(T.mr,false); m=new THREE.MeshStandardMaterial({map:ld(T.base,true),normalMap:ld(T.normal,false),roughnessMap:mr,metalnessMap:mr,metalness:1,roughness:1,envMap:weaponEnv(),envMapIntensity:.7}); m.name=key; }
-  else if(T&&mt.name===set+'_hale'){ const base=armorMat({name:set},set); m=base.clone(); m.name=key; m.emissive=new THREE.Color(ARMOR_SETS[set].glow||0xffb040); m.emissiveMap=base.map; m.emissiveIntensity=.35; ARMOR.glow=m; }
+    const mr=ld(T.mr,false); m=new THREE.MeshStandardMaterial({map:ld(T.base,true),normalMap:ld(T.normal,false),roughnessMap:mr,metalnessMap:mr,metalness:1,roughness:1,envMap:weaponEnv(),envMapIntensity:.7}); m.name=key;
+    if(ARMOR_SETS[set].cloth) clothMaterial(m,ARMOR_SETS[set].glow||0xffb040); }
   else { m=mt; m.envMap=weaponEnv(); m.envMapIntensity=.55; m.side=THREE.DoubleSide; m.needsUpdate=true; }
   ARMOR.mats[key]=m; return m; }
+/* ===== kumaş: GPU'da rüzgâr + koşu savrulması + bacak itme =====
+   Pelerin/etek köşeleri leğene katı bağlıdır; _cloth=[sarkma 0..1, yön +1 ön/-1 arka]. Her karede bacak eklemleri (kalça, diz, bilek, parmak)
+   zırhın bağlama uzayına çevrilip uLeg ile gönderilir; ön kumaş bacağın önünde, arka kumaş arkasında kalacak kadar itilir (bacak kumaşı delmez).
+   _glow: hale köşeleri altın nabızla parlar. Ek maliyet: köşe başına birkaç işlem, ek çizim çağrısı yok. */
+const CLOTH={u:null,speed:0,last:null};
+function clothMaterial(m,glow){ const U={uTime:{value:0},uSpeed:{value:0},uLeg:{value:Array.from({length:8},()=>new THREE.Vector3(0,-999,0))},uGlow:{value:.35},uGlowCol:{value:new THREE.Color(glow)}};
+  CLOTH.u=U;
+  m.onBeforeCompile=sh=>{ Object.assign(sh.uniforms,U);
+    sh.vertexShader=sh.vertexShader.replace('#include <common>',`#include <common>
+attribute vec2 _cloth; attribute float _glow; varying float vGlow; uniform float uTime; uniform float uSpeed; uniform vec3 uLeg[8];
+float legZ(int L,float y,out float lx,out float zmin){ float zmax=-1e4; zmin=1e4; lx=0.; bool hit=false;
+  for(int i=0;i<3;i++){ vec3 P=uLeg[L*4+i], Q=uLeg[L*4+i+1]; float lo=min(P.y,Q.y), hi=max(P.y,Q.y);
+    if(y>=lo&&y<=hi&&hi-lo>.01){ float t=(y-P.y)/(Q.y-P.y); float zz=mix(P.z,Q.z,t); zmax=max(zmax,zz); zmin=min(zmin,zz); lx=mix(P.x,Q.x,t); hit=true; } }
+  if(!hit){ float bot=min(min(uLeg[L*4+2].y,uLeg[L*4+3].y),uLeg[L*4+1].y); if(y<bot){ zmax=max(uLeg[L*4+2].z,uLeg[L*4+3].z); zmin=min(uLeg[L*4+2].z,uLeg[L*4+3].z); lx=uLeg[L*4+2].x; hit=true; } }
+  return hit?zmax:-1e4; }`).replace('#include <begin_vertex>',`#include <begin_vertex>
+vGlow=_glow;
+if(_cloth.x>.001){ float h=_cloth.x, sd=_cloth.y, hh=h*h;
+  float w=sin(uTime*1.7+transformed.y*.045+transformed.x*.06)*.6+sin(uTime*2.9+transformed.x*.11+transformed.y*.02)*.4;
+  float back=step(sd,0.)+.35*step(0.,sd)*(1.-step(sd,0.));
+  transformed.z-=hh*(2.+uSpeed*16.+w*(1.6+uSpeed*3.))*back;
+  transformed.x+=sin(uTime*1.2+transformed.y*.05)*.9*hh;
+  transformed.y+=hh*uSpeed*4.*back;
+  for(int L=0;L<2;L++){ float lx, zmin; float zmax=legZ(L,transformed.y,lx,zmin); if(zmax<-1e3) continue;
+    float wx=1.-smoothstep(9.,20.,abs(transformed.x-lx));
+    if(sd>0.){ float need=(zmax+13.)-transformed.z; transformed.z+=max(need,0.)*wx*min(1.,sd*2.); }
+    else { float need=transformed.z-(zmin-13.); transformed.z-=max(need,0.)*wx*min(1.,-sd*2.); } } }`);
+    sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying float vGlow; uniform float uGlow; uniform vec3 uGlowCol;')
+      .replace('#include <emissivemap_fragment>','#include <emissivemap_fragment>\ntotalEmissiveRadiance+=diffuseColor.rgb*uGlowCol*vGlow*uGlow*2.;'); };
+  m.customProgramCacheKey=()=>'armorCloth'; m.needsUpdate=true; }
+const _clM=new THREE.Matrix4(), _clV=new THREE.Vector3();
+function updateArmorCloth(dt){ const U=CLOTH.u; if(!U) return; let mesh=null; for(const k in ARMOR.on) for(const m of ARMOR.on[k]) if(m.userData.cloth) mesh=m; if(!mesh) return;
+  U.uTime.value+=dt; U.uGlow.value=.3+.12*Math.sin(U.uTime.value*1.8);
+  // hız: oyuncunun yer değiştirmesi (önizlemede 0)
+  const p=playerGroup.position; if(CLOTH.last&&dt>0){ const v=Math.hypot(p.x-CLOTH.last.x,p.z-CLOTH.last.z)/dt; CLOTH.speed+=(Math.min(1,v/6)-CLOTH.speed)*Math.min(1,dt*4); } CLOTH.last=(CLOTH.last||new THREE.Vector3()).copy(p);
+  if(started&&P.anim==='jog') CLOTH.speed=Math.max(CLOTH.speed,.6*Math.min(1,(actions.jog?actions.jog.getEffectiveWeight():1)));
+  U.uSpeed.value=CLOTH.speed;
+  // bacak eklemleri -> zırhın bağlama uzayı (leğen kemiğine göre): p = (Hips.world · Inv_hips · bind)^-1 · dünya
+  const sk=mesh.skeleton, hi=mesh.userData.hipsIdx; if(hi<0) return;
+  _clM.multiplyMatrices(sk.bones[hi].matrixWorld,sk.boneInverses[hi]).multiply(mesh.bindMatrix).invert();
+  let i=0; for(const s of ['Left','Right']) for(const n of ['UpLeg','Leg','Foot','ToeBase']){ const b=bones[s+n]; if(b){ b.getWorldPosition(_clV); U.uLeg.value[i].copy(_clV.applyMatrix4(_clM)); } i++; } }
 /* gövde gizleme: takılı parçaların kapattığı kemik bölgelerindeki gövde üçgenleri çizilmez (zırhın içinden taşmasın) */
 function armorBody(){ let hide=new Set(); for(const k in ARMOR.on){ const p=ARMOR_PIECES[k.split('/')[1]]; if(p) p.hide.forEach(h=>hide.add(h)); }
   const sig=[...hide].sort().join(','); if(sig===ARMOR.bodySig) return; ARMOR.bodySig=sig;
@@ -1507,7 +1548,9 @@ function attachArmor(k){ let hs=null; model.traverse(o=>{ if(!hs&&o.isSkinnedMes
     if(own){ const bones=o.skeleton.bones.map(b=>sk.bones[idx.get(b.name)]); if(bones.includes(undefined)){ console.warn('[Zırh] '+k+': eşleşmeyen kemik var'); return; }
       const mats=(Array.isArray(o.material)?o.material:[o.material]).map(mt=>armorMat(mt,set));
       const m=new THREE.SkinnedMesh(o.geometry.clone(),mats.length>1?mats:mats[0]); m.name='armor:'+k; m.userData.armor=k; m.frustumCulled=false; m.castShadow=true;
-      hs.parent.add(m); m.bind(new THREE.Skeleton(bones,o.skeleton.boneInverses.map(x=>x.clone())),hs.bindMatrix.clone()); list.push(m); return; }   // kendi duruşunda bağlı: tek karışım
+      hs.parent.add(m); m.bind(new THREE.Skeleton(bones,o.skeleton.boneInverses.map(x=>x.clone())),hs.bindMatrix.clone()); list.push(m);   // kendi duruşunda bağlı: tek karışım
+      if(ARMOR_SETS[set].cloth){ m.userData.cloth=true; m.userData.hipsIdx=bones.findIndex(b=>/Hips$/.test(b.name)); }
+      return; }
     const g=o.geometry.clone(), si=g.attributes.skinIndex, map=o.skeleton.bones.map(b=>idx.has(b.name)?idx.get(b.name):-1);
     if(map.includes(-1)) console.warn('[Zırh] '+k+': eşleşmeyen kemik var');
     const arr=new Uint16Array(si.count*4); for(let i=0;i<si.count;i++) for(let c=0;c<4;c++) arr[i*4+c]=Math.max(0,map[si.getComponent(i,c)]);
@@ -1519,7 +1562,7 @@ function attachArmor(k){ let hs=null; model.traverse(o=>{ if(!hs&&o.isSkinnedMes
 function syncArmor(){ if(!model) return; const want=armorWant();
   for(const k in ARMOR.on) if(!want.has(k)){ for(const m of ARMOR.on[k]){ m.parent&&m.parent.remove(m); m.geometry.dispose(); } delete ARMOR.on[k]; }
   for(const k of want){ if(ARMOR.on[k]||ARMOR.fail[k]) continue; if(ARMOR.glb[k]) attachArmor(k); else loadArmor(k); }
-  armorBody(); if(ARMOR.glow) ARMOR.glow.emissiveIntensity=.3+.12*Math.sin(performance.now()*.0018); }
+  armorBody(); }
 
 /* ===================== ortak silah soketi: sağ el (SWHAND = RightHand) + SWCFG tutuş noktası =====================
    Elde gösterilecek model sağ el slotundan (w1) belirlenir: efsanevi silah → kendi GLB'si, Demir Kılıç → WMODELS görünümü, boş → el boş.
@@ -3540,7 +3583,7 @@ async function boot(){
     initMapUI(); initVillageMap(); setAtmos('village'); try{ warmFx(); }catch(e){ console.warn('[Efekt] ısınma atlandı',e); } setP(100);
     myTag=document.createElement('div'); myTag.className='pn'; $('pops').appendChild(myTag);
     $('loading').classList.add('hidden'); mountAuthUI();
-    window.__game={enterGame,MAPS,keys,useSlot,killPlayer,respawnPlayer,DEATH,drawMini,updateHUD2:()=>{},lakeE,LAKE_B,LAKE_WL,FROG_SPOTS,CROC_SPOTS,hForest,placePlayer,spawnMob,respawn,fxAttack,fxDeath,get LAKE_STATS(){return LAKE_STATS},get LAKE_MOBS(){return LAKE_MOBS},get CROC(){return CROC},CORE,rankOf,rankReward,grantRank,plateHTML,refreshPlate,RANKS,RANK_REWARD,get plateKey(){return plateKey},get myTag(){return myTag},TYPES,guards,updateGuards,addTime:d=>{time+=d},get ATK_HOLD(){return ATK_HOLD},equipWeaponModel,WMODELS,get sword(){return sword},charPreview,ARMOR,ARMOR_ITEMS,syncArmor,armorDef,defPow,LEGEND_WEAPONS,legEq,LGLB,LFAIL,loadLegend,get SWKEY(){return SWKEY},weapName,wCrit,critCh,buyLegend,SWCFG,refreshWins,updateSmith,upgradeWeapon,buyStone,fixWeapon,WLV,swRoll,wAtk,wMag,aspd,swEq,applySwordLook,updateSwordFx,SEAT,yawFix,get FOREST_STATS(){return FOREST_STATS},zoneAt,updateMount,groundFix,get GOFF(){return GOFF},get S(){return S},ITEMS,EQS,registerItem,addItem,moveItem,initInv,addStat,resetStats,qOf,expNeed,get PLANT_SETS(){return PLANT_SETS},renderMenu,setTab,toggleWin,closeWins,skillUp,skPoints,skL,skv,skStats,saveGame,loadGame,renderSkillWin,gainExp,updatePlayer,updateMobs,updateProjectiles,updateSkills,updateCamera,updateHUD,SKD,SLOT_DEF,SK,cds,fx2,pt2,sched,projectiles,SHAKE,clearSkillFx,MAPS,TRAVEL,travelTo,get MAP(){return MAP;},get obstacles(){return obstacles;},get MAP(){return MAP;},get renderer(){return renderer;},npcs,vRoadD,MAPS,hAt,get HAS3(){return HAS3;},get A3META(){return A3META;},damagePlayer,get COMBO(){return COMBO;},horseRear,horseAnim,playerHit,killMob,fxPlay,fxStep,get FROG2(){return FROG2;},MOUNT,toggleMount,get mixer(){return mixer},rotW,overlayPose,S,P,mobs,cam,actions,bones,setAnim,useSlot,clickAt,THREE,scene,camera,renderer,model,get tIdle(){return tIdle;},get TURN_DELTA(){return TURN_DELTA;}};
+    window.__game={enterGame,MAPS,keys,useSlot,killPlayer,respawnPlayer,DEATH,drawMini,updateHUD2:()=>{},lakeE,LAKE_B,LAKE_WL,FROG_SPOTS,CROC_SPOTS,hForest,placePlayer,spawnMob,respawn,fxAttack,fxDeath,get LAKE_STATS(){return LAKE_STATS},get LAKE_MOBS(){return LAKE_MOBS},get CROC(){return CROC},CORE,rankOf,rankReward,grantRank,plateHTML,refreshPlate,RANKS,RANK_REWARD,get plateKey(){return plateKey},get myTag(){return myTag},TYPES,guards,updateGuards,addTime:d=>{time+=d},get ATK_HOLD(){return ATK_HOLD},equipWeaponModel,WMODELS,get sword(){return sword},charPreview,CLOTH,updateArmorCloth,ARMOR,ARMOR_ITEMS,syncArmor,armorDef,defPow,LEGEND_WEAPONS,legEq,LGLB,LFAIL,loadLegend,get SWKEY(){return SWKEY},weapName,wCrit,critCh,buyLegend,SWCFG,refreshWins,updateSmith,upgradeWeapon,buyStone,fixWeapon,WLV,swRoll,wAtk,wMag,aspd,swEq,applySwordLook,updateSwordFx,SEAT,yawFix,get FOREST_STATS(){return FOREST_STATS},zoneAt,updateMount,groundFix,get GOFF(){return GOFF},get S(){return S},ITEMS,EQS,registerItem,addItem,moveItem,initInv,addStat,resetStats,qOf,expNeed,get PLANT_SETS(){return PLANT_SETS},renderMenu,setTab,toggleWin,closeWins,skillUp,skPoints,skL,skv,skStats,saveGame,loadGame,renderSkillWin,gainExp,updatePlayer,updateMobs,updateProjectiles,updateSkills,updateCamera,updateHUD,SKD,SLOT_DEF,SK,cds,fx2,pt2,sched,projectiles,SHAKE,clearSkillFx,MAPS,TRAVEL,travelTo,get MAP(){return MAP;},get obstacles(){return obstacles;},get MAP(){return MAP;},get renderer(){return renderer;},npcs,vRoadD,MAPS,hAt,get HAS3(){return HAS3;},get A3META(){return A3META;},damagePlayer,get COMBO(){return COMBO;},horseRear,horseAnim,playerHit,killMob,fxPlay,fxStep,get FROG2(){return FROG2;},MOUNT,toggleMount,get mixer(){return mixer},rotW,overlayPose,S,P,mobs,cam,actions,bones,setAnim,useSlot,clickAt,THREE,scene,camera,renderer,model,get tIdle(){return tIdle;},get TURN_DELTA(){return TURN_DELTA;}};
   }catch(err){ console.error(err); $('loadTxt').textContent='Yükleme başarısız oldu.'; $('loadTxt').style.color='#ff8a80'; $('err').textContent=String(err&&err.message||err); }
 }
 /* Hesap sistemi (auth/ modülleri) karakter seçilince bunu çağırır. Oyun motoru hesap koduna bağımlı değildir. */

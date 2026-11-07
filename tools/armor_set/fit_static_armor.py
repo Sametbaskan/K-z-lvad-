@@ -72,6 +72,18 @@ TRI = np.array([p.vertices[:] for p in me.polygons])
 LUV = np.array([d.uv[:] for d in me.uv_layers.active.data]); TLOOP = np.array([p.loop_indices[:] for p in me.polygons])
 E = np.array([e.vertices[:] for e in me.edges])
 
+# ---------------- kumaş tespiti (doku rengi): pelerin / etek / kumaş koyu kızıl (r/g > 2), zırh gri-bronz
+_img = np.asarray(Image.open(os.path.join(TEXIN, 'SunKnightWarrior_basecolor.JPEG')).convert('RGB'), float) / 255; _H, _Wd = _img.shape[:2]
+_lv = np.array([l.vertex_index for l in me.loops])
+_px = np.clip((LUV[:, 0] % 1) * (_Wd - 1), 0, _Wd - 1).astype(int); _py = np.clip((1 - LUV[:, 1] % 1) * (_H - 1), 0, _H - 1).astype(int)
+VCOL = np.zeros((NV, 3)); _n = np.zeros(NV); np.add.at(VCOL, _lv, _img[_py, _px]); np.add.at(_n, _lv, 1); VCOL /= np.maximum(_n, 1)[:, None]
+RED = VCOL[:, 0] / np.maximum(VCOL[:, 1], 1e-3) > 2.0
+_nb = [[] for _ in range(NV)]
+for i, j in E: _nb[i].append(j); _nb[j].append(i)
+for _ in range(2):   # çoğunluk süzgeci (tek tük yanlış renkli köşe)
+    RED = np.array([(RED[i] + RED[_nb[i]].sum()) * 2 > (1 + len(_nb[i])) for i in range(NV)])
+print('kumaş köşesi', int(RED.sum()), '/', NV)
+
 # ---------------- 2) ağırlıklar
 J = json.load(open(HERO)); BN = [b['n'] for b in J['bones']]; SH = [n.replace('mixamorig', '') for n in BN]; BI = {n: i for i, n in enumerate(SH)}
 HINV = {n: np.array(inv).reshape(4, 4).T for n, inv in zip(SH, J['inv'])}       # satır düzeni
@@ -86,6 +98,7 @@ def chain(segs):  # [(bone, A, B, R)] -> (en yakın uzaklık / R oranı, ters-uz
     D = np.stack([segd(V, JS[A], JS[B])[0] / R for _, A, B, R in segs], 1)
     w = 1 / np.maximum(D, 0.05) ** 4; w /= w.sum(1, keepdims=True); return D.min(1), w
 done = np.zeros(NV, bool)
+CLOAK = np.zeros(NV, bool)
 GRP = np.full(NV, 'torso', object)   # bölge: head, armL, armR, legL, legR, torso, cloak
 # baş (miğfer + hale): katı
 head = z > 136.5
@@ -96,31 +109,34 @@ k = smooth01(z[nb], 131, 136.5); W[nb, BI['Head']] = k; W[nb, BI['Neck']] = 1 - 
 for s, sg in (('Left', 1), ('Right', -1)):
     segs = [(s + 'Arm', s + 'Arm', s + 'ForeArm', 12.0), (s + 'ForeArm', s + 'ForeArm', s + 'Hand', 9.5), (s + 'Hand', s + 'Hand', s + 'HandTip', 13.0 if s == 'Right' else 10.5)]   # sağ yumruk + kabza ucu geniş
     dmin, w = chain(segs)
-    arm = (~done) & (dmin < 1.0) & (sg * x > (14 if s == 'Left' else 12)) & (z < 133)
+    dh = segd(V, JS[s + 'Hand'], JS[s + 'HandTip'])[0]
+    grip_ = (dh < 14) & (z > 45) & (y < 2) & (sg * x > 18)              # yumruk + içindeki kabza sargısı (kızıl deri): ele bağlı
+    arm = (~done) & (((dmin < 1.0) & (sg * x > (14 if s == 'Left' else 12)) & (z < 133) & ~(RED & (z < 100) & (dmin > 0.7))) | grip_)
     for j, (b, *_ ) in enumerate(segs): W[arm, BI[b]] = w[arm, j]
     done |= arm; GRP[arm] = 'arm' + s[0]
-    pa = (~done) & (sg * x > 13) & (z > 104) & (z < 134)                # omuzluk kubbesi / omuz: kol + köprücük
+    pa = (~done) & (sg * x > 13) & (z > 104) & (z < 134) & ~RED                # omuzluk kubbesi / omuz: kol + köprücük
     k = smooth01(sg * x[pa], 13, 22); W[pa, BI[s + 'Arm']] = k; W[pa, BI[s + 'Shoulder']] = (1 - k) * 0.5; W[pa, BI['Spine2']] = (1 - k) * 0.5; done |= pa; GRP[pa] = 'arm' + s[0]
 # bacaklar
-CLOAK = np.zeros(NV, bool)
 for s, sg in (('Left', 1), ('Right', -1)):
     segs = [(s + 'UpLeg', s + 'UpLeg', s + 'Leg', 10.5), (s + 'Leg', s + 'Leg', s + 'Foot', 8.5), (s + 'Foot', s + 'Foot', s + 'ToeBase', 8.0), (s + 'ToeBase', s + 'ToeBase', s + 'Toe_End', 7.0)]
     dmin, w = chain(segs)
-    leg = (~done) & (dmin < 1.0) & (z < 86)
+    foot = (z < 20) & (dmin < 1.35)                                     # çizme: renge bakılmaz (kızıl deri pelerin sanılmasın)
+    leg = (~done) & (((dmin < 1.0) & (z < 86) & ~(RED & (dmin > 0.8))) | foot)   # bacağa yapışık kızıl kayışlar bacakla gider
     for j, (b, *_ ) in enumerate(segs): W[leg, BI[b]] = w[leg, j]
     done |= leg; GRP[leg] = 'leg' + s[0]
 # gövde (z > 84): omurga zinciri yüksekliğe göre
 TOR = [('Hips', 88), ('Spine', 98), ('Spine1', 108), ('Spine2', 118), ('Neck', 134)]
-tm = (~done) & (z > 84)
-zt = np.clip(z[tm], 88, 134); idx = np.searchsorted([t[1] for t in TOR], zt, side='right') - 1; idx = np.clip(idx, 0, len(TOR) - 2)
+CLOAK = (~done) & RED                                                 # kumaş: gövde/leğene katı, bacaklara asla
+tm = (~done) & ((z > 84) | CLOAK)
+zt = np.clip(z[tm], 88, 134)   # 88 altı: yalnız leğen
+idx = np.searchsorted([t[1] for t in TOR], zt, side='right') - 1; idx = np.clip(idx, 0, len(TOR) - 2)
 for i in range(len(TOR) - 1):
     m = idx == i; f = (zt[m] - TOR[i][1]) / (TOR[i + 1][1] - TOR[i][1]); rows = np.nonzero(tm)[0][m]
     W[rows, BI[TOR[i][0]]] += 1 - f; W[rows, BI[TOR[i + 1][0]]] += f
-done |= tm
+done |= tm; GRP[tm & ~CLOAK] = 'torso'; GRP[CLOAK] = 'cloak'
 # pelerin / etek (kalan, z <= 84): leğen + aynı taraftaki uyluk (aşağı indikçe artar)
-cm = ~done; CLOAK[cm] = True; GRP[cm] = 'cloak'
-kk = 0.6 * smooth01(84 - z[cm], 0, 70); left = smooth01(x[cm], -10, 10)
-W[cm, BI['Hips']] = 1 - kk; W[cm, BI['LeftUpLeg']] = kk * left; W[cm, BI['RightUpLeg']] = kk * (1 - left)
+cm = ~done                                                           # kalan (kumaş olmayan, uzuvlara uzak) -> leğen
+CLOAK[cm] = True; GRP[cm] = 'cloak'; W[cm, BI['Hips']] = 1
 # küçük bölge adacıkları (ör. yumruğa yapışık ama pelerin sayılmış parçalar): komşu bölgeye katılır, ağırlığı komşudan alınır
 from collections import Counter
 nbr = [[] for _ in range(NV)]
@@ -151,9 +167,9 @@ for pas in range(3):
 def allowed(g1, g2, z1, z2):
     if g1 == g2: return True
     pr = {g1, g2}
-    if pr <= {'torso', 'cloak', 'legL', 'legR'} and not pr == {'legL', 'legR'}: return True
+    if pr == {'torso', 'cloak'} or pr in ({'torso', 'legL'}, {'torso', 'legR'}): return True
     if pr == {'head', 'torso'}: return True
-    if len(pr & {'armL', 'armR'}) == 1 and (pr - {'armL', 'armR'}) == {'torso'}: return min(z1, z2) > 104   # yalnız omuz hattında
+    if len(pr & {'armL', 'armR'}) == 1 and (pr - {'armL', 'armR'}) <= {'torso', 'cloak'} and len(pr) == 2: return min(z1, z2) > 104   # yalnız omuz hattında
     return False
 AL = np.array([allowed(GRP[i], GRP[j], z[i], z[j]) for i, j in E]); EA = E[AL]
 print('kesilen kenar (bölgeler arası)', int((~AL).sum()))
@@ -193,7 +209,7 @@ for n in SH:                                                          # hero.jso
     if n in CHILD and n in JP:
         kc, hc = CHILD[n]; hv = HW[hc] - HW[n]; sv = JP[kc] - JP[n]
         D[n] = swing(Dp @ hv, sv) @ Dp
-        u = hv / np.linalg.norm(hv); f = (np.linalg.norm(sv) / np.linalg.norm(hv)) ** 0.5   # boy farkının yarısı ölçekle, yarısı eklemde
+        u = hv / np.linalg.norm(hv); f = float(np.clip((np.linalg.norm(sv) / np.linalg.norm(hv)) ** 0.5, 0.85, 1.2))   # boy farkının yarısı ölçekle, yarısı eklemde
         M[n] = aff(D[n] @ (np.eye(3) + (f - 1) * np.outer(u, u)), HW[n], JP[n])
         print(f'  {n:>14} boy oranı {np.linalg.norm(sv) / np.linalg.norm(hv):.2f}')
     else:                                                             # parmaklar, uçlar: ebeveyne katı bağlı
@@ -230,22 +246,33 @@ print('dikiş kopyası', len(SEAM))
 me.calc_normals_split() if hasattr(me, 'calc_normals_split') else None
 VN = np.array([v.normal[:] for v in me.vertices]); N3 = np.stack([VN[:, 0], VN[:, 2], -VN[:, 1]], 1)
 
+# kumaş verisi (_CLOTH = [sarkma 0..1, yön: +1 ön / -1 arka]) ve hale parlaması (_GLOW)
+side = np.clip(-(y - 1.0) / 8.0, -1, 1)                               # heykel uzayında ön = -y
+att = 84 + (128 - 84) * (1 - side) / 2                                # ön etek kemerden, arka pelerin omuzdan sarkar
+hang = np.where(CLOAK, np.clip((att - z) / att, 0, 1), 0.0)
+for _ in range(3):   # kumaş içinde yumuşat
+    acc = np.zeros(NV); cnt = np.zeros(NV); m_ = CLOAK[EA[:, 0]] & CLOAK[EA[:, 1]]; e_ = EA[m_]
+    np.add.at(acc, e_[:, 0], hang[e_[:, 1]]); np.add.at(acc, e_[:, 1], hang[e_[:, 0]]); np.add.at(cnt, e_[:, 0], 1); np.add.at(cnt, e_[:, 1], 1)
+    hang = np.where(cnt > 0, 0.5 * hang + 0.5 * acc / np.maximum(cnt, 1), hang)
+CLOTHV = np.stack([hang, side], 1).astype(np.float32); GLOWV = halo.astype(np.float32)
+print('kumaş: sarkan köşe', int((hang > 0.05).sum()), 'hale köşesi', int(halo.sum()))
 def write_glb(path, name, mat, vids, tris):
     remap = np.full(NV, -1); remap[vids] = np.arange(len(vids))
     # köşe başına uv: döngü uv'lerinden (dikişte köşe kopyalanır)
-    keys = {}; pos, nrm, uv, jj, ww, idx = [], [], [], [], [], []
+    keys = {}; pos, nrm, uv, jj, ww, idx, clv, glv = [], [], [], [], [], [], [], []
     for t in tris:
         for k_, li in zip(TRI[t], TLOOP[t]):
-            u_, v_ = LUV[li]; sk = (k_, TG[t]) if (k_, TG[t]) in SEAM else None; key = (k_, round(u_, 5), round(v_, 5), sk)
+            u_, v_ = LUV[li]; sk = (k_, TG[t]) if (k_, TG[t]) in SEAM else None; isc = TG[t] == 'cloak'; key = (k_, round(u_, 5), round(v_, 5), sk, isc)
             if key not in keys:
-                keys[key] = len(pos); pos.append(P3[k_]); nrm.append(N3[k_]); uv.append((u_, 1 - v_))
+                keys[key] = len(pos); pos.append(P3[k_]); nrm.append(N3[k_]); uv.append((u_, 1 - v_)); clv.append(CLOTHV[k_] if isc else (0.0, 0.0)); glv.append(GLOWV[k_])
                 if sk: wf = SEAM[sk]; oo = np.argsort(-wf)[:4]; wv = wf[oo] / wf[oo].sum(); jj.append(oo); ww.append(wv)
                 else: jj.append(order[k_]); ww.append(Wt[k_])
             idx.append(keys[key])
     pos = np.array(pos, np.float32); nrm = np.array(nrm, np.float32); uv = np.array(uv, np.float32)
     jj = np.array(jj, np.uint16); ww = np.array(ww, np.float32); idx = np.array(idx, np.uint32)
     ib = INV.transpose(0, 2, 1).reshape(-1).astype(np.float32)          # sütun düzeni
-    blobs = [pos, nrm, uv, jj, ww, idx, ib]; views = []; bin_ = b''
+    clv = np.array(clv, np.float32); glv = np.array(glv, np.float32)
+    blobs = [pos, nrm, uv, jj, ww, idx, ib, clv, glv]; views = []; bin_ = b''
     for bl in blobs:
         while len(bin_) % 4: bin_ += b'\0'
         views.append({'buffer': 0, 'byteOffset': len(bin_), 'byteLength': bl.nbytes}); bin_ += bl.tobytes()
@@ -256,10 +283,12 @@ def write_glb(path, name, mat, vids, tris):
            {'bufferView': 3, 'componentType': 5123, 'count': len(pos), 'type': 'VEC4'},
            {'bufferView': 4, 'componentType': 5126, 'count': len(pos), 'type': 'VEC4'},
            {'bufferView': 5, 'componentType': 5125, 'count': len(idx), 'type': 'SCALAR'},
-           {'bufferView': 6, 'componentType': 5126, 'count': len(BN), 'type': 'MAT4'}]
+           {'bufferView': 6, 'componentType': 5126, 'count': len(BN), 'type': 'MAT4'},
+           {'bufferView': 7, 'componentType': 5126, 'count': len(pos), 'type': 'VEC2'},
+           {'bufferView': 8, 'componentType': 5126, 'count': len(pos), 'type': 'SCALAR'}]
     nodes = [{'name': name, 'mesh': 0, 'skin': 0}] + [{'name': n} for n in BN]
     gl = {'asset': {'version': '2.0', 'generator': 'VALKOR fit_static_armor'}, 'scene': 0, 'scenes': [{'nodes': list(range(len(nodes)))}], 'nodes': nodes,
-          'meshes': [{'name': name, 'primitives': [{'attributes': {'POSITION': 0, 'NORMAL': 1, 'TEXCOORD_0': 2, 'JOINTS_0': 3, 'WEIGHTS_0': 4}, 'indices': 5, 'material': 0}]}],
+          'meshes': [{'name': name, 'primitives': [{'attributes': {'POSITION': 0, 'NORMAL': 1, 'TEXCOORD_0': 2, 'JOINTS_0': 3, 'WEIGHTS_0': 4, '_CLOTH': 7, '_GLOW': 8}, 'indices': 5, 'material': 0}]}],
           'materials': [{'name': mat, 'pbrMetallicRoughness': {'metallicFactor': 1, 'roughnessFactor': 1}}],
           'skins': [{'joints': list(range(1, len(nodes))), 'inverseBindMatrices': 6}],
           'accessors': acc, 'bufferViews': views, 'buffers': [{'byteLength': len(bin_)}]}
@@ -270,10 +299,11 @@ def write_glb(path, name, mat, vids, tris):
 
 np.savez(os.path.join(OUT, '_dbg.npz'), P3=P3, order=order, Wt=Wt, INV=INV, M=np.stack([M[n] for n in SH]), HINV=np.stack([HINV[n] for n in SH]), E=E, V=V, part=np.array([str(q) for q in part]), grp=np.array([str(q) for q in GRP]))
 report = []
-for name, tris in sorted(groups.items()):
-    tris = np.array(tris); vids = np.unique(TRI[tris])
-    nt, nv, sz = write_glb(os.path.join(OUT, name + '.glb'), name, SET + ('_hale' if name == 'hale' else ''), vids, tris)
-    report.append((name, nt, nv, sz)); print('PARÇA', name, 'üçgen', nt, 'köşe', nv, 'bayt', sz, flush=True)
+# tek parça: bütün zırh (maske, hale, gövde, pelerin, çizmeler) tek GLB, tek malzeme
+for f_ in os.listdir(OUT):
+    if f_.endswith('.glb'): os.remove(os.path.join(OUT, f_))
+alltris = np.arange(len(TRI)); nt, nv, sz = write_glb(os.path.join(OUT, 'tum.glb'), 'tum', SET, np.unique(TRI), alltris)
+report.append(('tum', nt, nv, sz)); print('PARÇA tum üçgen', nt, 'köşe', nv, 'bayt', sz, flush=True)
 json.dump(report, open(os.path.join(OUT, '_report.json'), 'w'), indent=1)
 
 # ---------------- dokular (1024): renk, metal-pürüzlülük (G = pürüzlülük, B = metal), normal
