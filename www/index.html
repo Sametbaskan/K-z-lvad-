@@ -1216,7 +1216,8 @@ function retireItems(){ let back=0; const names=[]; const chk=it=>{ const r=it&&
   if(S.eq&&typeof S.eq==='object') for(const k in S.eq) if(chk(S.eq[k])) delete S.eq[k];
   if(back){ S.yang+=back; setTimeout(()=>{ try{ say(`${names.join(', ')} artık Güneş Şövalyesi Zırhı'nın içinde (tek parça). ${fmt(back)} Yang iade edildi.`,'c-yang'); saveGame(); }catch(e){} },1500); } }
 function initInv(){ retireItems(); if(!Array.isArray(S.inv)) S.inv=[]; S.inv.length=INVN*INVPAGES; for(let i=0;i<S.inv.length;i++){ const it=S.inv[i]; S.inv[i]=(it&&ITEMS[it.id])?cpIt(it):null; }
-  if(!S.eq||typeof S.eq!=='object'||Array.isArray(S.eq)) S.eq={w1:{id:'sword',n:1}};
+  if(!S.eq||typeof S.eq!=='object'||Array.isArray(S.eq)) S.eq={w1:{id:'sword',n:1},armor1:{id:'cirak_zirh',n:1,u:0},boots:{id:'cirak_bot',n:1,u:0}};
+  if(!S.cirakGift){ S.cirakGift=1; if(S.eq&&!Array.isArray(S.eq)){ if(!S.eq.armor1&&!S.eq.armor2&&!hasItem('cirak_zirh')) S.eq.armor1={id:'cirak_zirh',n:1,u:0}; if(!S.eq.boots&&!hasItem('cirak_bot')) S.eq.boots={id:'cirak_bot',n:1,u:0}; } }
   const eq={}; for(const e of EQS){ const it=S.eq[e.id]; if(it&&ITEMS[it.id]&&ITEMS[it.id].slot===e.type) eq[e.id]=cpIt(it); } S.eq=eq;
   // kılıç hiçbir yerde yoksa (eski kayıt) ilk silah slotuna koy
   if(!hasItem('sword')) S.eq.w1=S.eq.w1||{id:'sword',n:1};
@@ -1274,9 +1275,10 @@ const ARMOR_PIECES={gogusluk:{name:'Göğüslük',hide:['Spine1','Spine2']},sirt
   botlar:{name:'Botlar',hide:['LeftFoot','RightFoot','LeftToeBase','RightToeBase','LeftToe_End','RightToe_End']},
   tum:{name:'Tek parça zırh (maske, hale, gövde, pelerin, çizmeler)',hide:['Hips','Spine','Spine1','Spine2','Neck','Head','HeadTop_End','LeftShoulder','RightShoulder','LeftArm','RightArm','LeftForeArm','RightForeArm','LeftHand*','RightHand*',
     'LeftUpLeg','RightUpLeg','LeftLeg','RightLeg','LeftFoot','RightFoot','LeftToeBase','RightToeBase','LeftToe_End','RightToe_End']},
-  boyunluk:{name:'Boyunluk',hide:['Neck','LeftShoulder','RightShoulder']},pelerin:{name:'Pelerin',hide:[]},migfer:{name:'Miğfer',hide:['Head','HeadTop_End']}};   // hide: parça takılıyken gizlenen gövde bölgeleri (kemik adı)
+  boyunluk:{name:'Boyunluk',hide:['Neck','LeftShoulder','RightShoulder']},pelerin:{name:'Pelerin',hide:[]},migfer:{name:'Miğfer',hide:['Head','HeadTop_End']},cirak_gogus:{name:'Deri göğüslük',hide:[]},cirak_bel:{name:'Pteruges kuşak',hide:[]},cirak_omuz_l:{name:'Sol omuzluk',hide:[]},cirak_omuz_r:{name:'Sağ omuzluk',hide:[]},cirak_kol_l:{name:'Sol bileklik',hide:[]},cirak_kol_r:{name:'Sağ bileklik',hide:[]},cirak_bacak_l:{name:'Sol tozluk',hide:[]},cirak_bacak_r:{name:'Sağ tozluk',hide:[]},cirak_bot_l:{name:'Sol bot',hide:[]},cirak_bot_r:{name:'Sağ bot',hide:[]}};   // hide: parça takılıyken gizlenen gövde bölgeleri (kemik adı)
 const ARMOR_SETS={gunes_sovalyesi:{ownBind:true,cloth:true,glow:0xffb040,fx:{metal:0x9a1206,mist:0x4a0806,spark:0xff3a1a},tex:{base:'models/armor/gunes_sovalyesi/tex/base.jpg',mr:'models/armor/gunes_sovalyesi/tex/mr.jpg',normal:'models/armor/gunes_sovalyesi/tex/normal.jpg'}},
-  kara_sovalye:{tex:{base:'models/armor/kara_sovalye/tex/base.jpg',mr:'models/armor/kara_sovalye/tex/mr.jpg',normal:'models/armor/kara_sovalye/tex/normal.jpg'}}};
+  kara_sovalye:{tex:{base:'models/armor/kara_sovalye/tex/base.jpg',mr:'models/armor/kara_sovalye/tex/mr.jpg',normal:'models/armor/kara_sovalye/tex/normal.jpg'}},
+  cirak:{texm:{Deri:{base:'models/armor/cirak/tex/deri_base.jpg',mr:'models/armor/cirak/tex/deri_mr.jpg',normal:'models/armor/cirak/tex/deri_normal.jpg'},Bronz:{base:'models/armor/cirak/tex/bronz_base.jpg',mr:'models/armor/cirak/tex/bronz_mr.jpg',normal:'models/armor/cirak/tex/bronz_normal.jpg'}},env:{Deri:.35,Bronz:3}}};
 const ARMOR_ITEMS={
   kara_sovalye_zirh:{name:'Kara Şövalye Zırhı',slot:'armor',set:'kara_sovalye',reqLv:20,price:150000,def:22,
     pieces:['gogusluk','sirt','boyunluk','pelerin','omuzluk_l','omuzluk_r','kol_l','kol_r','eldiven','bel','bacak_l','bacak_r'],
@@ -1285,12 +1287,17 @@ const ARMOR_ITEMS={
     desc:'Göz yarığından kızıl ışık sızan, taç dikenli kapalı kara çelik miğfer.'},
   gunes_zirh:{name:'Güneş Şövalyesi Zırhı',slot:'armor',set:'gunes_sovalyesi',reqLv:75,price:4000000,def:104,pieces:['tum'],
     desc:'Unutulmuş Güneş Tarikatı\'nın son şövalyesinin tek parça zırhı: gagalı maske ve altın güneş halesi, işlemeli bronz omuzluklar, kat kat plaka, rüzgârda dalgalanan pelerin ve ağır çizmeler. Sv.75 efsanevi.'},
+  cirak_zirh:{name:'Çırak Savaşçı Zırhı',slot:'armor',set:'cirak',reqLv:1,price:0,def:4,rar:'Başlangıç',
+    pieces:['cirak_gogus','cirak_bel','cirak_omuz_l','cirak_omuz_r','cirak_kol_l','cirak_kol_r','cirak_bacak_l','cirak_bacak_r'],
+    desc:'Her yeni savaşçıya verilen sade başlangıç zırhı: kalın deri göğüslük, bronz perçinli omuzluklar, bileklikler, pteruges kuşak ve bronz tozluklar.'},
+  cirak_bot:{name:'Çırak Savaşçı Çizmeleri',slot:'boots',set:'cirak',reqLv:1,price:0,def:2,rar:'Başlangıç',pieces:['cirak_bot_l','cirak_bot_r'],
+    desc:'Bronz burun ve bilek kayışlı sağlam deri çizmeler.'},
   kara_sovalye_bot:{name:'Kara Şövalye Botları',slot:'boots',set:'kara_sovalye',reqLv:20,price:40000,def:7,pieces:['botlar'],
     desc:'Kat kat plakalı, kalın tabanlı kara çelik savaş botları.'}
 };
 for(const [id,A] of Object.entries(ARMOR_ITEMS)){ A.id=id; A.icon=A.icon||`img/armor/${id}.webp`;
   registerItem(id,{name:A.name,img:'ar_'+id,icon:A.icon,slot:A.slot,kind:'zırh',leg:true,reqLv:A.reqLv,desc:A.desc,
-    info:()=>[`<span style="color:#ffb84a">${A.name}</span>`,`${A.slot==='boots'?'Bot':A.slot==='helmet'?'Miğfer':'Zırh'} · <span style="color:#ffb84a">Efsanevi</span> · Sv.${A.reqLv}${S.lvl<A.reqLv?' <span style="color:#f88">(seviyen yetmiyor)</span>':''}`,
+    info:()=>[`<span style="color:#ffb84a">${A.name}</span>`,`${A.slot==='boots'?'Bot':A.slot==='helmet'?'Miğfer':'Zırh'} · <span style="color:#ffb84a">${A.rar||'Efsanevi'}</span> · Sv.${A.reqLv}${S.lvl<A.reqLv?' <span style="color:#f88">(seviyen yetmiyor)</span>':''}`,
       `Savunma: +${A.def}`,`Parçalar: ${A.pieces.map(p=>ARMOR_PIECES[p].name).join(', ')}`,`<i style="color:#cdbb9a">${A.desc}</i>`]}); }
 const armorDef=()=>{ let d=0; for(const e of EQS){ const it=S.eq&&S.eq[e.id], A=it&&ARMOR_ITEMS[it.id]; if(A) d+=A.def; } return d; };
 const swEq=()=>!!(S.eq&&S.eq.w1&&S.eq.w1.id==='sword');   // Güneş Mızrağı sağ el slotunda takılı mı
@@ -1465,6 +1472,8 @@ function armorMat(mt,set){ const key=set+'|'+mt.name; let m=ARMOR.mats[key]; if(
     const mr=ld(T.mr,false); m=new THREE.MeshStandardMaterial({map:ld(T.base,true),normalMap:ld(T.normal,false),roughnessMap:mr,metalnessMap:mr,metalness:1,roughness:1,envMap:weaponEnv(),envMapIntensity:.7}); m.name=key;
     if(ARMOR_SETS[set].fx) armorFxPatch(m,ARMOR_SETS[set].fx);
   }
+  else if(ARMOR_SETS[set]&&ARMOR_SETS[set].texm&&ARMOR_SETS[set].texm[mt.name]){ const Tm=ARMOR_SETS[set].texm[mt.name], tl=new THREE.TextureLoader(), ld=(u,srgb)=>{ const t=tl.load(u); t.flipY=false; if(srgb) t.colorSpace=THREE.SRGBColorSpace; t.anisotropy=4; return t; };
+    const mr=ld(Tm.mr,false); m=new THREE.MeshStandardMaterial({map:ld(Tm.base,true),normalMap:ld(Tm.normal,false),roughnessMap:mr,metalnessMap:mr,metalness:1,roughness:1,envMap:weaponEnv(),envMapIntensity:(ARMOR_SETS[set].env||{})[mt.name]||1,side:THREE.DoubleSide}); m.name=key; }
   else { m=mt; m.envMap=weaponEnv(); m.envMapIntensity=.55; m.side=THREE.DoubleSide; m.needsUpdate=true; }
   ARMOR.mats[key]=m; return m; }
 /* ===== zırh yükseltme efekti (+0..+10): set başına ARMOR_SETS[set].fx = {metal, mist, spark} renkleri =====
