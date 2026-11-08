@@ -2799,7 +2799,7 @@ addEventListener('keydown',e=>{
   const k=e.key.toLowerCase(); keys[k]=true;
   if(k==='enter'){ $('chatIn').focus(); e.preventDefault(); return; }
   if(k>='0'&&k<='9'&&!e.repeat) useSlot(k==='0'?9:+k-1);
-  if(k==='k'&&!e.repeat) toggleWin('skw'); if(k==='v'&&!e.repeat) toggleWin('sta'); if(k==='f'&&!e.repeat) tryTravel(); if(k==='b'&&!e.repeat) toggleMount(); if(k==='i'&&!e.repeat) toggleWin('inv'); if(k==='c'&&!e.repeat) toggleWin('chr'); if(k==='escape'){ closeWins(); P.target=null; P.dest=null; }
+  if(k==='k'&&!e.repeat) toggleWin('skw'); if(k==='v'&&!e.repeat) toggleWin('sta'); if(k==='f'&&!e.repeat) tryTravel(); if(k==='b'&&!e.repeat) toggleMount(); if(k==='i'&&!e.repeat) toggleWin('inv'); if(k==='c'&&!e.repeat) toggleWin('chr'); if(k==='escape'){ closeWins(); closeTP(); P.target=null; P.dest=null; }
   if(['arrowup','arrowdown','arrowleft','arrowright',' ','tab'].includes(k)) e.preventDefault();
 });
 addEventListener('keyup',e=>{ keys[e.key.toLowerCase()]=false; });
@@ -3054,13 +3054,13 @@ $('reHere').onclick=()=>respawnPlayer('here'); $('reCity').onclick=()=>respawnPl
 /* Her harita ayrı nesne kümesi (MAPS[id].objs), kendi arazisi/yüksekliği (hAt), engelleri (OBS), bitki setleri ve canavarları ile yönetilir.
    Aynı anda yalnızca aktif harita sahnededir; Kızıl Orman her girişte kurulur, çıkışta bellekten temizlenir. Köy hafif olduğu için sahneden çıkarılıp saklanır. */
 const TRAVEL={busy:false,near:false,to:null};
-let mapFadeEl=null, mapFadeTxt=null, mapFadeSub=null, mapPromptEl=null;
+let mapFadeEl=null, mapFadeTxt=null, mapFadeSub=null, mapPromptEl=null, tpEl=null;
 const swirlTex=(()=>{ const c=document.createElement('canvas'); c.width=c.height=128; const g=c.getContext('2d');
   const gr=g.createRadialGradient(64,64,6,64,64,62); gr.addColorStop(0,'rgba(255,255,255,.18)'); gr.addColorStop(.55,'rgba(255,255,255,.5)'); gr.addColorStop(.82,'rgba(255,255,255,.95)'); gr.addColorStop(1,'rgba(255,255,255,0)'); g.fillStyle=gr; g.fillRect(0,0,128,128);
   g.strokeStyle='rgba(255,255,255,.55)'; g.lineWidth=3; for(let i=0;i<4;i++){ g.beginPath(); g.arc(64,64,16+i*11,i,i+2.4); g.stroke(); }
   const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; return t; })();
 function signTex(text,fg,bg){ const c=document.createElement('canvas'); c.width=512; c.height=128; const g=c.getContext('2d'); g.fillStyle=bg; g.fillRect(0,0,512,128); g.strokeStyle=fg; g.lineWidth=6; g.strokeRect(6,6,500,116);
-  g.fillStyle=fg; g.font='700 56px Georgia,serif'; g.textAlign='center'; g.textBaseline='middle'; g.fillText(text,256,68); const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; return t; }
+  g.fillStyle=fg; g.textAlign='center'; g.textBaseline='middle'; let fs=56; g.font='700 '+fs+'px Georgia,serif'; while(fs>20&&g.measureText(text).width>460){ fs-=2; g.font='700 '+fs+'px Georgia,serif'; } g.fillText(text,256,68); const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; return t; }
 world.portals=[]; let ARCH=null;
 const ARCH_S=32, ARCH_W=2.9, ARCH_H=5.9;
 const BH_VS='varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}';
@@ -3308,7 +3308,7 @@ function initVillageMap(){
   try{ buildVillage(); }catch(e){ console.error('[Köy] yeni köy kurulamadı:',e); }
   if(PLANTS){ try{ buildPlantWorld('village'); villageGreenery(); }catch(e){ console.error('[Harita] köy çevresi bitkileri kurulamadı:',e); } }
   MAPS.village.sets=PLANT_SETS;
-  buildGate(MAPS.village.gate,villageGateRy(),'KIZIL ORMAN',0x66ffa0,'#9dffc0');
+  buildGate(MAPS.village.gate,villageGateRy(),'IŞINLANMA PORTALI',0x66ffa0,'#dfe8ee');
   populateVillage();
   MAPS.village.objs=[...(world.villageObjs||[]),...scene.children.filter(c=>!b0.has(c))];
   console.info('[Harita] Köy hazır: '+MAPS.village.objs.length+' nesne, sınır yarıçapı '+MAPS.village.bound+' m, canavar yok');
@@ -3389,7 +3389,7 @@ function buildForestExtras(){
     const gl=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,color:0xff6a2a,transparent:true,opacity:.4,depthWrite:false,blending:THREE.AdditiveBlending,fog:false})); gl.position.set(0,1.2,-.4); gl.scale.set(4,3,1); g.add(gl);
     scene.add(g);
     for(const lx of [-3.4,3.4]){ const [wx,wz]=WL(lx,0); addObstacle(wx,wz,1.5); } for(const [lx,lz,r] of [[0,-1.6,2.8],[-5.6,-2,3],[5.6,-2,3]]){ const [wx,wz]=WL(lx,lz); addObstacle(wx,wz,r); } }
-  buildGate(MAPS.forest.gate,0,'KÖYE DÖN',0xffb050,'#ffd890');
+  buildGate(MAPS.forest.gate,0,'IŞINLANMA PORTALI',0x66ffa0,'#dfe8ee');
   buildGate(F_DESERT_GATE,Math.PI/2,'ZAHRAK ÇÖLÜ',0xffc060,'#ffe0a0');
 }
 const rnd01=()=>R();
@@ -3440,34 +3440,67 @@ function placePlayer(x,z,yaw){
   if(MOUNT.ready){ MOUNT.pos.set(x+Math.sin(yaw+1.1)*2.4,0,z+Math.cos(yaw+1.1)*2.4); MOUNT.yaw=yaw; MOUNT.last.copy(P.pos); MOUNT.following=false; if(MOUNT.g) MOUNT.g.position.set(MOUNT.pos.x,hAt(MOUNT.pos.x,MOUNT.pos.z),MOUNT.pos.z); }
 }
 function initMapUI(){
-  const st=document.createElement('style'); st.textContent='#mapFade{position:fixed;inset:0;background:#050403;opacity:0;pointer-events:none;transition:opacity .38s;z-index:60;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#ffe9b0;font-family:Georgia,serif}#mapFade b{font-size:34px;letter-spacing:2px;text-shadow:0 0 14px #c0392b}#mapFade span{margin-top:10px;font-size:15px;opacity:.8}#mapPrompt{position:fixed;left:50%;bottom:27%;transform:translateX(-50%);z-index:40;display:none;padding:12px 22px;font:700 18px Georgia,serif;color:#ffe9b0;background:linear-gradient(#6a4a26,#35261a);border:2px solid #c9a24a;border-radius:8px;box-shadow:0 0 18px rgba(255,200,90,.45);cursor:pointer;pointer-events:auto;touch-action:manipulation}';
+  const st=document.createElement('style'); st.textContent=`#mapFade{position:fixed;inset:0;background:#050607;opacity:0;pointer-events:none;transition:opacity .38s;z-index:60;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#e6ebef;font-family:system-ui,'Segoe UI',Roboto,sans-serif}#mapFade b{font-size:32px;letter-spacing:2px;font-weight:600}#mapFade span{margin-top:10px;font-size:15px;opacity:.7}
+#mapPrompt{position:fixed;left:50%;bottom:27%;transform:translateX(-50%);z-index:40;display:none;padding:10px 20px;font:600 15px system-ui,'Segoe UI',Roboto,sans-serif;letter-spacing:.3px;color:#e6ebef;background:rgba(24,27,30,.86);border:1px solid rgba(255,255,255,.28);border-radius:6px;cursor:pointer;pointer-events:auto;touch-action:manipulation}
+#mapPrompt:hover{background:rgba(44,50,56,.92)}
+#tpWin{position:fixed;left:50%;top:47%;transform:translate(-50%,-50%);z-index:45;display:none;box-sizing:border-box;width:min(370px,94vw);padding:12px 14px 16px;color:#e6ebef;font:13px/1.2 system-ui,'Segoe UI',Roboto,sans-serif;background:rgba(22,25,28,.84);border:1px solid rgba(255,255,255,.2);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);user-select:none;-webkit-user-select:none;touch-action:manipulation}
+#tpWin::after{content:'';position:absolute;inset:3px;pointer-events:none;background:linear-gradient(#cfd8de,#cfd8de) 0 0/7px 1px,linear-gradient(#cfd8de,#cfd8de) 0 0/1px 7px,linear-gradient(#cfd8de,#cfd8de) 100% 0/7px 1px,linear-gradient(#cfd8de,#cfd8de) 100% 0/1px 7px,linear-gradient(#cfd8de,#cfd8de) 0 100%/7px 1px,linear-gradient(#cfd8de,#cfd8de) 0 100%/1px 7px,linear-gradient(#cfd8de,#cfd8de) 100% 100%/7px 1px,linear-gradient(#cfd8de,#cfd8de) 100% 100%/1px 7px;background-repeat:no-repeat;opacity:.7}
+#tpWin .tpT{font-size:12px;letter-spacing:.4px;color:#b9c4cc;margin:0 0 12px 2px}
+#tpWin .tpB{display:flex;align-items:center;justify-content:center;gap:10px}
+#tpWin .tpL{display:flex;flex-direction:column;gap:5px;width:222px;max-height:70vh;overflow:auto}
+#tpWin button{font:inherit;color:#e6ebef;background:rgba(255,255,255,.09);border:1px solid transparent;cursor:pointer;touch-action:manipulation}
+#tpWin button:hover,#tpWin button:focus-visible{background:rgba(255,255,255,.17);border-color:rgba(143,183,204,.55);outline:none}
+#tpWin .tpb{display:flex;align-items:center;gap:9px;min-height:36px;padding:0 12px;text-align:center}
+#tpWin .tpb svg{flex:none;width:17px;height:17px;fill:none;stroke:#8fb7cc;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+#tpWin .tpb span{flex:1}
+#tpWin .tpb em{font-style:normal;color:#9aa8b2;font-size:12px}
+#tpWin .tpb.cur{opacity:.45;cursor:default}
+#tpWin .tpb.cur:hover{background:rgba(255,255,255,.09);border-color:transparent}
+#tpWin .tpX{align-self:center;padding:8px 10px;min-width:58px}`;
   document.head.appendChild(st);
   mapFadeEl=document.createElement('div'); mapFadeEl.id='mapFade'; mapFadeTxt=document.createElement('b'); mapFadeSub=document.createElement('span'); mapFadeEl.append(mapFadeTxt,mapFadeSub); document.body.appendChild(mapFadeEl);
   mapPromptEl=document.createElement('button'); mapPromptEl.id='mapPrompt'; document.body.appendChild(mapPromptEl);
   mapPromptEl.addEventListener('pointerdown',e=>{ e.stopPropagation(); }); mapPromptEl.addEventListener('click',e=>{ e.stopPropagation(); tryTravel(); });
+  tpEl=document.createElement('div'); tpEl.id='tpWin'; tpEl.innerHTML='<div class="tpT">Işınlanma Portalı</div><div class="tpB"><div class="tpL"></div><button class="tpX" type="button">Kapat</button></div>'; document.body.appendChild(tpEl);
+  for(const ev of ['pointerdown','pointerup','click','touchstart','wheel']) tpEl.addEventListener(ev,e=>e.stopPropagation(),{passive:true});
+  tpEl.querySelector('.tpX').addEventListener('click',closeTP);
 }
+/* ---- Işınlanma Portalı penceresi: merkez kapılara yaklaşınca "Haritalar" çıkar → tıklayınca harita listesi → seçilene ışınlanır ---- */
+const TP_ICON={ home:'<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>', tree:'<path d="M12 3l6 9h-3l4 6H5l4-6H6z"/><path d="M12 18v3"/>', dune:'<circle cx="17" cy="7" r="3"/><path d="M2 19c3-5 6-5 9-1 2-3 5-4 11 1"/>' };
+const TP_LIST=[{id:'village',ic:'home'},{id:'forest',ic:'tree',lv:'1-15'},{id:'desert',ic:'dune',lv:'17-32'}];
+function openTP(){
+  if(!tpEl||TRAVEL.busy||S.dead) return; const L=tpEl.querySelector('.tpL'); L.textContent='';
+  for(const t of TP_LIST){ const b=document.createElement('button'); b.type='button'; b.className='tpb'+(t.id===MAP.id?' cur':'');
+    b.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true">'+TP_ICON[t.ic]+'</svg><span>'+MAPS[t.id].name+(t.lv?' <em>('+t.lv+')</em>':'')+'</span>';
+    if(t.id!==MAP.id) b.addEventListener('click',()=>{ closeTP(); travelTo(t.id,{menu:true}); });
+    L.appendChild(b); }
+  tpEl.style.display='block'; if(mapPromptEl) mapPromptEl.style.display='none';
+}
+function closeTP(){ if(!tpEl||tpEl.style.display==='none') return; tpEl.style.display='none'; if(mapPromptEl&&TRAVEL.near) mapPromptEl.style.display='block'; }
+function toggleTP(){ if(tpEl&&tpEl.style.display==='block') closeTP(); else openTP(); }
 function mapGates(){
-  const m=MAP; if(m.id==='village') return [{x:m.gate.x,z:m.gate.z,to:'forest',label:'Kızıl Orman\'a Gir'}];
-  if(m.id==='forest') return [{x:m.gate.x,z:m.gate.z,to:'village',label:'Köye Dön'},{x:F_DESERT_GATE.x,z:F_DESERT_GATE.z,to:'desert',label:'Zahrak Çölü\'ne Gir'}];
-  return [{x:m.gate.x,z:m.gate.z,to:'forest',label:'Kızıl Orman\'a Dön'}];
+  const m=MAP, c={x:m.gate.x,z:m.gate.z,menu:true,to:'__menu',label:'Haritalar'};   // merkez portal: harita listesi penceresini açar
+  if(m.id==='forest') return [c,{x:F_DESERT_GATE.x,z:F_DESERT_GATE.z,to:'desert',label:'Zahrak Çölü\'ne Gir'}];
+  return [c];
 }
 function updateMapPrompt(){
   if(!mapPromptEl) return; let hit=null;
   if(!TRAVEL.busy&&!S.dead&&started) for(const g of mapGates()) if(Math.hypot(P.pos.x-g.x,P.pos.z-g.z)<4.8){ hit=g; break; }
   const on=!!hit, key=hit?hit.to:null;
-  if(on!==TRAVEL.near||key!==TRAVEL.to){ TRAVEL.near=on; TRAVEL.to=key; mapPromptEl.style.display=on?'block':'none'; if(on) mapPromptEl.textContent=hit.label+(coarse?'':'  [F]'); }
+  if(!on&&tpEl&&tpEl.style.display==='block'){ tpEl.style.display='none'; }
+  if(on!==TRAVEL.near||key!==TRAVEL.to){ TRAVEL.near=on; TRAVEL.to=key; mapPromptEl.style.display=on&&!(tpEl&&tpEl.style.display==='block')?'block':'none'; if(on) mapPromptEl.textContent=hit.label+(coarse?'':'  [F]'); }
 }
-function tryTravel(){ if(!TRAVEL.near||TRAVEL.busy||S.dead||!TRAVEL.to) return; travelTo(TRAVEL.to); }
+function tryTravel(){ if(!TRAVEL.near||TRAVEL.busy||S.dead||!TRAVEL.to) return; if(TRAVEL.to==='__menu'){ toggleTP(); return; } travelTo(TRAVEL.to); }
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
 async function travelTo(id,opt={}){
-  if(TRAVEL.busy||id===MAP.id) return; TRAVEL.busy=true; TRAVEL.near=false; if(mapPromptEl) mapPromptEl.style.display='none';
+  if(TRAVEL.busy||id===MAP.id) return; TRAVEL.busy=true; TRAVEL.near=false; if(mapPromptEl) mapPromptEl.style.display='none'; if(tpEl) tpEl.style.display='none';
   const from=MAP.id; mapFadeTxt.textContent=MAPS[id].name; mapFadeSub.textContent='Yükleniyor…'; mapFadeEl.style.pointerEvents='auto'; mapFadeEl.style.opacity='1';
   for(const k in keys) keys[k]=false;
   await wait(430); const t0=performance.now();
   try{
     leaveMap(); enterMap(id);
     if(id==='desert'){ const sp=MAPS.desert.spawn; placePlayer(sp.x,sp.z,sp.yaw); }
-    else if(id==='forest'){ if(from==='desert') placePlayer(F_DESERT_GATE.x-5,F_DESERT_GATE.z,-Math.PI/2); else { const sp=MAPS.forest.spawn; placePlayer(sp.x,sp.z,sp.yaw); } }
+    else if(id==='forest'){ if(from==='desert'&&!opt.menu) placePlayer(F_DESERT_GATE.x-5,F_DESERT_GATE.z,-Math.PI/2); else { const sp=MAPS.forest.spawn; placePlayer(sp.x,sp.z,sp.yaw); } }
     else if(opt.respawn){ const sp=MAPS.village.spawn; placePlayer(sp.x,sp.z,sp.yaw); }
     else { const g=MAPS.village.gate, d=Math.hypot(g.x,g.z), ux=-g.x/d, uz=-g.z/d; placePlayer(g.x+ux*4,g.z+uz*4,Math.atan2(ux,uz)); }
     updatePlants(0,true);
@@ -3891,7 +3924,7 @@ function buildDesertDecor(){
     });
     const mat=new THREE.MeshLambertMaterial({color:0xffffff}); const mk=(geo,list)=>{ if(!list.length) return; const im=new THREE.InstancedMesh(geo,mat,list.length); list.forEach((e,i)=>{ Yd.position.set(...e.p); Yd.rotation.set(...e.r); Yd.scale.set(...e.s); Yd.updateMatrix(); im.setMatrixAt(i,Yd.matrix); im.setColorAt(i,e.c); }); im.castShadow=!coarse; im.receiveShadow=true; im.frustumCulled=false; scene.add(im); };
     mk(new THREE.BoxGeometry(1,1,1),boxes); mk(new THREE.CylinderGeometry(.5,.56,1,8),cyls); }
-  buildGate(MAPS.desert.gate,0,'ORMANA DÖN',0xffb050,'#ffd890');
+  buildGate(MAPS.desert.gate,0,'IŞINLANMA PORTALI',0x66ffa0,'#dfe8ee');
 }
 function buildDesertMap(){
   const b0=new Set(scene.children);
