@@ -1454,8 +1454,23 @@ function addStat(k){ if(!(k in BASESTAT)) return; if(S.pts<=0){ say('Stat puanı
 /* ileride NPC / özel eşya için: tüm dağıtılan stat puanlarını iade eder */
 function resetStats(){ let refund=0; for(const k in BASESTAT){ refund+=S[k]-BASESTAT[k]; S[k]=BASESTAT[k]; } S.pts+=refund; S.rst=(S.rst|0)+1; S.hp=Math.min(S.hp,maxHP()); S.sp=Math.min(S.sp,maxSP()); saveGame(); renderMenu(true); return refund; }
 let SAVEKEY='valkor.v1.guest'; const LEGACY_SAVE=['kizil','vadi'].join('')+'.v1', LEGACY_WM=['kizil','vadi'].join('')+'.wm';   // eski sürümlerden kayıt taşıma (adlar parçalı: dosyada eski ad kalmasın)
-function saveGame(){ safe(()=>localStorage.setItem(SAVEKEY,JSON.stringify({name:S.name,king:S.king,pt:Math.floor(S.pt),lvl:S.lvl,exp:S.exp,yang:S.yang,pts:S.pts,qd:S.qd,rst:S.rst,inv:S.inv,eq:S.eq,st:S.st,vit:S.vit,int:S.int,dex:S.dex,weap:S.weap,wr:S.wr,red:S.red,blue:S.blue,sk:S.sk,rp:S.rp,rk:rankSum(S.rp),guild:S.guild}))); }
-function loadGame(){ try{ initInv(); }catch(e){} const d=safe(()=>JSON.parse(localStorage.getItem(SAVEKEY)||'null')); if(d&&typeof d==='object'){ for(const k of Object.keys(d)) if(k!=='sk'&&k in S && typeof d[k]===typeof S[k]) S[k]=d[k]; sanitizeSkills(d.sk); initInv(); for(const k in BASESTAT) S[k]=Math.max(BASESTAT[k],Math.min(STATCAP,Math.floor(S[k])||BASESTAT[k])); S.pts=Math.max(0,Math.floor(S.pts)||0); if(d.qd===undefined) S.qd=qOf(); S.qd=Math.max(0,Math.min(3,S.qd|0)); S.rp=(typeof d.rp==='number'&&isFinite(d.rp)&&d.rk===rankSum(d.rp))?Math.max(RANK_MIN,Math.min(RANK_MAX,Math.round(d.rp))):0; S.guild=typeof d.guild==='string'?d.guild.slice(0,16):''; fixWeapon(); return true; } fixWeapon(); return false; }
+/* ---- son konum kaydı (karakter bazlı: SAVEKEY zaten uid+karakter id içerir) ---- */
+let LOCSAVED=null, LOC_LIVE=false, LASTSAFE=null;      // LOC_LIVE: kayıtlı konum geri yüklenip karakter yerleştirilene kadar false → o zamana dek eski konum kaydı korunur
+const locMax=id=>(id==='village'?MAPS.village.bound:HALF)-3;
+function locValid(l){ try{ if(!l||typeof l!=='object'||!MAPS[l.map]||![l.x,l.z,l.yaw].every(Number.isFinite)) return false; const m=locMax(l.map); return l.map==='village'?Math.hypot(l.x,l.z)<=m:(Math.abs(l.x)<=m&&Math.abs(l.z)<=m); }catch(e){ return false; } }
+function locNow(){ const f=(v,n)=>+v.toFixed(n); return {map:MAP.id,mapName:MAP.name,x:f(P.pos.x,2),y:f(P.pos.y,2),z:f(P.pos.z,2),yaw:f(P.yaw,3),cam:f(cam.yaw,3)}; }
+function locSnapshot(){
+  try{
+    if(!LOC_LIVE) return LOCSAVED;
+    const alive=!S.dead&&!TRAVEL.busy, n=locNow();
+    if(alive&&S.combat<=0&&locValid(n)) LASTSAFE=n;                 // son güvenli konum: canlı, harita geçişinde değil, savaşta değil
+    const cur=(alive&&locValid(n))?n:(LASTSAFE||(locValid(LOCSAVED)?LOCSAVED:n));
+    return Object.assign({},cur,{t:Date.now(),safe:LASTSAFE?{map:LASTSAFE.map,x:LASTSAFE.x,y:LASTSAFE.y,z:LASTSAFE.z,yaw:LASTSAFE.yaw}:null});
+  }catch(e){ return LOCSAVED; }
+}
+function pickStartLoc(){ const l=LOCSAVED; if(locValid(l)) return l; if(l&&locValid(l.safe)) return l.safe; return null; }   // kayıtlı konum → son güvenli konum → köy
+function saveGame(){ safe(()=>localStorage.setItem(SAVEKEY,JSON.stringify({loc:locSnapshot(),name:S.name,king:S.king,pt:Math.floor(S.pt),lvl:S.lvl,exp:S.exp,yang:S.yang,pts:S.pts,qd:S.qd,rst:S.rst,inv:S.inv,eq:S.eq,st:S.st,vit:S.vit,int:S.int,dex:S.dex,weap:S.weap,wr:S.wr,red:S.red,blue:S.blue,sk:S.sk,rp:S.rp,rk:rankSum(S.rp),guild:S.guild}))); }
+function loadGame(){ try{ initInv(); }catch(e){} const d=safe(()=>JSON.parse(localStorage.getItem(SAVEKEY)||'null')); LOC_LIVE=false; LASTSAFE=null; LOCSAVED=(d&&d.loc&&typeof d.loc==='object')?d.loc:null; if(d&&typeof d==='object'){ for(const k of Object.keys(d)) if(k!=='sk'&&k in S && typeof d[k]===typeof S[k]) S[k]=d[k]; sanitizeSkills(d.sk); initInv(); for(const k in BASESTAT) S[k]=Math.max(BASESTAT[k],Math.min(STATCAP,Math.floor(S[k])||BASESTAT[k])); S.pts=Math.max(0,Math.floor(S.pts)||0); if(d.qd===undefined) S.qd=qOf(); S.qd=Math.max(0,Math.min(3,S.qd|0)); S.rp=(typeof d.rp==='number'&&isFinite(d.rp)&&d.rk===rankSum(d.rp))?Math.max(RANK_MIN,Math.min(RANK_MAX,Math.round(d.rp))):0; S.guild=typeof d.guild==='string'?d.guild.slice(0,16):''; fixWeapon(); return true; } fixWeapon(); return false; }
 
 /* ============================== oyuncu karakteri (FBX) ============================== */
 const playerGroup = new THREE.Group(); scene.add(playerGroup);
@@ -3510,6 +3525,7 @@ async function travelTo(id,opt={}){
     else if(id==='forest'){ if(from==='desert'&&!opt.menu) placePlayer(F_DESERT_GATE.x-5,F_DESERT_GATE.z,-Math.PI/2); else { const sp=MAPS.forest.spawn; placePlayer(sp.x,sp.z,sp.yaw); } }
     else if(opt.respawn){ const sp=MAPS.village.spawn; placePlayer(sp.x,sp.z,sp.yaw); }
     else { const g=MAPS.village.gate, d=Math.hypot(g.x,g.z), ux=-g.x/d, uz=-g.z/d; placePlayer(g.x+ux*4,g.z+uz*4,Math.atan2(ux,uz)); }
+    if(opt.at){ placePlayer(opt.at.x,opt.at.z,opt.at.yaw); if(Number.isFinite(opt.at.cam)) cam.yaw=opt.at.cam; collide(P.pos,.5); P.pos.y=hAt(P.pos.x,P.pos.z); cam.tx=P.pos.x; cam.ty=P.pos.y+1.55; cam.tz=P.pos.z; }   // kayıtlı son konum (harita yüklendikten sonra)
     updatePlants(0,true);
     say(id==='desert'?'Zahrak Çölü\'ne girdin (Sv. 17-32). Dönüş kapısı vaha kampında.':id==='forest'?(from==='desert'?'Kızıl Orman\'a döndün.':'Kızıl Orman\'a girdin. Canavarlar bu bölgede dolaşıyor. Dönüş kapısı başlangıç noktasında.'):'Valkor Köyü\'ne döndün.','c-sys');
   }catch(e){
@@ -3518,6 +3534,7 @@ async function travelTo(id,opt={}){
   }
   await wait(Math.max(0,520-(performance.now()-t0)));
   mapFadeEl.style.opacity='0'; await wait(400); mapFadeEl.style.pointerEvents='none'; TRAVEL.busy=false;
+  if(LOC_LIVE) saveGame();                                           // yeni harita/konum hemen kaydedilir
 }
 
 /* ============================== ana oyun döngüsü ============================== */
@@ -4085,20 +4102,31 @@ window.__gear={useSlot,P,SLOT_DEF,fitZone,S,stoneCount,upgradeGear,moveItem,EQS,
 (function(){ const n=$('meName'); let c=0,t=0; n.style.pointerEvents='auto'; n.addEventListener('click',()=>{ c++; clearTimeout(t); t=setTimeout(()=>c=0,1500); if(c>=7){ c=0; devBoost(); } }); })();
 (function(){ const b=$('heroPick'); const lab=()=>{ b.textContent='Karakter modeli: '+(HERO_PICK==='cc'?'Yeni (Unity)':'Klasik')+'  (değiştir)'; }; lab();
   b.addEventListener('click',()=>{ try{ localStorage.setItem('valkor.hero',HERO_PICK==='cc'?'classic':'cc'); }catch(e){} b.textContent='Yükleniyor…'; setTimeout(()=>location.reload(),60); }); })();
-(function(){ const b=$('authOut'); let t=0; b.addEventListener('click',()=>{ if(!b.classList.contains('arm')){ b.classList.add('arm'); b.textContent='Emin misin? Çıkış'; saveGame(); t=setTimeout(()=>{ b.classList.remove('arm'); b.textContent='⎋ Çıkış'; },3500); } else { clearTimeout(t); window.ValkorAuth&&window.ValkorAuth.logout(); } }); b.addEventListener('pointerdown',e=>e.stopPropagation()); })();
+(function(){ const b=$('authOut'); let t=0; b.addEventListener('click',()=>{ if(!b.classList.contains('arm')){ b.classList.add('arm'); b.textContent='Emin misin? Çıkış'; saveGame(); t=setTimeout(()=>{ b.classList.remove('arm'); b.textContent='⎋ Çıkış'; },3500); } else { clearTimeout(t); saveGame(); window.ValkorAuth&&window.ValkorAuth.logout(); } }); b.addEventListener('pointerdown',e=>e.stopPropagation()); })();
 async function mountAuthUI(){
   $('auth').classList.remove('pre'); try{ const m=await import('./auth/auth-ui.js'); await m.mountAuth({root:$('auth'),onEnter:enterGame,preview:charPreview,info:charInfo,purge:charPurge}); }
   catch(e){ console.error('[Hesap] arayüz yüklenemedi',e); $('auth').innerHTML='<div style="position:absolute;inset:0;display:grid;place-items:center;color:#ffb4a8;padding:20px;text-align:center">Giriş ekranı yüklenemedi. Uygulamayı yeniden aç.</div>'; }
 }
+async function restoreLoc(l){                                          // kayıtlı haritayı yükle, sonra karakteri kayıtlı koordinata yerleştir; geçersizse köy başlangıcı
+  try{
+    if(l&&l.map===MAP.id){ placePlayer(l.x,l.z,l.yaw); if(Number.isFinite(l.cam)) cam.yaw=l.cam; collide(P.pos,.5); P.pos.y=hAt(P.pos.x,P.pos.z); cam.tx=P.pos.x; cam.ty=P.pos.y+1.55; cam.tz=P.pos.z; }
+    else if(l){ await travelTo(l.map,{at:l}); }
+  }catch(e){ console.error('[Konum] kayıtlı konum yüklenemedi, köy başlangıcı kullanılıyor:',e); }
+  finally{ LOC_LIVE=true; LASTSAFE=null; saveGame(); }
+}
+['pagehide','beforeunload','offline'].forEach(ev=>addEventListener(ev,()=>{ if(started) saveGame(); }));   // uygulama kapanırken/bağlantı kesilirken son konumu yaz
+document.addEventListener('pause',()=>{ if(started) saveGame(); }); document.addEventListener('visibilitychange',()=>{ if(document.hidden&&started) saveGame(); });
 function enterGame({uid,username,character}){ try{ $("heroPick").remove(); }catch(e){}
   charPreview(false,true);
   SAVEKEY='valkor.v1.'+uid+'.'+character.id; loadGame(); S.name=character.name; S.king=character.king|0; S.acct=username;
   initAudio(); S.hp=Math.max(S.hp,maxHP()); S.hp=maxHP(); S.sp=maxSP(); P.pos.set(0,0,7); P.yaw=Math.PI;
+  const startLoc=pickStartLoc();
   refreshPlate(true);
   $('hud').classList.remove('hidden'); $('authOut').classList.remove('hidden'); started=true; canvas.focus();
   cam.yaw=0; cam.pitch=.8; cam.dist=11; cam.tx=P.pos.x; cam.ty=1.5; cam.tz=P.pos.z;
   say('Valkor\'a hoş geldin, '+S.name+'!','c-sys'); say('Joystick: yürü. Büyük kılıç tuşu: en yakın hedefe saldır. Çevresi: beceriler, altı: iksirler.','c-sys'); say('Mühür Taşları güçlü ödüller verir ama canavar çağırır.','c-sys');
-  saveGame(); refreshWins();
+  saveGame(); refreshWins();      // LOC_LIVE henüz false: köy başlangıcı kayıtlı konumun üzerine yazılmaz
+  restoreLoc(startLoc);
   if(coarse){ safe(()=>document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen().catch(()=>{})); safe(()=>screen.orientation&&screen.orientation.lock&&screen.orientation.lock('landscape').catch(()=>{})); }
 }
 requestAnimationFrame(frame);
