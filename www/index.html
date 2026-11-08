@@ -2341,7 +2341,7 @@ function crocStep(m,fx,mvIn,dt){
   if(fx.cur!=='idle') fxPlay(fx,'idle',.25);
   return 0;
 }
-/* ---- Çöl Griffini (boss): iskeletli GLB (griffin.glb.b64.txt; kemikler: root·head·wingL/R·tail·legFL/FR/HL/HR); klipler: idle · walk · attack · hit · death ---- */
+/* ---- Çöl Griffini (boss): iskeletli GLB (griffin.glb.b64.txt; 26 kemik: Pelvis·Spine1·Chest·Neck·Head·Tail1-3·WingA/B/C_R/L·FUp/FLow/FPaw_R/L·HUp/HLow/HFoot_R/L); klipler: idle · walk · attack · hit · death ---- */
 let GRIF=null; const GRIF_H=2.35;   // model ~2,6 m (kanat uçları dahil); boss ölçeği TYPES'ta
 function prepGrif(glb){
   const clips={}, report=[]; for(const c of glb.animations){ clips[c.name.toLowerCase()]=c; report.push(c.name); }
@@ -2356,7 +2356,7 @@ function makeGrif(){
   const mixer=new THREE.AnimationMixer(root), acts={};
   for(const k in GRIF.clips){ const a=mixer.clipAction(GRIF.clips[k]); acts[k]=a; if(k!=='idle'&&k!=='walk'){ a.setLoop(THREE.LoopOnce,1); a.clampWhenFinished=true; } }
   const dur=k=>acts[k]?acts[k].getClip().duration:0;
-  const fx={kind:'grif',walkRef:2,atkName:'attack',mixer,acts,cur:'idle',curA:acts.idle||null,lockT:0,atkT:0,dead:false,sinceHit:9,ts:{idle:1,walk:1,attack:1,hit:1,death:1},atkDur:dur('attack')||1,atkImpact:.46};
+  const fx={kind:'grif',walkRef:2.65,atkName:'attack',mixer,acts,cur:'idle',curA:acts.idle||null,lockT:0,atkT:0,dead:false,sinceHit:9,ts:{idle:1,walk:1,attack:1,hit:1,death:1},atkDur:dur('attack')||1,atkImpact:.46};
   if(acts.idle){ acts.idle.play(); acts.idle.time=R()*dur('idle'); }
   return {g,legs:[],arms:[],head:null,tail:null,h:GRIF.h,fx,root};
 }
