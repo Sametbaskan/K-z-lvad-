@@ -2329,6 +2329,7 @@ function makeCroc(){
   return {g,legs:[],arms:[],head:null,tail:null,h:CROC.h,fx,root};
 }
 function crocStep(m,fx,mvIn,dt){
+  if(fx.lodU) fx.lodU(m,dt);
   if(fx.dead) return 0;
   fx.sinceHit+=dt; fx.lockT=Math.max(0,fx.lockT-dt); fx.atkT=Math.max(0,fx.atkT-dt);
   if(fx.atkT>0) return 0;                                             // ısırma sürerken yürüme / başka klip yok
@@ -2377,6 +2378,36 @@ function makeScorpGLB(){
   const fx={kind:'grif',walkRef:2.2,atkName:'attack',mixer,acts,cur:'idle',curA:acts.idle||null,lockT:0,atkT:0,dead:false,sinceHit:9,ts:{idle:1,walk:1,attack:1,hit:1,death:1},atkDur:dur('attack')||1,atkImpact:.46};
   if(acts.idle){ acts.idle.play(); acts.idle.time=R()*dur('idle'); }
   return {g,legs:[],arms:[],head:null,tail:null,h:1.05,fx,root};
+}
+/* ---- Kefenli Muhafızlar: iskeletli GLB (desert_mummy_a = zırhlı kefenli savaşçı · desert_mummy_b = iğneli kefenli matron); kemikler Mixamo adlı, klipler: idle · walk · attack · hit · death.
+   Her modelde iki detay kademesi var (lod0 tam detay · lod1 düşük çokgen); kademe mobun kameraya uzaklığına ve cihaz sınıfına (QT) göre seçilir. ---- */
+const MUM={a:null,b:null}; let MUMN=0;
+function texCap(t,max){ if(!t||!t.image) return t; const w=t.image.width||t.image.naturalWidth||max; if(w<=max) return t; const c=document.createElement('canvas'); c.width=c.height=max; const x=c.getContext('2d'); x.imageSmoothingQuality='high'; x.drawImage(t.image,0,0,max,max);
+  const n=new THREE.CanvasTexture(c); n.flipY=t.flipY; n.colorSpace=t.colorSpace; n.wrapS=t.wrapS; n.wrapT=t.wrapT; n.anisotropy=2; return n; }
+function prepMum(kind,glb,ps,h){
+  const clips={}, report=[]; for(const c of glb.animations){ clips[c.name.toLowerCase()]=c; report.push(c.name); }
+  let sk=false; glb.scene.traverse(o=>{ if(o.isSkinnedMesh) sk=true; }); if(!sk) throw new Error('GLB içinde iskeletli mesh bulunamadı');
+  for(const need of ['idle','walk','attack','hit','death']) if(!clips[need]) console.error('[Kefenli '+kind+'] gerekli animasyon yok: '+need);
+  const lim=QT>=2?4096:1024, lim2=QT>=2?4096:QT===1?1024:512;   // yüksek sınıfta orijinal çözünürlük; düşük sınıflarda doku boyu kısılır
+  glb.scene.traverse(o=>{ if(o.isMesh&&o.material){ const m=o.material;
+    if(QT<2){ m.map=texCap(m.map,lim); m.normalMap=texCap(m.normalMap,lim2); const r=texCap(m.metalnessMap,lim2); if(r){ m.metalnessMap=r; m.roughnessMap=r; if(m.aoMap) m.aoMap=r; } }
+    if(m.emissive&&m.emissive.getHex()>0) m.userData.keepEm=true;   // gözler / mücevher: hasar yanıp sönmesi onları söndürmesin
+    m.needsUpdate=true; } });
+  MUM[kind]={scene:glb.scene,clips,ps,h}; console.info('[Kefenli '+kind+'] klipler: '+report.join(', '));
+}
+function makeMumGLB(kind){
+  const D=MUM[kind]; const root=cloneSkinned(D.scene); root.scale.setScalar(D.ps); const g=new THREE.Group(); g.add(root);
+  root.traverse(o=>{ if(o.isSkinnedMesh){ o.material=o.material.clone(); o.castShadow=!coarse; o.frustumCulled=false; } });
+  const lods=[root.getObjectByName('lod0'),root.getObjectByName('lod1')].filter(Boolean);
+  const mixer=new THREE.AnimationMixer(root), acts={};
+  for(const k in D.clips){ const a=mixer.clipAction(D.clips[k]); acts[k]=a; if(k!=='idle'&&k!=='walk'){ a.setLoop(THREE.LoopOnce,1); a.clampWhenFinished=true; } }
+  const dur=k=>acts[k]?acts[k].getClip().duration:0;
+  const fx={kind:'grif',walkRef:1.4,atkName:'attack',mixer,acts,cur:'idle',curA:acts.idle||null,lockT:0,atkT:0,dead:false,sinceHit:9,ts:{idle:1,walk:1,attack:1,hit:1,death:1},atkDur:dur('attack')||1,atkImpact:.46,lodT:R()*.3,lodI:-1};
+  fx.lodU=(m,dt)=>{ if(lods.length<2) return; fx.lodT-=dt; if(fx.lodT>0) return; fx.lodT=.25+R()*.1;
+    const d=camera.position.distanceTo(m.group.position), lim=QT>=2?18:QT===1?9:0, want=(d<lim-(fx.lodI===0?0:2))?0:1; if(want!==fx.lodI){ fx.lodI=want; lods.forEach((l,i)=>{ l.visible=(i===want); }); } };
+  fx.lodU({group:{position:g.position}},9); lods.forEach((l,i)=>{ l.visible=(i===1); }); fx.lodI=1;
+  if(acts.idle){ acts.idle.play(); acts.idle.time=R()*dur('idle'); }
+  return {g,legs:[],arms:[],head:null,tail:null,h:D.h,fx,root};
 }
 function makeWolf(){
   if(FROG2) return makeFrog2();
@@ -2527,7 +2558,7 @@ const TYPES={
   boss:{name:'Ork Reisi',mk:()=>MAW?makeMaw(true):makeOrc(true),hp:8.8,atk:1.8,exp:14,speed:2.6,aggro:12,range:2.9,cd:2.2,scale:1.75,hit:1.1,boss:true,aura:0xff3a2a},
   scorp:{name:'Çöl Akrebi',mk:()=>SCORP?makeScorpGLB():makeScorpion(false),hp:1.2,atk:1.25,exp:1.25,speed:3.0,aggro:9,range:1.7,cd:1.5,scale:1,hit:1.0},
   bandit:{name:'Çöl Haydudu',mk:()=>makeBandit(false),hp:1.4,atk:1.1,exp:1.35,speed:2.8,aggro:10,range:2.1,cd:1.7,scale:1,hit:1.1},
-  mummy:{name:'Kefenli Muhafız',mk:()=>makeMummy(false),hp:1.65,atk:1.25,exp:1.5,speed:2.2,aggro:9,range:2.1,cd:2.0,scale:1.05,hit:1.1},
+  mummy:{name:'Kefenli Muhafız',mk:()=>{ const k=(MUM.a&&MUM.b)?((MUMN++%2)?'b':'a'):(MUM.a?'a':MUM.b?'b':null); return k?makeMumGLB(k):makeMummy(false); },hp:1.65,atk:1.25,exp:1.5,speed:2.2,aggro:9,range:2.1,cd:2.0,scale:1.05,hit:1.1},
   dboss1:{name:'Çöl Griffini Kızılkanat',mk:()=>GRIF?makeGrif():makeScorpion(true),hp:10,atk:2.0,exp:12,speed:3.0,aggro:14,range:3.6,cd:2.0,scale:2.4,hit:1.0,boss:true,aura:0x8a3a14},
   dboss2:{name:'Haydut Reisi Karakılıç',mk:()=>makeBandit(true),hp:9.5,atk:2.1,exp:14,speed:2.8,aggro:13,range:2.9,cd:2.0,scale:1.7,hit:1.1,boss:true,aura:0x7a5a18},
   dboss3:{name:'Kum Solucanı Sarhan',mk:makeSandWorm,hp:11.5,atk:2.5,exp:16,speed:2.6,aggro:14,range:3.4,cd:2.3,scale:2.2,hit:1.5,boss:true,aura:0x8a3418},
@@ -2542,7 +2573,7 @@ function spawnMob(type,lvl,x,z,temp=false){
   const tag=document.createElement('div'); tag.className='tag'; $('pops').appendChild(tag);
   const m={type,T,b,group,hit,lvl,hp:mobHP(type,lvl),maxHp:mobHP(type,lvl),home:new THREE.Vector3(x,0,z),yaw:R()*6.28,state:'wander',st:R()*3,wdest:null,cdT:0,phase:R()*6,dead:false,respT:0,tag,temp,flash:0,fade:0,mats:[],spawned:0,id:mobs.length};
   group.position.set(x,hAt(x,z),z); group.rotation.y=m.yaw; hit.userData.mob=m;
-  b.g.traverse(o=>{ if(o.isMesh&&o.material&&o.material.emissive&&!o.material.transparent) m.mats.push(o.material); });
+  b.g.traverse(o=>{ if(o.isMesh&&o.material&&o.material.emissive&&!o.material.transparent&&!o.material.userData.keepEm) m.mats.push(o.material); });
   if(T.boss){ const au=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,color:T.aura||0xff3a2a,transparent:true,opacity:.5,depthWrite:false,blending:THREE.AdditiveBlending,fog:false})); au.scale.set(5.5,3.2,1); au.position.y=.25; group.add(au); m.aura=au; }
   if(coarse) b.g.traverse(o=>{ if(o.isMesh) o.castShadow=false; });   // mobil: canavarlar gölge geçişine girmez
   mobs.push(m); mobHits.push(hit); return m;
@@ -4155,6 +4186,8 @@ async function boot(){
     try{ const trb=await get('models/desert_ruins.glb.b64.txt',()=>{}); prepRuins(await new Promise((ok,no)=>new GLTFLoader().parse(dec(trb),'',ok,no))); }catch(e){ DRUINS=null; console.error('[Harabe] bina modelleri yüklenemedi, binasız devam:',e); }
     try{ const tms=await get('models/desert_mesa.glb.b64.txt',()=>{}); prepMesa(await new Promise((ok,no)=>new GLTFLoader().parse(dec(tms),'',ok,no))); }catch(e){ DMESA=null; console.error('[Mesa] çöl kaya modeli yüklenemedi, basit kayalar kullanılacak:',e); }
     try{ const tsc=await get('models/desert_scorpion.glb.b64.txt',()=>{}); prepScorp(await new Promise((ok,no)=>new GLTFLoader().parse(dec(tsc),'',ok,no))); }catch(e){ SCORP=null; console.error('[Akrep] model yüklenemedi, basit akrep kullanılacak:',e); }
+    try{ const tma=await get('models/desert_mummy_a.glb.b64.txt',()=>{}); prepMum('a',await new Promise((ok,no)=>new GLTFLoader().parse(dec(tma),'',ok,no)),1.0,2.0); }catch(e){ MUM.a=null; console.error('[Kefenli A] model yüklenemedi:',e); }
+    try{ const tmb=await get('models/desert_mummy_b.glb.b64.txt',()=>{}); prepMum('b',await new Promise((ok,no)=>new GLTFLoader().parse(dec(tmb),'',ok,no)),1.08,2.0); }catch(e){ MUM.b=null; console.error('[Kefenli B] model yüklenemedi:',e); }
     try{ const tgf=await get('models/griffin.glb.b64.txt',()=>{}); prepGrif(await new Promise((ok,no)=>new GLTFLoader().parse(dec(tgf),'',ok,no))); }catch(e){ GRIF=null; console.error('[Griffin] model yüklenemedi, boss için eski akrep modeli kullanılacak:',e); }
     try{ const tcr=await get('models/croc.glb.b64.txt',()=>{}); prepCroc(await new Promise((ok,no)=>new GLTFLoader().parse(dec(tcr),'',ok,no))); }catch(e){ CROC=null; console.error('[Timsah] model yüklenemedi, timsahlar yerine kurbağa kullanılacak:',e); }
     try{ const twc=await get('models/witch.b64.txt',()=>{}); WITCH_GLB=await new Promise((ok,no)=>new GLTFLoader().parse(dec(twc),'',ok,no)); }catch(e){ console.error('[Satıcı] cadı modeli yüklenemedi, eski model kullanılacak:',e); }
