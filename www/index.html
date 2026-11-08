@@ -972,7 +972,8 @@ function slashFx(pos,yaw,r,arc,tilt,c1,c2,dur=.3,dir=1,y=1.1){
 /* ---- Güçlü Vuruş: piksel kılıç savuruşu (vfxsmith "Sword slash", MIT; img/fx/NOTICE-sword-slash.txt) ----
    5x5 sayfada 24 kare, 136x104 px, çıkış noktası (44,92). Dünyada oyuncunun önünde, ekrandaki ileri yönüne döndürülmüş tek sprite. */
 let SLT=null;
-function slashTex(){ if(SLT) return SLT; const base=new THREE.TextureLoader().load('img/fx/sword_slash.png'); base.colorSpace=THREE.SRGBColorSpace; base.magFilter=THREE.NearestFilter; base.minFilter=THREE.LinearFilter; base.generateMipmaps=false; base.repeat.set(1/5,1/5);
+function slashTex(){ if(SLT) return SLT; const base=new THREE.TextureLoader().load('img/fx/sword_slash_hd.webp'); base.colorSpace=THREE.SRGBColorSpace; base.magFilter=THREE.LinearFilter;   /* 3x yumuşatılmış sürüm; orijinal piksel sayfa: sword_slash.png (NearestFilter) */
+   base.minFilter=THREE.LinearFilter; base.generateMipmaps=false; base.repeat.set(1/5,1/5);
   SLT={pool:[base,base.clone(),base.clone()],i:0}; for(const t of SLT.pool){ t.repeat.set(1/5,1/5); t.needsUpdate=true; } return SLT; }
 function pixelSlashFx(pos,yaw,reach,flip,dur=.5){ const ST=slashTex(), T=ST.pool[ST.i++%3]; if(!T.image) return;
   const mt=new THREE.SpriteMaterial({map:T,color:0xfff0e0,transparent:true,depthWrite:false,fog:false}); const sp=new THREE.Sprite(mt); const k=reach/78;   // piksel -> dünya (etkin savuruş pivot'tan ~78 px)
