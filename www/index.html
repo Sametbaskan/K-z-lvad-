@@ -716,6 +716,11 @@ function hAt(x,z){ return MAP.id==='forest'?hForest(x,z):MAP.id==='desert'?hDese
 /* ============================== sahne ============================== */
 const canvas = $('view');
 const coarse = matchMedia('(pointer:coarse)').matches;
+// düşük kademe cihazlar için doku çözünürlüğünü yarıya indirir (yalnız QT===0; normal/AO/metal haritaları korunur)
+function texHalf(t){ if(!t||!t.image) return t; const w=t.image.width||t.image.naturalWidth||1024, c=document.createElement('canvas'); c.width=c.height=Math.min(1024,w); if(c.width>=w) return t; const x=c.getContext('2d'); x.imageSmoothingQuality='high'; x.drawImage(t.image,0,0,c.width,c.height);
+  const n=new THREE.CanvasTexture(c); n.flipY=t.flipY; n.colorSpace=t.colorSpace; n.wrapS=t.wrapS; n.wrapT=t.wrapT; n.anisotropy=2; return n; }
+// cihaz kalite kademesi: 2 yüksek (masaüstü / güçlü telefon), 1 orta, 0 düşük — doku çözünürlüğü ve model detayı buna göre seçilir
+const QT=(()=>{ try{ if(!coarse) return 2; const mem=navigator.deviceMemory||4, cores=navigator.hardwareConcurrency||4; return (mem>=6&&cores>=8)?2:(mem>=3&&cores>=6)?1:0; }catch(e){ return 1; } })();
 const renderer = new THREE.WebGLRenderer({canvas, antialias:!coarse, powerPreference:'high-performance'});
 /* dinamik çözünürlük: telefon düşük fps verirse çözünürlük otomatik düşer, rahatlayınca yükselir */
 const PRMAX=coarse?Math.min(1.5,devicePixelRatio||1):Math.min(devicePixelRatio||1,2), PRMIN=coarse?1:.8; let PR=PRMAX;   // net görüntü: çözünürlük 1.0'ın altına inmez
@@ -2326,6 +2331,7 @@ function prepGrif(glb){
   const clips={}, report=[]; for(const c of glb.animations){ clips[c.name.toLowerCase()]=c; report.push(c.name); }
   let sk=false; glb.scene.traverse(o=>{ if(o.isSkinnedMesh) sk=true; }); if(!sk) throw new Error('GLB içinde iskeletli mesh bulunamadı');
   for(const need of ['idle','walk','attack','hit','death']) if(!clips[need]) console.error('[Griffin] gerekli animasyon yok: '+need+' (mevcut: '+report.join(', ')+')');
+  if(QT===0) glb.scene.traverse(o=>{ if(o.isMesh&&o.material){ const m=o.material; m.map=texHalf(m.map); m.normalMap=texHalf(m.normalMap); m.metalnessMap=texHalf(m.metalnessMap); m.roughnessMap=m.metalnessMap; m.needsUpdate=true; } });
   GRIF={scene:glb.scene,clips,h:GRIF_H}; console.info('[Griffin] klipler: '+report.join(', '));
 }
 function makeGrif(){
@@ -3884,19 +3890,12 @@ function prepRuins(glb){
   DRUINS={geo,bb,mat,names}; console.info('[Harabe] '+names.length+' bina modeli');
 }
 let DMESA=null, DESERT_MESAS=[];
-// aynı konumdaki köşelerin (UV dikişleri) normallerini birleştirip yüzeyi pürüzsüz gölgele
-function smoothNormals(g){ const p=g.attributes.position, ix=g.index, n=p.count, acc=new Float32Array(n*3), keys=new Array(n), sum=new Map();
-  for(let i=0;i<n;i++){ const k=Math.round(p.getX(i)*4000)+','+Math.round(p.getY(i)*4000)+','+Math.round(p.getZ(i)*4000); keys[i]=k; if(!sum.has(k)) sum.set(k,[0,0,0]); }
-  const tri=ix?ix.count/3:n/3, A=new THREE.Vector3(), B=new THREE.Vector3(), C=new THREE.Vector3();
-  for(let t=0;t<tri;t++){ const a=ix?ix.getX(t*3):t*3, b=ix?ix.getX(t*3+1):t*3+1, c=ix?ix.getX(t*3+2):t*3+2;
-    A.fromBufferAttribute(p,a); B.fromBufferAttribute(p,b); C.fromBufferAttribute(p,c); B.sub(A); C.sub(A); B.cross(C);
-    for(const v of [a,b,c]){ const s=sum.get(keys[v]); s[0]+=B.x; s[1]+=B.y; s[2]+=B.z; } }
-  const nm=new Float32Array(n*3); for(let i=0;i<n;i++){ const s=sum.get(keys[i]), l=Math.hypot(s[0],s[1],s[2])||1; nm[i*3]=s[0]/l; nm[i*3+1]=s[1]/l; nm[i*3+2]=s[2]/l; }
-  g.setAttribute('normal',new THREE.BufferAttribute(nm,3)); }
 function prepMesa(glb){
-  const g=[null,null,null]; let mat=null; glb.scene.traverse(o=>{ if(o.isMesh){ const k=parseInt(String(o.name).replace('lod',''),10); if(k>=0&&k<3){ g[k]=o.geometry; mat=o.material; } } });
-  if(!g[0]||!g[1]||!g[2]||!mat) throw new Error('GLB içinde lod0/lod1/lod2 mesh bulunamadı');
-  for(const x of g) smoothNormals(x); mat.normalMap=null; mat.roughness=1; mat.metalness=0; mat.needsUpdate=true;
+  const g=[null,null,null,null]; let mat=null; glb.scene.traverse(o=>{ if(o.isMesh){ const k=parseInt(String(o.name).replace('lod',''),10); if(k>=0&&k<4){ g[k]=o.geometry; mat=o.material; } } });
+  if(!g[0]||!g[1]||!g[2]||!g[3]||!mat) throw new Error('GLB içinde lod0..lod3 mesh bulunamadı');
+  // kalite kademesi: yüksek/orta cihazlarda 2048 doku, düşük cihazlarda yarı çözünürlük (normal map ve AO korunur); en yakın 37k üçgenlik seviye yalnız yüksek kademede
+  if(QT===0){ mat.map=texHalf(mat.map); mat.normalMap=texHalf(mat.normalMap); mat.aoMap=texHalf(mat.aoMap); mat.needsUpdate=true; }
+  else for(const t of [mat.map,mat.normalMap,mat.aoMap]) if(t) t.anisotropy=4;
   DMESA={geo:g,mat}; console.info('[Mesa] LOD üçgen sayıları: '+g.map(x=>Math.round((x.index?x.index.count:x.attributes.position.count)/3)).join(' / '));
 }
 function buildDesertDecor(){
@@ -3915,7 +3914,7 @@ function buildDesertDecor(){
     const geos=DMESA.geo.map(g=>g.clone()), mats=[DMESA.mat.clone(),DMESA.mat.clone(),DMESA.mat.clone()]; mats[1].color.setRGB(1.1,.96,.84); mats[2].color.setRGB(.9,.9,.98);
     const gmin=(x,z,sz,rot)=>{ let m=1e9; const c=Math.cos(rot), sn=Math.sin(rot); for(const [lx,lz] of [[0,0],[.3,0],[-.3,0],[0,.22],[0,-.22]]){ m=Math.min(m,hDesert(x+(lx*c+lz*sn)*sz,z+(-lx*sn+lz*c)*sz)); } return m; };
     const addMesa=(x,z,sz,o={})=>{ const rot=o.rot!==undefined?o.rot:rr(0,6.28), sy=o.sy||rr(.85,1.3), flip=rnd01()<.5, v=(R()*3)|0, lod=new THREE.LOD();
-      for(let i=0;i<3;i++){ const me=new THREE.Mesh(geos[i],mats[v]); me.castShadow=!coarse&&!o.wall&&i<2; me.receiveShadow=true; lod.addLevel(me,[0,26+sz*1.3,64+sz*1.5][i]); }
+      for(let i=QT>=2?0:1;i<4;i++){ const me=new THREE.Mesh(geos[i],mats[v]); me.castShadow=!coarse&&!o.wall&&i<2; me.receiveShadow=true; lod.addLevel(me,[0,15+sz*.85,38+sz*.9,80+sz][i]*(i===(QT>=2?0:1)?0:1)); }
       lod.position.set(x,gmin(x,z,sz,rot)-sz*.025,z); lod.rotation.y=rot; lod.scale.set(flip?-sz:sz,sz*sy,sz); scene.add(lod);
       const c=Math.cos(rot), sn=Math.sin(rot);
       if(sz<7) addObstacle(x,z,sz*.26); else { addObstacle(x,z,sz*.25); for(const k of [-1,1]) addObstacle(x+k*.2*sz*c,z-k*.2*sz*sn,sz*.17); }
@@ -3938,7 +3937,7 @@ function buildDesertDecor(){
   // harabe binalar: dağınık eski Mısır tarzı yapılar (tekli ve küçük gruplar), tepelerde/harabelerde değil düzlüklerde
   DESERT_BUILD=[];
   if(DRUINS){
-    const mat=DRUINS.mat.clone(); mat.side=THREE.FrontSide; mat.color.setRGB(1,.9,.78); const gc={}, geoOf=k=>gc[k]||(gc[k]=DRUINS.geo[k].clone()), KB=.65;
+    const mat=DRUINS.mat.clone(); mat.side=THREE.FrontSide; const gc={}, geoOf=k=>gc[k]||(gc[k]=DRUINS.geo[k].clone()), KB=.65;
     const dim=(k,f)=>{ const b=DRUINS.bb[k]; return [b[0]*KB*f,b[1]*KB*f,b[2]*KB*f]; };
     const gmin=(x,z,w,d,rot)=>{ let m=1e9; const c=Math.cos(rot), sn=Math.sin(rot); for(const [lx,lz] of [[0,0],[.5,.5],[.5,-.5],[-.5,.5],[-.5,-.5],[.5,0],[-.5,0],[0,.5],[0,-.5]]){ const ax=lx*w, az=lz*d; m=Math.min(m,hDesert(x+ax*c+az*sn,z-ax*sn+az*c)); } return m; };
     const roomB=(x,z,r)=>{ if(Math.abs(x)>lim-12||Math.abs(z)>lim-12||keep(x,z,r*.9)) return false; for(const t of taken) if(Math.hypot(t[0]-x,t[1]-z)<t[2]+r) return false; return true; };
