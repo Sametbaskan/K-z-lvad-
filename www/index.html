@@ -972,21 +972,21 @@ function slashFx(pos,yaw,r,arc,tilt,c1,c2,dur=.3,dir=1,y=1.1){
 /* ---- Güçlü Vuruş: piksel kılıç savuruşu (vfxsmith "Sword slash", MIT; img/fx/NOTICE-sword-slash.txt) ----
    5x5 sayfada 24 kare, 136x104 px, çıkış noktası (44,92). Dünyada oyuncunun önünde, ekrandaki ileri yönüne döndürülmüş tek sprite. */
 let SLT=null;
-function slashTex(){ if(SLT) return SLT; const base=new THREE.TextureLoader().load('img/fx/sword_slash_hd.webp'); base.colorSpace=THREE.SRGBColorSpace; base.magFilter=THREE.LinearFilter;   /* 3x yumuşatılmış sürüm; orijinal piksel sayfa: sword_slash.png (NearestFilter) */
+function slashTex(){ if(SLT) return SLT; const base=new THREE.TextureLoader().load('img/fx/sword_slash_gold.webp'); base.colorSpace=THREE.SRGBColorSpace; base.magFilter=THREE.LinearFilter;   /* 3x yumuşatılmış sürüm; orijinal piksel sayfa: sword_slash.png (NearestFilter) */
    base.minFilter=THREE.LinearFilter; base.generateMipmaps=false; base.repeat.set(1/5,1/5);
   SLT={pool:[base,base.clone(),base.clone()],i:0}; for(const t of SLT.pool){ t.repeat.set(1/5,1/5); t.needsUpdate=true; } return SLT; }
-function pixelSlashFx(pos,yaw,reach,flip,dur=.5){ const ST=slashTex(), T=ST.pool[ST.i++%3]; if(!T.image) return;
-  const mt=new THREE.SpriteMaterial({map:T,color:0xfff0e0,transparent:true,depthWrite:false,fog:false}); const sp=new THREE.Sprite(mt); const k=reach/78;   // piksel -> dünya (etkin savuruş pivot'tan ~78 px)
+function pixelSlashFx(pos,yaw,reach,flip,dur=.5,pf=false){ const ST=slashTex(), T=ST.pool[ST.i++%3]; if(!T.image) return;
+  const mt=new THREE.SpriteMaterial({map:T,color:pf?0xfff4d0:0xffffff,transparent:true,opacity:pf?1:.95,depthWrite:false,fog:false,blending:pf?THREE.AdditiveBlending:THREE.NormalBlending}); const sp=new THREE.Sprite(mt); const k=reach*(pf?1.22:1)/78;   // piksel -> dünya (etkin savuruş pivot'tan ~78 px)
   sp.scale.set(136*k,104*k*(flip?-1:1),1); sp.center.set(44/136,1-92/104);
   const fx=Math.sin(yaw), fz=Math.cos(yaw);
   /* savuruş merkezi pivot'tan 45° yukarıda: ileri yöne hizala */ const NF=15; fxAdd(sp,dur*.8,(e,kk)=>{ const f=Math.min(NF-1,Math.floor(kk*NF)), c=f%5, r=(f/5)|0; T.offset.set(c/5,1-(r+1)/5);
       _tv.set(pos.x,pos.y+1.15,pos.z).project(camera); _tp.set(pos.x+fx,pos.y+1.15,pos.z+fz).project(camera); mt.rotation=Math.atan2((_tp.y-_tv.y)*innerHeight,(_tp.x-_tv.x)*innerWidth)+(flip?.785:-.785); },{mats:[mt],follow:()=>_tq.set(pos.x+fx*.5,pos.y+1.15,pos.z+fz*.5)}); }
 const _tq=new THREE.Vector3();
 /* ---- kılıç enerjisi: ileri uçan hilal ---- */
-function spawnCrescent(yaw,pre,dmg=1.2,sc=1){
+function spawnCrescent(yaw,pre,dmg=1.2,sc=1,gold=false){
   const par=new THREE.Object3D(), fx=Math.sin(yaw), fz=Math.cos(yaw); par.position.set(P.pos.x+fx*1.3,P.pos.y+1.15,P.pos.z+fz*1.3); par.rotation.y=yaw; par.scale.setScalar(sc);
-  const mats=[]; for(const [z,f,sc] of [[0,1,1],[-.55,.5,1.05],[-1.1,.25,1.1]]){ const m=shMat(CRES_FS,{fade:{value:f},c1:C3(0xff5a2a),c2:C3(0xffe6a8)}); mats.push(m); const me=new THREE.Mesh(arcGeo(1.95,.5),m); me.scale.set(1.7*sc,1,1.7*sc); me.position.z=z; me.rotation.z=.42; par.add(me); }
-  const gl=sprGet('glow'); par.add(gl); gl.material.color.set(0xff7a3a); gl.scale.setScalar(2.6); gl.position.set(0,0,-.3); scene.add(par);
+  const mats=[]; for(const [z,f,sc] of [[0,1,1],[-.55,.5,1.05],[-1.1,.25,1.1]]){ const m=shMat(CRES_FS,{fade:{value:f},c1:C3(gold?0xffa81f:0xff5a2a),c2:C3(gold?0xfff6d0:0xffe6a8)}); mats.push(m); const me=new THREE.Mesh(arcGeo(1.95,.5),m); me.scale.set(1.7*sc,1,1.7*sc); me.position.z=z; me.rotation.z=.42; par.add(me); }
+  const gl=sprGet('glow'); par.add(gl); gl.material.color.set(gold?0xffc850:0xff7a3a); gl.scale.setScalar(gold?3.4:2.6); gl.position.set(0,0,-.3); scene.add(par);
   projectiles.push({o:par,dir:new THREE.Vector3(fx,0,fz),t:0,hit:pre||new Set(),pos:par.position,mats,gl,life:.62,spd:21,dmg});
 }
 function projDispose(p){ scene.remove(p.o); for(const m of p.mats||[]) m.dispose(); if(p.gl) sprFree(p.gl); }
@@ -1160,7 +1160,11 @@ function dashEndFx(){ const rm=addMat(FT.ring,0xffd08a,.8); const rg=new THREE.M
 function perfectFx(){
   emit('star',_tv.set(P.pos.x,P.pos.y+1.2,P.pos.z),0,0,0,{color:0xffe48a,size:.5,size1:3.8,life:.5,rot:.4,rs:2});
   const rm=addMat(FT.ring,0xffd24a,.95); const rg=new THREE.Mesh(GEO.plane,rm); fxAdd(rg,.6,(e,k)=>{ rg.scale.setScalar(1+k*7); rm.opacity=.95*(1-k); },{mats:[rm],follow:()=>_tp.set(P.pos.x,P.pos.y+.2,P.pos.z)});
-  for(let i=0;i<Math.round(16*FXN)+2;i++){ const a=R()*6.283; _tv.set(P.pos.x+Math.cos(a)*.8,P.pos.y+rr(.2,1.8),P.pos.z+Math.sin(a)*.8); emit('glow',_tv,Math.cos(a)*1.4,rr(1,3.5),Math.sin(a)*1.4,{color:0xffd860,size:.2,size1:.03,life:rr(.6,1.1),delay:R()*.2}); } }
+  for(let i=0;i<Math.round(16*FXN)+2;i++){ const a=R()*6.283; _tv.set(P.pos.x+Math.cos(a)*.8,P.pos.y+rr(.2,1.8),P.pos.z+Math.sin(a)*.8); emit('glow',_tv,Math.cos(a)*1.4,rr(1,3.5),Math.sin(a)*1.4,{color:0xffd860,size:.2,size1:.03,life:rr(.6,1.1),delay:R()*.2}); }
+  /* P seviyesi görkemi (her skill): ikinci geniş halka, yükselen altın spiral ve ışık patlaması (sütun çok parlak olduğundan kullanılmaz) */
+  emit('star',_tv.set(P.pos.x,P.pos.y+1.1,P.pos.z),0,0,0,{color:0xfff0b0,size:.8,size1:5,life:.55,rot:.2,rs:-1.5}); SHAKE.v=Math.max(SHAKE.v,.1);
+  const r2=addMat(FT.ring,0xfff0b0,.8); const g2=new THREE.Mesh(GEO.plane,r2); fxAdd(g2,.85,(e,k)=>{ g2.scale.setScalar(1.5+k*11); r2.opacity=.8*(1-k); },{mats:[r2],follow:()=>_tp.set(P.pos.x,P.pos.y+.14,P.pos.z)});
+  for(let i=0;i<Math.round(16*FXN);i++){ const a=i/16*6.283; _tv.set(P.pos.x+Math.cos(a)*1.1,P.pos.y+.15,P.pos.z+Math.sin(a)*1.1); emit('glow',_tv,-Math.sin(a)*1.8,rr(2.5,5),Math.cos(a)*1.8,{color:i%2?0xfff0b0:0xffc640,size:.26,size1:.04,life:rr(.9,1.4),delay:i*.025,drag:.5}); } }
 /* shader/sprite programlarını oyun başında derle: ilk skill kullanımında takılma olmasın */
 const WARM=[];
 function warmFx(){
@@ -2584,10 +2588,12 @@ function updateDash(dt){
 function doAttackHit(){
   const a=P.atk; a.hit=true; SFX.swing(); const f=P.yaw; const id=a.skill, v=id?skv(id):null, fl=id?skFx(id):1, sr=1+(fl-1)*.5; FXL=fl;
   if(id==='cut'){
-    pixelSlashFx(P.pos,f,3.6*sr,false,.5); later(.09,()=>{ FXL=fl; pixelSlashFx(P.pos,f,3.6*sr,true,.5); }); later(.18,()=>{ FXL=fl; pixelSlashFx(P.pos,f,4.0*sr,false,.55); });
+    const pf=skIsP('cut');   // P seviyesi: büyük, altın-beyaz parlak savuruşlar + 4. kesik + altın enerji hilali
+    pixelSlashFx(P.pos,f,3.6*sr,false,.5,pf); later(.09,()=>{ FXL=fl; pixelSlashFx(P.pos,f,3.6*sr,true,.5,pf); }); later(.18,()=>{ FXL=fl; pixelSlashFx(P.pos,f,4.0*sr,false,.55,pf); });
+    if(pf){ later(.27,()=>{ FXL=fl; pixelSlashFx(P.pos,f,4.6*sr,true,.6,true); SHAKE.v=Math.max(SHAKE.v,.16); for(let i=0;i<Math.round(18*FXN);i++){ const a=f+(R()-.5)*1.8; _tv.set(P.pos.x+Math.sin(a)*rr(1,3.6),P.pos.y+rr(.6,1.8),P.pos.z+Math.cos(a)*rr(1,3.6)); emit('glow',_tv,Math.sin(a)*rr(1,3),rr(.5,2.5),Math.cos(a)*rr(1,3),{color:R()<.5?0xffd860:0xfff4c8,size:.22,size1:.03,life:rr(.5,.9),grav:3}); } }); }
     const hits=mobsIn(3.4*sr,f,2.3), pre=new Set(hits);
     hits.forEach(m=>{ playerHit(m,v.hit,false,false,0xff8a4a); later(.09,()=>playerHit(m,v.hit,false,false,0xff8a4a)); later(.18,()=>playerHit(m,v.hit,false,false,0xffb070)); });
-    spawnCrescent(f,pre,v.wave,sr);
+    spawnCrescent(f,pre,v.wave,pf?sr*1.2:sr,pf);
   } else if(id==='spin'){
     tornadoFx(1+(fl-1)*.6); const tick=()=>{ if(S.dead) return; for(const m of mobsIn(v.r)) playerHit(m,v.tick,false,false,0x9be4ff); };
     tick(); later(.3,tick); later(.6,tick); SHAKE.v=Math.max(SHAKE.v,.1);
