@@ -1339,8 +1339,10 @@ const ARMOR_PIECES={gogusluk:{name:'Göğüslük',hide:['Spine1','Spine2']},sirt
   botlar:{name:'Botlar',hide:['LeftFoot','RightFoot','LeftToeBase','RightToeBase','LeftToe_End','RightToe_End']},
   tum:{name:'Tek parça zırh (maske, hale, gövde, pelerin, çizmeler)',hide:['Hips','Spine','Spine1','Spine2','Neck','Head','HeadTop_End','LeftShoulder','RightShoulder','LeftArm','RightArm','LeftForeArm','RightForeArm','LeftHand*','RightHand*',
     'LeftUpLeg','RightUpLeg','LeftLeg','RightLeg','LeftFoot','RightFoot','LeftToeBase','RightToeBase','LeftToe_End','RightToe_End']},
+  zorek_tum:{name:'Zorek tek parça zırh (omuzluk, göğüslük, etek, bacaklık, bot, eldiven)',hide:['Hips','Spine','Spine1','Spine2','LeftShoulder','RightShoulder','LeftArm','RightArm','LeftForeArm','RightForeArm','LeftHand*','RightHand*','LeftUpLeg','RightUpLeg','LeftLeg','RightLeg','LeftFoot','RightFoot','LeftToeBase','RightToeBase','LeftToe_End','RightToe_End']},
   boyunluk:{name:'Boyunluk',hide:['Neck','LeftShoulder','RightShoulder']},pelerin:{name:'Pelerin',hide:[]},migfer:{name:'Miğfer',hide:['Head','HeadTop_End']},cirak_gogus:{name:'Deri göğüslük',hide:[]},cirak_bel:{name:'Pteruges kuşak',hide:[]},cirak_omuz_l:{name:'Sol omuzluk',hide:[]},cirak_omuz_r:{name:'Sağ omuzluk',hide:[]},cirak_kol_l:{name:'Sol bileklik',hide:[]},cirak_kol_r:{name:'Sağ bileklik',hide:[]},cirak_bacak_l:{name:'Sol tozluk',hide:[]},cirak_bacak_r:{name:'Sağ tozluk',hide:[]},cirak_bot_l:{name:'Sol bot',hide:[]},cirak_bot_r:{name:'Sağ bot',hide:[]}};   // hide: parça takılıyken gizlenen gövde bölgeleri (kemik adı)
 const ARMOR_SETS={gunes_sovalyesi:{ownBind:true,cloth:true,glow:0xffb040,fx:{metal:0x9a1206,mist:0x4a0806,spark:0xff3a1a},tex:{base:'models/armor/gunes_sovalyesi/tex/base.jpg',mr:'models/armor/gunes_sovalyesi/tex/mr.jpg',normal:'models/armor/gunes_sovalyesi/tex/normal.jpg'}},
+  zorek:{},
   kara_sovalye:{tex:{base:'models/armor/kara_sovalye/tex/base.jpg',mr:'models/armor/kara_sovalye/tex/mr.jpg',normal:'models/armor/kara_sovalye/tex/normal.jpg'}},
   cirak:{texm:{Deri:{base:'models/armor/cirak/tex/deri_base.jpg',mr:'models/armor/cirak/tex/deri_mr.jpg',normal:'models/armor/cirak/tex/deri_normal.jpg'},Bronz:{base:'models/armor/cirak/tex/bronz_base.jpg',mr:'models/armor/cirak/tex/bronz_mr.jpg',normal:'models/armor/cirak/tex/bronz_normal.jpg'}},env:{Deri:.35,Bronz:3}}};
 const ARMOR_ITEMS={
@@ -1351,6 +1353,8 @@ const ARMOR_ITEMS={
     desc:'Göz yarığından kızıl ışık sızan, taç dikenli kapalı kara çelik miğfer.'},
   gunes_zirh:{name:'Güneş Şövalyesi Zırhı',slot:'armor',set:'gunes_sovalyesi',reqLv:75,price:4000000,def:104,pieces:['tum'],
     desc:'Unutulmuş Güneş Tarikatı\'nın son şövalyesinin tek parça zırhı: gagalı maske ve altın güneş halesi, işlemeli bronz omuzluklar, kat kat plaka, rüzgârda dalgalanan pelerin ve ağır çizmeler. Sv.75 efsanevi.'},
+  zorek_zirh:{name:'Zorek Savaşçı Zırhı',slot:'armor',set:'zorek',reqLv:40,price:600000,def:52,pieces:['zorek_tum'],
+    desc:'Kızıl damarlı kara plakalar, kemik süslü kuşak, kanatlı omuzluklar ve dikenli bacaklıklarıyla tek parça savaşçı zırhı.'},
   cirak_zirh:{name:'Çırak Savaşçı Zırhı',slot:'armor',set:'cirak',reqLv:1,price:0,def:4,rar:'Başlangıç',
     pieces:['cirak_gogus','cirak_bel','cirak_omuz_l','cirak_omuz_r','cirak_kol_l','cirak_kol_r','cirak_bacak_l','cirak_bacak_r'],
     desc:'Her yeni savaşçıya verilen sade başlangıç zırhı: kalın deri göğüslük, bronz perçinli omuzluklar, bileklikler, pteruges kuşak ve bronz tozluklar.'},
