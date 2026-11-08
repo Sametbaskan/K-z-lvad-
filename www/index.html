@@ -3442,7 +3442,7 @@ function setAtmos(id){ if(!SKY_LIGHT) SKY_LIGHT=scene.background; if(!SUN0) SUN0
 function sharedPlantRes(){ const g=new Set(), m=new Set(); if(PLANTS) for(const t of Object.values(PLANTS.T)){ g.add(t.geo); t.mats.forEach(x=>m.add(x)); } return {g,m}; }
 function disposeObjs(list){ const sh=sharedPlantRes(); for(const o of list){ scene.remove(o); o.traverse(n=>{ if(n.isInstancedMesh&&n.dispose) n.dispose(); if(n.geometry&&!sh.g.has(n.geometry)) n.geometry.dispose(); const ms=n.material?(Array.isArray(n.material)?n.material:[n.material]):[]; for(const m of ms) if(!sh.m.has(m)) m.dispose(); }); } }
 function leaveMap(){
-  clearSkillFx();
+  clearSkillFx(); VEG.length=0;
   for(const m of mobs.slice()) removeMob(m);
   for(const d of drops.slice()) scene.remove(d.g); drops.length=0; dropHits.length=0;
   for(const pr of projectiles.slice()) scene.remove(pr.o); projectiles.length=0;
@@ -3826,7 +3826,7 @@ function frame(now){
     if(world.torchPts) world.torchPts.material.size=1.9+Math.sin(time*11)*.16+Math.sin(time*6.1)*.1;
     if(world.torches) world.torches.forEach((t,i)=>{ const f=1.4+Math.sin(time*13+i*3)*.15+Math.sin(time*7.3+i)*.1; t.scale.setScalar(f); });
     if(world.clouds) world.clouds.forEach((c,i)=>{ c.position.x+=dt*(.6+i%3*.2); if(c.position.x>190) c.position.x=-190; });
-    updateCamera(dt); updatePops(dt); updateTags();
+    updateCamera(dt); updatePops(dt); updateTags(); if(VEG.length){ vegT+=dt; if(vegT>.12){ vegT=0; updateVeg(); } }
     hudT+=dt; if(hudT>.08){ hudT=0; updateHUD(); } mmT+=dt; if(mmT>.1){ mmT=0; drawMini(); }
     if(bannerT>0){ bannerT-=dt; if(bannerT<=0) $('banner').classList.remove('on'); }
     tAcc+=dt; if(tAcc>10){ tAcc=0; saveGame(); }
@@ -3915,6 +3915,32 @@ function prepMesa(glb){
   else for(const t of [mat.map,mat.normalMap,mat.aoMap]) if(t) t.anisotropy=4;
   DMESA={geo:g,mat}; console.info('[Mesa] LOD üçgen sayıları: '+g.map(x=>Math.round((x.index?x.index.count:x.attributes.position.count)/3)).join(' / '));
 }
+/* ---- çöl bitkileri: GLB kaktüs + palmiye (LOD'lu instancing, mesafe/frustum seçimli) ---- */
+let DCAC=null, DPALM=null; const VEG=[]; let vegT=0;
+function prepCactus(glb){ const geo=[null,null,null,null]; let mat=null; glb.scene.traverse(o=>{ if(o.isMesh){ const k=parseInt(String(o.name).replace('lod',''),10); if(k>=0&&k<4){ geo[k]=o.geometry; mat=o.material; } } });
+  if(geo.some(g=>!g)||!mat) throw new Error('kaktüs GLB: lod0..lod3 bulunamadı');
+  if(QT===0){ mat.map=texHalf(mat.map); mat.normalMap=texHalf(mat.normalMap); mat.roughnessMap=texHalf(mat.roughnessMap); mat.metalnessMap=mat.roughnessMap; mat.needsUpdate=true; }
+  else for(const t of [mat.map,mat.normalMap,mat.roughnessMap]) if(t) t.anisotropy=4;
+  DCAC={geo,mat}; console.info('[Kaktüs] LOD üçgen: '+geo.map(g=>Math.round(g.index.count/3)).join(' / ')); }
+function prepPalm(glb){ const bark=[null,null,null,null], leaf=[null,null,null,null], mats={}; glb.scene.traverse(o=>{ if(o.isMesh){ const m=/^lod(\d)_(bark|leaf)$/.exec(o.name); if(m&&+m[1]<4){ (m[2]==='bark'?bark:leaf)[+m[1]]=o.geometry; mats[m[2]]=o.material; } } });
+  if(bark.some(g=>!g)||leaf.some(g=>!g)||!mats.bark||!mats.leaf) throw new Error('palmiye GLB: lod0..lod3 gövde/yaprak bulunamadı');
+  for(const k of ['bark','leaf']){ const m=mats[k]; if(QT===0){ m.map=texHalf(m.map); m.normalMap=texHalf(m.normalMap); m.aoMap=texHalf(m.aoMap); m.needsUpdate=true; } else for(const t of [m.map,m.normalMap,m.aoMap]) if(t) t.anisotropy=4; }
+  DPALM={bark,leaf,mats}; console.info('[Palmiye] gövde LOD üçgen: '+bark.map(g=>Math.round(g.index.count/3)).join(' / ')+', yaprak '+Math.round(leaf[0].index.count/3)); }
+// levels: LOD başına [{geo,mat}] listesi; items: {x,y,z,m,r,h,c,dl:[lod1,lod2,lod3,azami mesafe]}. Her örnek mesafeye göre doğru LOD'a, görüş alanı dışındakiler çizilmez
+function addVeg(levels,items,max0){ const first=QT>=2?0:1, G={items,lv:[],first,max0:max0||6};
+  if(QT===0) for(const it of items){ it.dl=[it.dl[0]*.7,it.dl[1]*.7,it.dl[2]*.75,it.dl[3]]; }      // düşük kademe: LOD geçişleri daha yakında
+  levels.forEach((parts,li)=>{ if(li<first){ G.lv.push(null); return; } G.lv.push(parts.map(pt=>{ const im=new THREE.InstancedMesh(pt.geo.clone(),pt.mat.clone(),items.length); im.count=0; im.frustumCulled=false; im.castShadow=!coarse&&li===first; im.receiveShadow=li<=first+1;
+      const c0=new THREE.Color(1,1,1); for(let i=0;i<items.length;i++) im.setColorAt(i,c0); scene.add(im); return im; })); });
+  VEG.push(G); }
+const _vfr=new THREE.Frustum(), _vpm=new THREE.Matrix4(), _vsp=new THREE.Sphere();
+function updateVeg(){ if(!VEG.length) return; const cp=camera.position; _vpm.multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse); _vfr.setFromProjectionMatrix(_vpm);
+  for(const G of VEG){ const cnt=G.lv.map(l=>l?l.map(()=>0):null), vis=[];
+    for(const it of G.items){ const d=Math.hypot(it.x-cp.x,it.z-cp.z); if(d>it.dl[3]) continue;
+      if(d>26){ _vsp.center.set(it.x,it.y+it.h*.5,it.z); _vsp.radius=it.r+it.h*.5; if(!_vfr.intersectsSphere(_vsp)) continue; }   // yakın (gölge menzili) bitkiler her zaman, uzaktakiler yalnız görüş alanındaysa
+      vis.push({it,d,li:Math.max(G.first,d<it.dl[0]?0:d<it.dl[1]?1:d<it.dl[2]?2:3)}); }
+    let n0=0; if(G.first===0){ vis.sort((a,b)=>a.d-b.d); for(const v of vis){ if(v.li===0&&++n0>G.max0) v.li=1; } }          // en detaylı seviye (LOD0) aynı anda en fazla G.max0 bitkide: üçgen yükü sınırlı kalır
+    for(const v of vis){ const parts=G.lv[v.li]; for(let pi=0;pi<parts.length;pi++){ const im=parts[pi], k=cnt[v.li][pi]++; im.setMatrixAt(k,v.it.m); im.setColorAt(k,v.it.c); } }
+    G.lv.forEach((l,li)=>{ if(l) l.forEach((im,pi)=>{ im.count=cnt[li][pi]; im.instanceMatrix.needsUpdate=true; if(im.instanceColor) im.instanceColor.needsUpdate=true; }); }); } }
 function buildDesertDecor(){
   const Yd=new THREE.Object3D(), TM=(x,y,z,rx=0,ry=0,rz=0,sx=1,sy=1,sz=1)=>{ Yd.position.set(x,y,z); Yd.rotation.set(rx,ry,rz); Yd.scale.set(sx,sy,sz); Yd.updateMatrix(); return Yd.matrix.clone(); };
   const col=h=>new THREE.Color(h);
@@ -3976,8 +4002,37 @@ function buildDesertDecor(){
     let nt=0; for(let t=0;t<400&&nt<(coarse?3:5);t++){ const k=pick(tall); if(!k) break; if(addB(k,rr(-lim+14,lim-14),rr(-lim+14,lim-14),rr(.85,1.1))) nt++; }
     console.info('[Harabe] '+DESERT_BUILD.length+' bina yerleştirildi');
   }
-  // kaktüs
-  { const g=[]; const gr=col(0x4f7a3a), dk=col(0x3e6330);
+  // kaktüs ve palmiye (GLB): kaktüsler tepe/kayalık/yol kenarlarında kümeler halinde, palmiyeler vaha ve düz alanlarda gruplar halinde
+  if(DCAC||DPALM){
+    const VR=rng(8143), vr=(a,b)=>a+(b-a)*VR(), tracks=[]; for(const c of [...D_RUINS,...D_STONES]) tracks.push([0,0,c[0],c[1]]);   // merkez kapıdan kamplara/taşlara giden geçiş yolları: koridor açık kalır
+    const onTrack=(x,z,w)=>{ for(const t of tracks){ const dx=t[2]-t[0], dz=t[3]-t[1], L2=dx*dx+dz*dz, u=Math.max(0,Math.min(1,((x-t[0])*dx+(z-t[1])*dz)/L2)); if(Math.hypot(x-t[0]-dx*u,z-t[1]-dz*u)<w) return true; } return false; };
+    const gmin=(x,z,rad)=>{ let m=hDesert(x,z); for(let k=0;k<4;k++){ const a=k*1.5708+.4; m=Math.min(m,hDesert(x+Math.cos(a)*rad,z+Math.sin(a)*rad)); } return m; };
+    const col2=(v)=>new THREE.Color(1,1,1).multiplyScalar(v);
+    const okAt=(x,z,r,tw)=>free(x,z,r)&&!onTrack(x,z,tw);
+    if(DCAC){
+      const items=[], cap=coarse?60:96;
+      const plant=(x,z,H)=>{ if(items.length>=cap) return false; const r=Math.max(.5,H*.2); if(!okAt(x,z,r,3.4)) return false; const sx=H*vr(.9,1.1), sz=H*vr(.9,1.1), y=gmin(x,z,H*.1)-H*.02;
+        taken.push([x,z,r*.9]); addObstacle(x,z,Math.max(.3,H*.12));
+        items.push({x,z,y,r:H*.2,h:H,c:col2(vr(.86,1.1)),m:TM(x,y,z,vr(-.04,.04),vr(0,6.283),vr(-.04,.04),sx,H,sz),dl:[9+H*2,26+H*4,58+H*6,135]}); return true; };
+      const cluster=(cx,cz,n,H0,spread)=>{ for(let k=0;k<n*3&&n>0;k++){ const a=vr(0,6.283), d=spread*Math.sqrt(VR()), H=Math.max(.8,H0*vr(.55,1.25)); if(plant(cx+Math.cos(a)*d,cz+Math.sin(a)*d,H)) n--; } };
+      for(const [hx,hz,hr] of DHILLS){ for(let q=0;q<2;q++){ const a=vr(0,6.283), d=hr*vr(.7,1.3); cluster(hx+Math.cos(a)*d,hz+Math.sin(a)*d,3+((VR()*3)|0),vr(2.4,4.2),vr(2.5,4.5)); } }               // kum tepeleri
+      for(const m of DESERT_MESAS){ if(m[2]<8||VR()<.35) continue; const a=vr(0,6.283), d=m[2]*vr(.5,.75); cluster(m[0]+Math.cos(a)*d,m[1]+Math.sin(a)*d,2+((VR()*3)|0),vr(2.0,3.8),vr(2,4)); }   // kayalık alan kenarları
+      for(const t of tracks){ for(let q=0;q<2;q++){ const u=vr(.2,.9), side=VR()<.5?-1:1, dx=t[2]-t[0], dz=t[3]-t[1], L=Math.hypot(dx,dz), off=side*vr(4.5,9); cluster(t[0]+dx*u-dz/L*off,t[1]+dz*u+dx/L*off,2+((VR()*3)|0),vr(2.0,3.6),vr(1.8,3.2)); } }   // yol kenarları
+      for(let t=0;t<200&&items.length<cap*.9;t++) plant(rr(-lim,lim),rr(-lim,lim),vr(1.6,3.6));                                                      // dağınık tekli kaktüsler
+      addVeg(DCAC.geo.map(g=>[{geo:g,mat:DCAC.mat}]),items,7); console.info('[Kaktüs] '+items.length+' adet yerleştirildi');
+    }
+    if(DPALM){
+      const items=[], cap=coarse?34:52;
+      const palm=(x,z,H,toward)=>{ if(items.length>=cap) return false; const r=H*.12; if(!okAt(x,z,r,3.6)) return false; const y=gmin(x,z,H*.03)-H*.015, yaw=toward?Math.atan2(-(toward[1]-z),toward[0]-x)+vr(-.7,.7):vr(0,6.283);
+        taken.push([x,z,r+.6]); addObstacle(x,z,Math.max(.3,H*.045));
+        items.push({x,z,y,r:H*.3,h:H,c:col2(vr(.88,1.08)),m:TM(x,y,z,vr(-.03,.03),yaw,vr(-.03,.03),H*vr(.92,1.08),H,H*vr(.92,1.08)),dl:[10+H*1.2,26+H*2.4,56+H*4,135]}); return true; };
+      for(const p of DPONDS){ const n=7+((VR()*3)|0); for(let k=0,got=0;k<n*5&&got<n;k++){ const a=vr(0,6.283), d=p[2]*vr(1.35,2.5); if(palm(p[0]+Math.cos(a)*d,p[1]+Math.sin(a)*d,vr(5,8.5),[p[0],p[1]])) got++; } }   // vahalar: gölcüğe doğru eğilen gruplar
+      for(let g=0,got=0;g<80&&got<5;g++){ const cx=vr(-lim+10,lim-10), cz=vr(-lim+10,lim-10); if(Math.hypot(cx,cz)<FOREST_CLEAR+10||dSlope(cx,cz,3)>.7||onTrack(cx,cz,6)) continue; let n=3+((VR()*3)|0), ok=0; for(let k=0;k<n*4&&ok<n;k++){ const a=vr(0,6.283), d=vr(0,4.5); if(palm(cx+Math.cos(a)*d,cz+Math.sin(a)*d,vr(4.5,8))) ok++; } if(ok>=2) got++; }   // uygun düz alanlarda küçük korular
+      addVeg(DPALM.bark.map((b,i)=>[{geo:b,mat:DPALM.mats.bark},{geo:DPALM.leaf[i],mat:DPALM.mats.leaf}]),items,3); console.info('[Palmiye] '+items.length+' adet yerleştirildi');
+    }
+  }
+  // kaktüs (basit yedek: GLB yüklenemezse)
+  if(!DCAC){ const g=[]; const gr=col(0x4f7a3a), dk=col(0x3e6330);
     g.push({geo:new THREE.CylinderGeometry(.26,.32,2.6,7),m:TM(0,1.3,0),c:gr});
     g.push({geo:new THREE.SphereGeometry(.27,7,5),m:TM(0,2.6,0),c:gr});
     g.push({geo:new THREE.CylinderGeometry(.15,.15,.75,6),m:TM(.5,1.35,0,0,0,Math.PI/2),c:dk}); g.push({geo:new THREE.CylinderGeometry(.14,.15,1.0,6),m:TM(.88,1.8,0),c:dk}); g.push({geo:new THREE.SphereGeometry(.14,6,4),m:TM(.88,2.32,0),c:dk});
@@ -3993,8 +4048,8 @@ function buildDesertDecor(){
     for(let t=0,n=coarse?(DMESA?26:60):(DMESA?44:95);t<1200&&arr.length<n;t++){ const x=rr(-lim,lim), z=rr(-lim,lim), s=rr(.6,2.2); if(!free(x,z,s*.9)) continue; taken.push([x,z,s*.7]); if(s>1.2) addObstacle(x,z,s*.8);
       const c=new THREE.Color().setHSL(rr(.05,.075),rr(.32,.45),rr(.34,.5)); arr.push({m:TM(x,hDesert(x,z)+s*.25,z,rr(0,3),rr(0,6),rr(0,3),s,s*rr(.6,.9),s*rr(.8,1.2)),c}); }
     inst(geo,mat,arr); }
-  // hurma ağaçları (vahalar)
-  { const g=[]; const tr=col(0x7a5a38), lf=col(0x3f7d34), lf2=col(0x56903c);
+  // hurma ağaçları (vahalar) — basit yedek: GLB yüklenemezse
+  if(!DPALM){ const g=[]; const tr=col(0x7a5a38), lf=col(0x3f7d34), lf2=col(0x56903c);
     for(let i=0;i<3;i++) g.push({geo:new THREE.CylinderGeometry(.13+.02*(2-i),.2+.02*(2-i),1.7,6),m:TM(.1*i,.85+i*1.65,0,0,0,-.06*i),c:tr});
     for(let i=0;i<8;i++){ const a=i/8*6.283; const lg=new THREE.BoxGeometry(.42,.05,2.6); lg.translate(0,0,1.3); g.push({geo:lg,m:TM(.18,5.05,0,.6+.12*(i%2),a,0),c:i%2?lf:lf2}); }
     const geo=mergeGeos(g), arr=[];
@@ -4024,6 +4079,7 @@ function buildDesertMap(){
   buildDesertDecor();
   MAPS.desert.objs=scene.children.filter(c=>!b0.has(c)&&c!==terrain);
   populateDesert();
+  try{ updateVeg(); }catch(e){}
   console.info('[Harita] Zahrak Çölü kuruldu: '+MAPS.desert.objs.length+' nesne, '+obstacles.length+' engel, '+mobs.length+' canavar');
 }
 let DESERT_STATS=null;
@@ -4075,6 +4131,8 @@ async function boot(){
     try{ const tsw=await get('models/weapons/gunes_mizragi.glb.b64.txt',()=>{}); SWORD_GLB=await new Promise((ok,no)=>new GLTFLoader().parse(dec(tsw),'',ok,no)); WGLB.mizrak=SWORD_GLB; }catch(e){ console.error('[Mızrak] model yüklenemedi, yedek silah çizimi kullanılacak:',e); }
     try{ const tdw=await get('models/dwarf.b64.txt',()=>{}); DWARF_GLB=await new Promise((ok,no)=>new GLTFLoader().parse(dec(tdw),'',ok,no)); }catch(e){ console.error('[Demirci] cüce modeli yüklenemedi, eski model kullanılacak:',e); }
     try{ const tsm=await get('models/samurai.b64.txt',()=>{}); SAM_GLB=await new Promise((ok,no)=>new GLTFLoader().parse(dec(tsm),'',ok,no)); }catch(e){ console.error('[Nöbetçi] samuray modeli yüklenemedi, eski model kullanılacak:',e); }
+    try{ const tcc=await get('models/desert_cactus.glb.b64.txt',()=>{}); prepCactus(await new Promise((ok,no)=>new GLTFLoader().parse(dec(tcc),'',ok,no))); }catch(e){ DCAC=null; console.error('[Kaktüs] model yüklenemedi, basit kaktüs kullanılacak:',e); }
+    try{ const tpm=await get('models/desert_palm.glb.b64.txt',()=>{}); prepPalm(await new Promise((ok,no)=>new GLTFLoader().parse(dec(tpm),'',ok,no))); }catch(e){ DPALM=null; console.error('[Palmiye] model yüklenemedi, basit palmiye kullanılacak:',e); }
     try{ const trb=await get('models/desert_ruins.glb.b64.txt',()=>{}); prepRuins(await new Promise((ok,no)=>new GLTFLoader().parse(dec(trb),'',ok,no))); }catch(e){ DRUINS=null; console.error('[Harabe] bina modelleri yüklenemedi, binasız devam:',e); }
     try{ const tms=await get('models/desert_mesa.glb.b64.txt',()=>{}); prepMesa(await new Promise((ok,no)=>new GLTFLoader().parse(dec(tms),'',ok,no))); }catch(e){ DMESA=null; console.error('[Mesa] çöl kaya modeli yüklenemedi, basit kayalar kullanılacak:',e); }
     try{ const tgf=await get('models/griffin.glb.b64.txt',()=>{}); prepGrif(await new Promise((ok,no)=>new GLTFLoader().parse(dec(tgf),'',ok,no))); }catch(e){ GRIF=null; console.error('[Griffin] model yüklenemedi, boss için eski akrep modeli kullanılacak:',e); }
@@ -4091,7 +4149,7 @@ async function boot(){
     initMapUI(); initVillageMap(); setAtmos('village'); try{ warmFx(); }catch(e){ console.warn('[Efekt] ısınma atlandı',e); } setP(100);
     myTag=document.createElement('div'); myTag.className='pn'; $('pops').appendChild(myTag);
     $('loading').classList.add('hidden'); mountAuthUI();
-    window.__game={enterGame,MAPS,keys,useSlot,killPlayer,respawnPlayer,DEATH,drawMini,updateHUD2:()=>{},lakeE,LAKE_B,LAKE_WL,FROG_SPOTS,CROC_SPOTS,hForest,placePlayer,spawnMob,respawn,fxAttack,fxDeath,get LAKE_STATS(){return LAKE_STATS},get DESERT_BUILD(){return DESERT_BUILD},get DESERT_MESAS(){return DESERT_MESAS},get LAKE_MOBS(){return LAKE_MOBS},get CROC(){return CROC},CORE,rankOf,rankReward,grantRank,plateHTML,refreshPlate,RANKS,RANK_REWARD,get plateKey(){return plateKey},get myTag(){return myTag},TYPES,guards,updateGuards,addTime:d=>{time+=d},get ATK_HOLD(){return ATK_HOLD},equipWeaponModel,WMODELS,get sword(){return sword},charPreview,CLOTH,updateArmorCloth,AFX,updateArmorFx,ARMOR_FX_LV,horseCaps,clothCaps,ARMOR,ARMOR_ITEMS,syncArmor,armorDef,defPow,LEGEND_WEAPONS,legEq,LGLB,LFAIL,loadLegend,get SWKEY(){return SWKEY},weapName,wCrit,critCh,buyLegend,SWCFG,refreshWins,updateSmith,upgradeWeapon,buyStone,fixWeapon,WLV,swRoll,wAtk,wMag,aspd,swEq,applySwordLook,updateSwordFx,SEAT,yawFix,get FOREST_STATS(){return FOREST_STATS},zoneAt,updateMount,groundFix,get GOFF(){return GOFF},get S(){return S},ITEMS,EQS,registerItem,addItem,moveItem,initInv,addStat,resetStats,qOf,expNeed,get PLANT_SETS(){return PLANT_SETS},renderMenu,setTab,toggleWin,closeWins,skillUp,skPoints,skL,skv,skStats,saveGame,loadGame,renderSkillWin,gainExp,updatePlayer,updateMobs,updateProjectiles,updateSkills,updateCamera,updateHUD,SKD,SLOT_DEF,SK,cds,fx2,pt2,sched,projectiles,SHAKE,clearSkillFx,MAPS,TRAVEL,travelTo,get MAP(){return MAP;},get obstacles(){return obstacles;},get MAP(){return MAP;},get renderer(){return renderer;},npcs,vRoadD,MAPS,hAt,get HAS3(){return HAS3;},get A3META(){return A3META;},damagePlayer,get COMBO(){return COMBO;},horseRear,horseAnim,playerHit,killMob,fxPlay,fxStep,get FROG2(){return FROG2;},MOUNT,toggleMount,get mixer(){return mixer},rotW,overlayPose,S,P,mobs,cam,actions,bones,setAnim,useSlot,clickAt,THREE,scene,camera,renderer,model,get tIdle(){return tIdle;},get TURN_DELTA(){return TURN_DELTA;}};
+    window.__game={enterGame,MAPS,keys,useSlot,killPlayer,respawnPlayer,DEATH,drawMini,updateHUD2:()=>{},lakeE,LAKE_B,LAKE_WL,FROG_SPOTS,CROC_SPOTS,hForest,placePlayer,spawnMob,respawn,fxAttack,fxDeath,get LAKE_STATS(){return LAKE_STATS},get DESERT_BUILD(){return DESERT_BUILD}, updateVeg, get VEG(){return VEG}, get QT(){return QT}, DPONDS, D_RUINS, DHILLS, hDesert,get DESERT_MESAS(){return DESERT_MESAS},get LAKE_MOBS(){return LAKE_MOBS},get CROC(){return CROC},CORE,rankOf,rankReward,grantRank,plateHTML,refreshPlate,RANKS,RANK_REWARD,get plateKey(){return plateKey},get myTag(){return myTag},TYPES,guards,updateGuards,addTime:d=>{time+=d},get ATK_HOLD(){return ATK_HOLD},equipWeaponModel,WMODELS,get sword(){return sword},charPreview,CLOTH,updateArmorCloth,AFX,updateArmorFx,ARMOR_FX_LV,horseCaps,clothCaps,ARMOR,ARMOR_ITEMS,syncArmor,armorDef,defPow,LEGEND_WEAPONS,legEq,LGLB,LFAIL,loadLegend,get SWKEY(){return SWKEY},weapName,wCrit,critCh,buyLegend,SWCFG,refreshWins,updateSmith,upgradeWeapon,buyStone,fixWeapon,WLV,swRoll,wAtk,wMag,aspd,swEq,applySwordLook,updateSwordFx,SEAT,yawFix,get FOREST_STATS(){return FOREST_STATS},zoneAt,updateMount,groundFix,get GOFF(){return GOFF},get S(){return S},ITEMS,EQS,registerItem,addItem,moveItem,initInv,addStat,resetStats,qOf,expNeed,get PLANT_SETS(){return PLANT_SETS},renderMenu,setTab,toggleWin,closeWins,skillUp,skPoints,skL,skv,skStats,saveGame,loadGame,renderSkillWin,gainExp,updatePlayer,updateMobs,updateProjectiles,updateSkills,updateCamera,updateHUD,SKD,SLOT_DEF,SK,cds,fx2,pt2,sched,projectiles,SHAKE,clearSkillFx,MAPS,TRAVEL,travelTo,get MAP(){return MAP;},get obstacles(){return obstacles;},get MAP(){return MAP;},get renderer(){return renderer;},npcs,vRoadD,MAPS,hAt,get HAS3(){return HAS3;},get A3META(){return A3META;},damagePlayer,get COMBO(){return COMBO;},horseRear,horseAnim,playerHit,killMob,fxPlay,fxStep,get FROG2(){return FROG2;},MOUNT,toggleMount,get mixer(){return mixer},rotW,overlayPose,S,P,mobs,cam,actions,bones,setAnim,useSlot,clickAt,THREE,scene,camera,renderer,model,get tIdle(){return tIdle;},get TURN_DELTA(){return TURN_DELTA;}};
   }catch(err){ console.error(err); $('loadTxt').textContent='Yükleme başarısız oldu.'; $('loadTxt').style.color='#ff8a80'; $('err').textContent=String(err&&err.message||err); }
 }
 /* Hesap sistemi (auth/ modülleri) karakter seçilince bunu çağırır. Oyun motoru hesap koduna bağımlı değildir. */
