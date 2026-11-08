@@ -969,6 +969,18 @@ function slashFx(pos,yaw,r,arc,tilt,c1,c2,dur=.3,dir=1,y=1.1){
   fxAdd(par,dur,(e,k)=>{ mat.uniforms.head.value=k*1.35; mat.uniforms.fade.value=1-Math.max(0,(k-.62)/.38); par.scale.setScalar(.92+.14*k); },{mats:[mat]});
   for(let i=0;i<Math.round(9*FXN);i++){ const th=(R()-.5)*arc*dir, a=yaw+th; _tv.set(pos.x+Math.sin(a)*r*.92,pos.y+y,pos.z+Math.cos(a)*r*.92); emit('glow',_tv,(R()-.5)*1.6,R()*1.6,(R()-.5)*1.6,{color:c1,size:.24,size1:.03,life:.3+R()*.25,grav:3,delay:R()*dur*.7}); }
 }
+/* ---- Güçlü Vuruş: piksel kılıç savuruşu (vfxsmith "Sword slash", MIT; img/fx/NOTICE-sword-slash.txt) ----
+   5x5 sayfada 24 kare, 136x104 px, çıkış noktası (44,92). Dünyada oyuncunun önünde, ekrandaki ileri yönüne döndürülmüş tek sprite. */
+let SLT=null;
+function slashTex(){ if(SLT) return SLT; const base=new THREE.TextureLoader().load('img/fx/sword_slash.png'); base.colorSpace=THREE.SRGBColorSpace; base.magFilter=THREE.NearestFilter; base.minFilter=THREE.LinearFilter; base.generateMipmaps=false; base.repeat.set(1/5,1/5);
+  SLT={pool:[base,base.clone(),base.clone()],i:0}; for(const t of SLT.pool){ t.repeat.set(1/5,1/5); t.needsUpdate=true; } return SLT; }
+function pixelSlashFx(pos,yaw,reach,flip,dur=.5){ const ST=slashTex(), T=ST.pool[ST.i++%3]; if(!T.image) return;
+  const mt=new THREE.SpriteMaterial({map:T,color:0xfff0e0,transparent:true,depthWrite:false,fog:false}); const sp=new THREE.Sprite(mt); const k=reach/78;   // piksel -> dünya (etkin savuruş pivot'tan ~78 px)
+  sp.scale.set(136*k,104*k*(flip?-1:1),1); sp.center.set(44/136,1-92/104);
+  const fx=Math.sin(yaw), fz=Math.cos(yaw);
+  /* savuruş merkezi pivot'tan 45° yukarıda: ileri yöne hizala */ const NF=15; fxAdd(sp,dur*.8,(e,kk)=>{ const f=Math.min(NF-1,Math.floor(kk*NF)), c=f%5, r=(f/5)|0; T.offset.set(c/5,1-(r+1)/5);
+      _tv.set(pos.x,pos.y+1.15,pos.z).project(camera); _tp.set(pos.x+fx,pos.y+1.15,pos.z+fz).project(camera); mt.rotation=Math.atan2((_tp.y-_tv.y)*innerHeight,(_tp.x-_tv.x)*innerWidth)+(flip?.785:-.785); },{mats:[mt],follow:()=>_tq.set(pos.x+fx*.5,pos.y+1.15,pos.z+fz*.5)}); }
+const _tq=new THREE.Vector3();
 /* ---- kılıç enerjisi: ileri uçan hilal ---- */
 function spawnCrescent(yaw,pre,dmg=1.2,sc=1){
   const par=new THREE.Object3D(), fx=Math.sin(yaw), fz=Math.cos(yaw); par.position.set(P.pos.x+fx*1.3,P.pos.y+1.15,P.pos.z+fz*1.3); par.rotation.y=yaw; par.scale.setScalar(sc);
@@ -1159,7 +1171,7 @@ function warmFx(){
     const r=new THREE.Mesh(GEO.rock,MROCK); r.scale.setScalar(.01); g.add(r); }
   const sp=[]; for(const t of ['glow','star','smoke','ring']){ const sprite=sprGet(t); g.add(sprite); sprite.scale.setScalar(.01); sp.push(sprite); }
   scene.add(g); try{ renderer.compile(g,camera); }catch(e){} scene.remove(g); for(const sprite of sp) sprFree(sprite);
-  try{ iceAssets(); }catch(e){}
+  try{ iceAssets(); slashTex(); }catch(e){}
 }
 
 /* ============================== arayüz yardımcıları ============================== */
@@ -2571,7 +2583,7 @@ function updateDash(dt){
 function doAttackHit(){
   const a=P.atk; a.hit=true; SFX.swing(); const f=P.yaw; const id=a.skill, v=id?skv(id):null, fl=id?skFx(id):1, sr=1+(fl-1)*.5; FXL=fl;
   if(id==='cut'){
-    slashFx(P.pos,f,3.4*sr,2.3,.55,0xff5a2a,0xffe0a8,.3,1); later(.09,()=>{ FXL=fl; slashFx(P.pos,f,3.4*sr,2.3,-.5,0xff8a3a,0xfff0c8,.28,-1); });
+    pixelSlashFx(P.pos,f,3.6*sr,false,.5); later(.09,()=>{ FXL=fl; pixelSlashFx(P.pos,f,3.6*sr,true,.5); }); later(.18,()=>{ FXL=fl; pixelSlashFx(P.pos,f,4.0*sr,false,.55); });
     const hits=mobsIn(3.4*sr,f,2.3), pre=new Set(hits);
     hits.forEach(m=>{ playerHit(m,v.hit,false,false,0xff8a4a); later(.09,()=>playerHit(m,v.hit,false,false,0xff8a4a)); later(.18,()=>playerHit(m,v.hit,false,false,0xffb070)); });
     spawnCrescent(f,pre,v.wave,sr);
