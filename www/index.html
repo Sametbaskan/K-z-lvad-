@@ -1252,6 +1252,7 @@ function refreshPlate(force){ if(!myTag) return; const k=S.lvl+'|'+rankIdx(S.rp)
 const BASESTAT={st:5,vit:5,int:4,dex:4}, STATCAP=90;
 const KINGS=['Kızıl','Altın','Mavi'], KCOL=['#ff6a5a','#ffd24a','#6aa8ff'];
 const expNeed = CORE.expNeed;
+const MAXLV = 99;   // seviye tavanı
 const maxHP = () => CORE.maxHP(S.lvl,S.vit)+gearSum('hp');
 const maxSP = () => CORE.maxSP(S.lvl,S.int);
 /* ===== eşya altyapısı: ITEMS kaydı, 180 hücreli envanter (4 sayfa x 45), 14 ekipman slotu ===== */
@@ -1417,7 +1418,7 @@ const magPow = () => (10+S.lvl*3+S.st*1.5+wMag()+gearSum('atk'))*magMul()*(S.buf
 const defPow = () => CORE.defPow(S.lvl,S.vit)+gearSum('def');
 const dodgeCh = () => CORE.dodgeCh(S.dex), hitCh = () => CORE.hitCh(S.dex), magMul = () => 1+S.int*.006, critCh = () => CORE.critCh(S.dex)+wCrit();
 const MAGCOL=new Set([0xff8a2a,0xbfeaff,0x9be4ff]);
-const qOf = () => S.lvl>=30?3:Math.min(3,Math.floor(S.exp/expNeed(S.lvl)*4));
+const qOf = () => S.lvl>=MAXLV?3:Math.min(3,Math.floor(S.exp/expNeed(S.lvl)*4));
 /* stat puanı: EXP çubuğu 4 parça, %25/%50/%75'te 1'er puan (seviye başına toplam 3) */
 function addStat(k){ if(!(k in BASESTAT)) return; if(S.pts<=0){ say('Stat puanın yok.','c-bad'); return; } if(S[k]>=STATCAP){ say(STATD[k][0]+' en yüksek değerde ('+STATCAP+').','c-bad'); return; } S.pts--; S[k]++; if(k==='vit') S.hp+=8; if(k==='int') S.sp+=5; saveGame(); renderMenu(true); }
 /* ileride NPC / özel eşya için: tüm dağıtılan stat puanlarını iade eder */
@@ -2449,8 +2450,8 @@ function pickup(d){
 function gainExp(x){
   const lv0=S.lvl; S.exp+=x; let up=false;
   let gp=0;
-  while(S.lvl<30 && S.exp>=expNeed(S.lvl)){ gp+=Math.max(0,3-S.qd); S.exp-=expNeed(S.lvl); S.lvl++; S.qd=0; up=true; }
-  if(S.lvl>=30) S.exp=Math.min(S.exp,expNeed(30)-1);
+  while(S.lvl<MAXLV && S.exp>=expNeed(S.lvl)){ gp+=Math.max(0,3-S.qd); S.exp-=expNeed(S.lvl); S.lvl++; S.qd=0; up=true; }
+  if(S.lvl>=MAXLV) S.exp=Math.min(S.exp,expNeed(MAXLV)-1);
   { const q=qOf(); if(q>S.qd){ gp+=q-S.qd; S.qd=q; } }
   if(gp>0){ S.pts+=gp; say(`+${gp} stat puanı (EXP çubuğu). Dağıtılabilir: ${S.pts}  (V: Karakter)`,'c-xp'); popup('+'+gp+' Stat',P.pos.clone().setY(P.pos.y+2.6),'heal'); if(!up) SFX.pot(); }
   if(up){ S.hp=maxHP(); S.sp=maxSP(); banner(`Seviye ${S.lvl}!`); say(`Seviye atladın! Yeni seviye: ${S.lvl}.`,'c-sys'); SFX.level(); pillarFx(P.pos,0xffd24a); ringFx(P.pos,2.5,0xffe080,.9); burst(P.pos.clone().setY(P.pos.y+1),0xffe080,36,5,1.2,.4,-1);
@@ -2933,7 +2934,7 @@ function renderMenu(force){
       <div class="m2grid">${cells}</div>`;
   } else {
     const W=485,H=668, B=(x,y,w,h)=>gbox(x,y,w,h,W,H), ro=(i,y)=>B(111,y,56,31), rowsY={vit:237,int:279,st:321,dex:363}, bx=(k)=>`<div class="m3v" style="${B(111,rowsY[k],56,31)}">${S[k]}</div><button class="m3p" data-stat="${k}" ${S.pts<=0||S[k]>=STATCAP?'disabled':''} aria-label="${STATD[k][0]} artır" title="${STATD[k][1]}" style="${B(166,rowsY[k]-1,36,33)}">+</button>`;
-    const lo=Math.round(atkPow()*.88), hi=Math.round(atkPow()*1.12), lvn=S.lvl>=30?'MAX':fmt(expNeed(S.lvl));
+    const lo=Math.round(atkPow()*.88), hi=Math.round(atkPow()*1.12), lvn=S.lvl>=MAXLV?'MAX':fmt(expNeed(S.lvl));
     h=`<button class="m3x" data-close="mw" aria-label="Kapat"></button>
       <div class="m3pt" style="${B(30,18,82,74)}"><img src="${UIIMG.knight_helmet}" alt=""></div>
       <div class="m3nm" style="${B(218,62,165,26)}">${S.name}</div>
@@ -3571,7 +3572,7 @@ function updateHUD(){
   const hp=clamp(S.hp/maxHP(),0,1), sp=clamp(S.sp/maxSP(),0,1);
   const gcl=(el,pct,ex)=>{ const r=(1-(ex[0]+(ex[1]-ex[0])*pct))*100; el.style.clipPath=`inset(0 ${r.toFixed(2)}% 0 0)`; };
   gcl($('gHpF'),hp,UIEXT.hp); gcl($('gSpF'),sp,UIEXT.sp); $('gHpT').textContent=`${Math.ceil(S.hp)} / ${maxHP()}`; $('gSpT').textContent=`${Math.ceil(S.sp)} / ${maxSP()}`;
-  { const xpp=(S.lvl>=30?100:S.exp/expNeed(S.lvl)*100); $('xpFill').style.width=xpp+'%'; $('lvmed').style.setProperty('--xp',xpp.toFixed(1)+'%'); $('lvNum').textContent=S.lvl; $('lvmed').title=`Tecrübe ${fmt(S.exp)} / ${fmt(expNeed(S.lvl))}`; }
+  { const xpp=(S.lvl>=MAXLV?100:S.exp/expNeed(S.lvl)*100); $('xpFill').style.width=xpp+'%'; $('lvmed').style.setProperty('--xp',xpp.toFixed(1)+'%'); $('lvNum').textContent=S.lvl; $('lvmed').title=`Tecrübe ${fmt(S.exp)} / ${fmt(expNeed(S.lvl))}`; }
   $('buffs').innerHTML=(S.buff>0?`<span>Demir İrade ${Math.ceil(S.buff)}sn</span>`:'')+(S.shieldT>0&&S.shield>0?`<span class="ice">Buz Kalkanı ${Math.ceil(S.shield)}</span>`:'')+(S.haste>0?`<span>Hız ${Math.ceil(S.haste)}sn</span>`:'')+(S.regenT>0?`<span class="gr">Yenilenme</span>`:'');
   const t=P.target; const tg=$('tgt'); if(t&&!t.dead){ tg.classList.remove('hidden'); $('tgtName').textContent=`Sv.${t.lvl} ${t.T.name}`; $('tgtHp').style.width=(clamp(t.hp/t.maxHp,0,1)*100)+'%'; $('tgtHpT').textContent=`${Math.max(0,Math.ceil(t.hp))} / ${t.maxHp}`; } else tg.classList.add('hidden');
   slotEls.forEach((el,i)=>{ const cdv=cds[i], max=CD[i], sk=SK[i], c=el.querySelector('.cd'); c.style.transform=`scaleY(${cdv>0?cdv/max:0})`; c.textContent=cdv>0.05?Math.ceil(cdv):''; if(i===4||i===5) el.querySelector('.n').textContent=i===4?S.red:S.blue; el.classList.toggle('off',!!(sk&&S.sp<sk.sp)||(i===4&&S.red<=0)||(i===5&&S.blue<=0)); if(el._cd>0&&cdv<=0&&sk){ el.classList.remove('rdy'); void el.offsetWidth; el.classList.add('rdy'); } el._cd=cdv; if(sk){ const L=skL(sk.id), lv=el.querySelector('.lv'), tx=L>=SKMAX?'P':(L>0?String(L):''); if(lv.textContent!==tx){ lv.textContent=tx; lv.classList.toggle('p',L>=SKMAX); } el.classList.toggle('lock',S.lvl<SKUNLOCK); } });
