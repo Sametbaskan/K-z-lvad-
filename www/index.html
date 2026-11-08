@@ -756,8 +756,8 @@ function makeTerrain(kind){
   const size = (F||D)?HALF*2+60:260, seg = (F||D)?160:176;
   const geo = new THREE.PlaneGeometry(size,size,seg,seg); geo.rotateX(-Math.PI/2);
   const p = geo.attributes.position, col = new Float32Array(p.count*3), c = new THREE.Color();
-  const grassA = new THREE.Color(D?0xe6c488:F?(NATURE?0x3f6030:0x4d7c32):0x5d7f40), grassB = new THREE.Color(D?0xc79a58:F?(NATURE?0x233d1f:0x2c5424):0x3a5530), dirt = new THREE.Color(F?0x7a6040:0x8a7658), rock = new THREE.Color(0x7d7a6c), moss=new THREE.Color(0x35602a), cob=new THREE.Color(0x85847d);
-  const sandHi=new THREE.Color(0xf4e0b0), sandLo=new THREE.Color(0xa87a44), redRock=new THREE.Color(0x9c5f3c), oasisG=new THREE.Color(0x6f8a45), wetSand=new THREE.Color(0x6e5a3a); const rn = rng(F||D?11:7); const swampG=new THREE.Color(0x2c4524), mud=new THREE.Color(0x4a3b29), wetMud=new THREE.Color(0x2a2218), bedC=new THREE.Color(0x1b231f);
+  const grassA = new THREE.Color(D?0xd0a06a:F?(NATURE?0x3f6030:0x4d7c32):0x5d7f40), grassB = new THREE.Color(D?0xb07c48:F?(NATURE?0x233d1f:0x2c5424):0x3a5530), dirt = new THREE.Color(F?0x7a6040:0x8a7658), rock = new THREE.Color(0x7d7a6c), moss=new THREE.Color(0x35602a), cob=new THREE.Color(0x85847d);
+  const sandHi=new THREE.Color(0xdcb27c), sandLo=new THREE.Color(0x96673a), redRock=new THREE.Color(0x935a3a), oasisG=new THREE.Color(0x6f8a45), wetSand=new THREE.Color(0x6e5a3a); const rn = rng(F||D?11:7); const swampG=new THREE.Color(0x2c4524), mud=new THREE.Color(0x4a3b29), wetMud=new THREE.Color(0x2a2218), bedC=new THREE.Color(0x1b231f);
   for(let i=0;i<p.count;i++){
     const x=p.getX(i), z=p.getZ(i), h=hf(x,z); p.setY(i,h);
     const d=Math.hypot(x,z), n=(Math.sin(x*.21)+Math.cos(z*.17)+Math.sin((x+z)*.09))/3;
@@ -3884,9 +3884,19 @@ function prepRuins(glb){
   DRUINS={geo,bb,mat,names}; console.info('[Harabe] '+names.length+' bina modeli');
 }
 let DMESA=null, DESERT_MESAS=[];
+// aynı konumdaki köşelerin (UV dikişleri) normallerini birleştirip yüzeyi pürüzsüz gölgele
+function smoothNormals(g){ const p=g.attributes.position, ix=g.index, n=p.count, acc=new Float32Array(n*3), keys=new Array(n), sum=new Map();
+  for(let i=0;i<n;i++){ const k=Math.round(p.getX(i)*4000)+','+Math.round(p.getY(i)*4000)+','+Math.round(p.getZ(i)*4000); keys[i]=k; if(!sum.has(k)) sum.set(k,[0,0,0]); }
+  const tri=ix?ix.count/3:n/3, A=new THREE.Vector3(), B=new THREE.Vector3(), C=new THREE.Vector3();
+  for(let t=0;t<tri;t++){ const a=ix?ix.getX(t*3):t*3, b=ix?ix.getX(t*3+1):t*3+1, c=ix?ix.getX(t*3+2):t*3+2;
+    A.fromBufferAttribute(p,a); B.fromBufferAttribute(p,b); C.fromBufferAttribute(p,c); B.sub(A); C.sub(A); B.cross(C);
+    for(const v of [a,b,c]){ const s=sum.get(keys[v]); s[0]+=B.x; s[1]+=B.y; s[2]+=B.z; } }
+  const nm=new Float32Array(n*3); for(let i=0;i<n;i++){ const s=sum.get(keys[i]), l=Math.hypot(s[0],s[1],s[2])||1; nm[i*3]=s[0]/l; nm[i*3+1]=s[1]/l; nm[i*3+2]=s[2]/l; }
+  g.setAttribute('normal',new THREE.BufferAttribute(nm,3)); }
 function prepMesa(glb){
   const g=[null,null,null]; let mat=null; glb.scene.traverse(o=>{ if(o.isMesh){ const k=parseInt(String(o.name).replace('lod',''),10); if(k>=0&&k<3){ g[k]=o.geometry; mat=o.material; } } });
   if(!g[0]||!g[1]||!g[2]||!mat) throw new Error('GLB içinde lod0/lod1/lod2 mesh bulunamadı');
+  for(const x of g) smoothNormals(x); mat.normalMap=null; mat.roughness=1; mat.metalness=0; mat.needsUpdate=true;
   DMESA={geo:g,mat}; console.info('[Mesa] LOD üçgen sayıları: '+g.map(x=>Math.round((x.index?x.index.count:x.attributes.position.count)/3)).join(' / '));
 }
 function buildDesertDecor(){
@@ -3914,12 +3924,12 @@ function buildDesertDecor(){
     // iri mesalar: arazi tepelerinin üstüne
     for(const [hx,hz,hr] of DHILLS){ if(hr<14) continue; const sz=hr*1.45; if(!keep(hx,hz,sz*.3)) addMesa(hx,hz,sz,{sy:rr(1.0,1.3)}); }
     // orta-büyük mesalar (düzlüklerde)
-    let nb=0; for(let t=0;t<500&&nb<(coarse?4:6);t++){ const sz=rr(17,22), x=rr(-lim+14,lim-14), z=rr(-lim+14,lim-14); if(Math.hypot(x,z)<FOREST_CLEAR+16||!roomM(x,z,sz)||dSlope(x,z,sz*.3)>sz*.14+2) continue; addMesa(x,z,sz,{sy:rr(.95,1.35)}); nb++; }
+    let nb=0; for(let t=0;t<500&&nb<(coarse?5:8);t++){ const sz=rr(17,22), x=rr(-lim+14,lim-14), z=rr(-lim+14,lim-14); if(Math.hypot(x,z)<FOREST_CLEAR+16||!roomM(x,z,sz)||dSlope(x,z,sz*.3)>sz*.14+2) continue; addMesa(x,z,sz,{sy:rr(.95,1.35)}); nb++; }
     // orta boy mesalar + çevresinde küçük çıkıntılar
-    let nm=0; for(let t=0;t<900&&nm<(coarse?15:21);t++){ const sz=rr(9,15), x=rr(-lim+10,lim-10), z=rr(-lim+10,lim-10); if(Math.hypot(x,z)<FOREST_CLEAR+12||!roomM(x,z,sz)||dSlope(x,z,sz*.3)>sz*.14+2) continue;
+    let nm=0; for(let t=0;t<900&&nm<(coarse?21:30);t++){ const sz=rr(9,15), x=rr(-lim+10,lim-10), z=rr(-lim+10,lim-10); if(Math.hypot(x,z)<FOREST_CLEAR+12||!roomM(x,z,sz)||dSlope(x,z,sz*.3)>sz*.14+2) continue;
       addMesa(x,z,sz); nm++; const ns=2+((R()*2)|0); for(let k=0;k<ns;k++){ const s2=rr(3.5,6.5), a=rr(0,6.28), d=sz*rr(.52,.72), x2=x+Math.cos(a)*d, z2=z+Math.sin(a)*d; if(roomM(x2,z2,s2)&&dSlope(x2,z2,s2*.3)<s2*.2+1) addMesa(x2,z2,s2,{sy:rr(.8,1.4)}); } }
     // serpiştirilmiş küçük kaya çıkıntıları
-    let ns=0; for(let t=0;t<700&&ns<(coarse?24:38);t++){ const s2=rr(3.5,6.5), x=rr(-lim+8,lim-8), z=rr(-lim+8,lim-8); if(Math.hypot(x,z)<FOREST_CLEAR+8||!roomM(x,z,s2)||dSlope(x,z,s2*.3)>s2*.2+1) continue; addMesa(x,z,s2,{sy:rr(.8,1.4)}); ns++; }
+    let ns=0; for(let t=0;t<700&&ns<(coarse?36:60);t++){ const s2=rr(3.5,6.5), x=rr(-lim+8,lim-8), z=rr(-lim+8,lim-8); if(Math.hypot(x,z)<FOREST_CLEAR+8||!roomM(x,z,s2)||dSlope(x,z,s2*.3)>s2*.2+1) continue; addMesa(x,z,s2,{sy:rr(.8,1.4)}); ns++; }
     // kenar duvarı: harita sınırında kesintisiz kanyon cephesi (oyuncu/canavar içeri giremez)
     const NW=11, span=2*HALF+8; for(let side=0;side<4;side++){ for(let i=0;i<NW;i++){ const tt=-HALF-4+i*span/(NW-1), sz=rr(29,35), sg=side<2?-1:1, vert=side%2===1, rot=vert?(sg>0?-Math.PI/2:Math.PI/2):(sg>0?Math.PI:0), e=sg*(HALF+3);
         addMesa(vert?e:tt,vert?tt:e,sz,{rot:rot+rr(-.12,.12),sy:rr(1.0,1.5),wall:true,sink:0});
@@ -3928,7 +3938,7 @@ function buildDesertDecor(){
   // harabe binalar: dağınık eski Mısır tarzı yapılar (tekli ve küçük gruplar), tepelerde/harabelerde değil düzlüklerde
   DESERT_BUILD=[];
   if(DRUINS){
-    const mat=DRUINS.mat.clone(); mat.side=THREE.FrontSide; const gc={}, geoOf=k=>gc[k]||(gc[k]=DRUINS.geo[k].clone()), KB=.65;
+    const mat=DRUINS.mat.clone(); mat.side=THREE.FrontSide; mat.color.setRGB(1,.9,.78); const gc={}, geoOf=k=>gc[k]||(gc[k]=DRUINS.geo[k].clone()), KB=.65;
     const dim=(k,f)=>{ const b=DRUINS.bb[k]; return [b[0]*KB*f,b[1]*KB*f,b[2]*KB*f]; };
     const gmin=(x,z,w,d,rot)=>{ let m=1e9; const c=Math.cos(rot), sn=Math.sin(rot); for(const [lx,lz] of [[0,0],[.5,.5],[.5,-.5],[-.5,.5],[-.5,-.5],[.5,0],[-.5,0],[0,.5],[0,-.5]]){ const ax=lx*w, az=lz*d; m=Math.min(m,hDesert(x+ax*c+az*sn,z-ax*sn+az*c)); } return m; };
     const roomB=(x,z,r)=>{ if(Math.abs(x)>lim-12||Math.abs(z)>lim-12||keep(x,z,r*.9)) return false; for(const t of taken) if(Math.hypot(t[0]-x,t[1]-z)<t[2]+r) return false; return true; };
@@ -3965,7 +3975,7 @@ function buildDesertDecor(){
   // kumtaşı kayalar
   { const arr=[]; const geo=new THREE.DodecahedronGeometry(1,0); const mat=new THREE.MeshLambertMaterial({color:0xffffff,flatShading:true});
     for(let t=0,n=coarse?(DMESA?26:60):(DMESA?44:95);t<1200&&arr.length<n;t++){ const x=rr(-lim,lim), z=rr(-lim,lim), s=rr(.6,2.2); if(!free(x,z,s*.9)) continue; taken.push([x,z,s*.7]); if(s>1.2) addObstacle(x,z,s*.8);
-      const c=new THREE.Color().setHSL(rr(.06,.09),rr(.35,.5),rr(.38,.55)); arr.push({m:TM(x,hDesert(x,z)+s*.25,z,rr(0,3),rr(0,6),rr(0,3),s,s*rr(.6,.9),s*rr(.8,1.2)),c}); }
+      const c=new THREE.Color().setHSL(rr(.05,.075),rr(.32,.45),rr(.34,.5)); arr.push({m:TM(x,hDesert(x,z)+s*.25,z,rr(0,3),rr(0,6),rr(0,3),s,s*rr(.6,.9),s*rr(.8,1.2)),c}); }
     inst(geo,mat,arr); }
   // hurma ağaçları (vahalar)
   { const g=[]; const tr=col(0x7a5a38), lf=col(0x3f7d34), lf2=col(0x56903c);
