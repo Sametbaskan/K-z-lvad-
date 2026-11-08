@@ -2379,7 +2379,7 @@ function makeScorpGLB(){
   if(acts.idle){ acts.idle.play(); acts.idle.time=R()*dur('idle'); }
   return {g,legs:[],arms:[],head:null,tail:null,h:1.05,fx,root};
 }
-/* ---- Kefenli Muhafızlar (yürüme = ork koşu klibi, saldırı = ork saldırı klibi; Mixamo klipleri kefenlilerin iskeletine aktarıldı): iskeletli GLB (desert_mummy_a = zırhlı kefenli savaşçı · desert_mummy_b = iğneli kefenli matron); kemikler Mixamo adlı, klipler: idle · walk · attack · hit · death.
+/* ---- Kefenli Muhafızlar (saldırı = Mixamo "Zombie Attack" klibi kefenlilerin iskeletine aktarıldı, 1.5x hız, vuruş anı 1.55/1.5 sn; yürüme/bekleme/vuruş/ölüm bu proje için üretildi): iskeletli GLB (desert_mummy_a = zırhlı kefenli savaşçı · desert_mummy_b = iğneli kefenli matron); kemikler Mixamo adlı, klipler: idle · walk · attack · hit · death.
    Her modelde iki detay kademesi var (lod0 tam detay · lod1 düşük çokgen); kademe mobun kameraya uzaklığına ve cihaz sınıfına (QT) göre seçilir. ---- */
 const MUM={a:null,b:null}; let MUMN=0;
 function texCap(t,max){ if(!t||!t.image) return t; const w=t.image.width||t.image.naturalWidth||max; if(w<=max) return t; const c=document.createElement('canvas'); c.width=c.height=max; const x=c.getContext('2d'); x.imageSmoothingQuality='high'; x.drawImage(t.image,0,0,max,max);
@@ -2402,7 +2402,7 @@ function makeMumGLB(kind){
   const mixer=new THREE.AnimationMixer(root), acts={};
   for(const k in D.clips){ const a=mixer.clipAction(D.clips[k]); acts[k]=a; if(k!=='idle'&&k!=='walk'){ a.setLoop(THREE.LoopOnce,1); a.clampWhenFinished=true; } }
   const dur=k=>acts[k]?acts[k].getClip().duration:0;
-  const fx={kind:'grif',walkRef:2.7*1.05,atkName:'attack',mixer,acts,cur:'idle',curA:acts.idle||null,lockT:0,atkT:0,dead:false,sinceHit:9,ts:{idle:1,walk:1,attack:1,hit:1,death:1},atkDur:dur('attack')||1,atkImpact:.9/1.35,lodT:R()*.3,lodI:-1};
+  const fx={kind:'grif',walkRef:1.8,atkName:'attack',mixer,acts,cur:'idle',curA:acts.idle||null,lockT:0,atkT:0,dead:false,sinceHit:9,ts:{idle:1,walk:1,attack:1,hit:1,death:1},atkDur:dur('attack')||1,atkImpact:1.55/1.5,lodT:R()*.3,lodI:-1};
   fx.lodU=(m,dt)=>{ if(lods.length<2) return; fx.lodT-=dt; if(fx.lodT>0) return; fx.lodT=.25+R()*.1;
     const d=camera.position.distanceTo(m.group.position), lim=QT>=2?18:QT===1?9:0, want=(d<lim-(fx.lodI===0?0:2))?0:1; if(want!==fx.lodI){ fx.lodI=want; lods.forEach((l,i)=>{ l.visible=(i===want); }); } };
   fx.lodU({group:{position:g.position}},9); lods.forEach((l,i)=>{ l.visible=(i===1); }); fx.lodI=1;
