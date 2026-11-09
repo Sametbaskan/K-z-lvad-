@@ -26,9 +26,9 @@ const VIEWS = {
     <button class="abtn" id="a_go" type="submit"><i>Giriş Yap</i></button>`) +
     `<div class="alinks one"><a href="#" data-v="register">Hesap Oluştur</a></div>`,
   register: () => `<h2><span>Hesap Oluştur</span></h2>` + B(`
-    ${fld('a_user', 'user', 'Kullanıcı adı (3-16: harf, rakam, _)', { ac: 'username', max: 16 })}
+    ${fld('a_user', 'user', 'Kullanıcı adı (3-16)', { ac: 'username', max: 16 })}
     ${fld('a_mail', 'mail', 'E-posta', { type: 'email', ac: 'email', mode: 'email' })}
-    ${fld('a_pw', 'lock', 'Şifre (8+ karakter, harf + rakam)', { type: 'password', ac: 'new-password', max: 64 })}
+    ${fld('a_pw', 'lock', 'Şifre (8+, harf+rakam)', { type: 'password', ac: 'new-password', max: 64 })}
     <div class="meter" id="a_meter"><i></i></div>
     ${fld('a_pw2', 'lock', 'Şifre (tekrar)', { type: 'password', ac: 'new-password', max: 64 })}
     <div class="amsg" id="a_msg" role="alert"></div>
@@ -41,7 +41,7 @@ const VIEWS = {
     `<div class="alinks"><a href="#" data-v="login">← Girişe dön</a></div>`,
   pass: () => `<h2><span>Şifre Değiştir</span></h2>` + B(`
     ${fld('a_old', 'lock', 'Mevcut şifre', { type: 'password', ac: 'current-password', max: 64 })}
-    ${fld('a_pw', 'lock', 'Yeni şifre (8+ karakter, harf + rakam)', { type: 'password', ac: 'new-password', max: 64 })}
+    ${fld('a_pw', 'lock', 'Yeni şifre (8+, harf+rakam)', { type: 'password', ac: 'new-password', max: 64 })}
     ${fld('a_pw2', 'lock', 'Yeni şifre (tekrar)', { type: 'password', ac: 'new-password', max: 64 })}
     <div class="amsg" id="a_msg" role="alert"></div>
     <button class="abtn" id="a_go" type="submit"><i>Şifreyi Değiştir</i></button>`) +
@@ -58,7 +58,7 @@ const VIEWS = {
 export async function mountAuth({ root, onEnter, preview = () => {}, info = () => ({ lvl: 1, guild: '' }), purge = () => {} }) {
   let state = { user: null, name: '', chars: [], ci: 0 }, view = 'login', busy = false, booted = false, registering = false;
   root.innerHTML = `<div class="abg"><i class="aimg"></i><i class="avig"></i></div>
-  <div class="ascroll"><div class="awrap"><div class="abanner"><div class="alogo"><div class="alogo-c"><h1>VALKOR</h1><p>Efsane seni bekliyor</p></div></div><form class="acard" id="a_card" novalidate></form><div class="afoot" id="a_foot"></div></div></div></div>
+  <div class="ascroll"><div class="awrap"><div class="abanner"><div class="alogo"><div class="alogo-c"><svg class="aemb" viewBox="0 0 120 64" aria-hidden="true"><defs><linearGradient id="aeg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#cfc9bb"/><stop offset="1" stop-color="#5f5a50"/></linearGradient></defs><path fill="url(#aeg)" d="M60 0l3.2 9v27h-6.4V9zM44 34h32l-3 5H47zM58 39h4v18l-2 6-2-6z"/><path fill="url(#aeg)" opacity=".85" d="M56 30C44 30 30 24 18 10c4 16 18 28 38 28zM64 30c12 0 26-6 38-20-4 16-18 28-38 28z"/></svg><h1>VALKOR</h1><p>Efsane seni bekliyor</p></div></div><form class="acard" id="a_card" novalidate></form><div class="afoot" id="a_foot"></div></div></div></div>
   <div class="csel" id="c_sel"><div class="cbrand">VALKOR</div>
     <div class="ccls"><h3 id="c_cls"></h3><p id="c_sub"></p><div class="cnav"><button class="carr" id="c_l" type="button" aria-label="Önceki sınıf"><svg viewBox="0 0 10 16"><path d="M9 1 2 8l7 7" /></svg></button><div class="cdots" id="c_dots"></div><button class="carr" id="c_r" type="button" aria-label="Sonraki sınıf"><svg viewBox="0 0 10 16"><path d="M1 1l7 7-7 7" /></svg></button></div></div>
     <div class="cpanel"><div class="ckr"><div class="cflag" id="c_flag"></div><div class="cstk"><div class="cbox" id="c_king"></div><div class="cbox" id="c_guild"></div></div></div>
@@ -139,7 +139,7 @@ export async function mountAuth({ root, onEnter, preview = () => {}, info = () =
   window.ValkorAuth = { logout: out };
 
   /* ---- başlangıç ---- */
-  foot.textContent = '© Valkor';
+  foot.innerHTML = 'Çöl binaları: ondrasaur (OndyRen)<br>CC BY 4.0 · sketchfab.com/saurondra';
   if (!A.isConfigured()) {
     card.className = 'acard v-off';
     card.innerHTML = `<h2><span>Hesap sistemi kapalı</span></h2><div class="abody"><div class="amsg" style="display:block">Firebase ayarları eksik. <b>auth/firebase-config.js</b> dosyasına proje bilgileri girilmeden giriş yapılamaz ve oyuna girilemez. Kurulum için AUTH-KURULUM.md dosyasına bak.</div></div>`;
