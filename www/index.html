@@ -3695,7 +3695,7 @@ async function travelTo(id,opt={}){
 /* ============================== ana oyun döngüsü ============================== */
 let started=false, last=performance.now(), tAcc=0, hudT=0, mmT=0, time=0;
 const moveDir=new THREE.Vector3();
-function collide(pos,r){ for(const o of obstacles){ const dx=pos.x-o.x, dz=pos.z-o.z, rr2=o.r+r; const d2=dx*dx+dz*dz; if(d2<rr2*rr2&&d2>1e-6){ const d=Math.sqrt(d2); pos.x=o.x+dx/d*rr2; pos.z=o.z+dz/d*rr2; } } if(MAP.id==='village'){ const d=Math.hypot(pos.x,pos.z); if(d>MAP.bound){ pos.x*=MAP.bound/d; pos.z*=MAP.bound/d; } } else { pos.x=clamp(pos.x,-HALF,HALF); pos.z=clamp(pos.z,-HALF,HALF); } }
+function collide(pos,r){ for(const o of obstacles){ const dx=pos.x-o.x, dz=pos.z-o.z, rr2=o.r+r; const d2=dx*dx+dz*dz; if(d2<rr2*rr2&&d2>1e-6){ const d=Math.sqrt(d2); pos.x=o.x+dx/d*rr2; pos.z=o.z+dz/d*rr2; } } if(MAP.id==='village'){ const d=Math.hypot(pos.x,pos.z); if(d>MAP.bound){ pos.x*=MAP.bound/d; pos.z*=MAP.bound/d; } } else { const hh=halfOf(MAP.id); pos.x=clamp(pos.x,-hh,hh); pos.z=clamp(pos.z,-hh,hh); } }
 function inSafe(x,z){ return MAP.id==='village'||Math.hypot(x,z)<FOREST_CLEAR; }
 
 function updatePlayer(dt){
