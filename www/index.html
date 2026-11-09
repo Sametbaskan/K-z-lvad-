@@ -3793,12 +3793,15 @@ function faceNPC(n){ P.yawGoal=Math.atan2(n.pos.x-P.pos.x,n.pos.z-P.pos.z); P.ya
 function openShop(){ closeWins(); $('shop').classList.remove('hidden'); refreshWins(); say('Tüccar Han: Hoş geldin savaşçı!','c-sys'); }
 
 const _mfv=new THREE.Vector3(); let _mfx=0,_mfz=1;
+/* vuruş parlaması: malzeme durumu değiştiğinde yazılır (sonuç eskisiyle aynı, ama her karede her mob için setHex yok) */
+function setFlash(m){ const on=m.flash>0; for(const mt of m.mats){ if(mt.userData._fl!==on){ mt.userData._fl=on; mt.emissive.setHex(on?0xff3322:0); mt.emissiveIntensity=on?.9:0; } } }
+function tagOff(m){ if(m.tagOn!==false){ m.tag.style.display='none'; m.tagOn=false; } }
 function updateMobs(dt){
   updateBolts(dt);
   const pp=P.pos; camera.getWorldDirection(_mfv); _mfx=_mfv.x; _mfz=_mfv.z;
   for(const m of mobs){
     const g=m.group, T=m.T, b=m.b; const dPlayer=Math.hypot(g.position.x-pp.x,g.position.z-pp.z);
-    g.visible = dPlayer<95; m.tag.style.display = 'none';
+    g.visible = dPlayer<95;   // etiketi updateTags gizler/gösterir (her karede display yazmak yerleşimi bozuyordu)
     { const bh=dPlayer>9&&((g.position.x-camera.position.x)*_mfx+(g.position.z-camera.position.z)*_mfz)<-.15*Math.hypot(g.position.x-camera.position.x,g.position.z-camera.position.z); b.g.visible=dPlayer<(coarse?62:95)&&!bh; }
     if(!g.visible) continue;
     if(m.flash>0){ m.flash-=dt; }
@@ -3810,7 +3813,7 @@ function updateMobs(dt){
     if(m.dead){
       m.st+=dt; const k=clamp(m.st/.5,0,1);
       if(b.fx&&b.fx.kind==='croc'&&b.root) b.root.rotation.x*=.9;
-      if(b.fx){ if(!b.fx.dead) fxDeath(b.fx); if(m.st<4&&dPlayer<75) b.fx.mixer.update(dt); g.rotation.z=0; g.position.y=hAt(g.position.x,g.position.z); for(const mt of m.mats){ mt.emissive.setHex(m.flash>0?0xff3322:0); mt.emissiveIntensity=m.flash>0?.9:0; } }
+      if(b.fx){ if(!b.fx.dead) fxDeath(b.fx); if(m.st<4&&dPlayer<75) b.fx.mixer.update(dt); g.rotation.z=0; g.position.y=hAt(g.position.x,g.position.z); setFlash(m); }
       else { g.rotation.z=k*1.45; g.position.y=hAt(g.position.x,g.position.z)-k*.05; }
       if(m.st>3){ const f=clamp((m.st-3)/1,0,1); g.scale.setScalar(T.scale*(1-f)); }
       if(m.st>m.respT){ if(m.temp){ removeMob(m); continue; } respawn(m); }
@@ -3818,7 +3821,7 @@ function updateMobs(dt){
     }
     m.cdT-=dt; if(m.swing>0&&m.state!=='attack') m.swing=Math.max(0,m.swing-dt);
     const inV=inSafe(pp.x,pp.z);
-    const toP=new THREE.Vector3(pp.x-g.position.x,0,pp.z-g.position.z); const dp=toP.length();
+    const tpx=pp.x-g.position.x, tpz=pp.z-g.position.z, dp=Math.hypot(tpx,tpz);
     const homeD=Math.hypot(g.position.x-m.home.x,g.position.z-m.home.z);
     let mv=0, speed=T.speed*(m.curseT>0?(m.curseSlow||.7):1)*(m.slowT>0?.45:1);
     if(m.state==='wander'){
@@ -3828,9 +3831,9 @@ function updateMobs(dt){
       if(m.wdest){ const dx=m.wdest.x-g.position.x, dz=m.wdest.z-g.position.z, d=Math.hypot(dx,dz); if(d<.5){ m.wdest=null; m.st=rr(1.5,4); } else { m.yaw+=wrap(Math.atan2(dx,dz)-m.yaw)*(1-Math.exp(-6*dt)); mv=speed*.45; } }
     } else if(m.state==='chase'){
       if(S.dead||inV&&!m.temp||homeD>(MAP.id==='forest'?30:32)&&!m.temp){ m.state='return'; }
-      else{ m.yaw+=wrap(Math.atan2(toP.x,toP.z)-m.yaw)*(1-Math.exp(-9*dt)); if(dp>T.range+P.pos.y*0+.2*T.scale){ mv=speed; } else { m.state='attack'; m.st=0; } }
+      else{ m.yaw+=wrap(Math.atan2(tpx,tpz)-m.yaw)*(1-Math.exp(-9*dt)); if(dp>T.range+P.pos.y*0+.2*T.scale){ mv=speed; } else { m.state='attack'; m.st=0; } }
     } else if(m.state==='attack'){
-      m.st+=dt; m.yaw+=wrap(Math.atan2(toP.x,toP.z)-m.yaw)*(1-Math.exp(-9*dt));
+      m.st+=dt; m.yaw+=wrap(Math.atan2(tpx,tpz)-m.yaw)*(1-Math.exp(-9*dt));
       if(dp>T.range+.9*T.scale||S.dead){ m.state=S.dead?'return':'chase'; }
       else if(m.cdT<=0 && m.st>.35 && (!b.fx||fxCanAtk(b.fx))){ m.cdT=T.cd; m.st=0; if(b.fx&&b.fx.nextAtk) b.fx.nextAtk(b.fx); m.swingMax=b.fx?b.fx.atkDur:(b.mixer?(b.atkDur||ATK_DUR):.5); m.swing=m.swingMax; m.hitDone=false; if(b.fx){ fxAttack(b.fx); } else if(b.mixer){ b.atk.reset(); b.atk.timeScale=b.atkSpeed||ATK_SPEED; b.atk.paused=false; b.atk.play(); } }
       if(m.swing>0){ m.swing-=dt; const el=m.swingMax-m.swing, imp=b.fx?b.fx.atkImpact:(b.mixer?(b.atkImpact||ATK_IMPACT):m.swingMax); if(!m.hitDone&&el>=imp){ m.hitDone=true; if(!S.dead&&dp<T.range+1.1*T.scale){ if(T.ranged&&(b.mixer||b.ranged)) mageBolt(m); else damagePlayer(mobDmg(m),m); } } }
@@ -3854,9 +3857,9 @@ function updateMobs(dt){
       const el=m.swing>0?m.swingMax-m.swing:0, aw=m.swing>0?clamp(Math.min(el/.15,m.swing/.25),0,1):0;
       b.atk.setEffectiveWeight(aw+1e-4); b.walk.setEffectiveWeight((b.wk+.0001)*(1-aw)+1e-5); b.idle.setEffectiveWeight((1-b.wk+.0001)*(1-aw)+1e-5);
       if(dPlayer<(coarse?42:75)&&b.g.visible){ b.mixer.update(dt); if(aw<.05&&b.wk<.2){ const br=Math.sin(time*1.6+m.id)*.02; rotW(b.bn.Spine1,1,0,0,br,g); } }
-      for(const mt of m.mats){ mt.emissive.setHex(m.flash>0?0xff3322:0x000000); mt.emissiveIntensity=m.flash>0?.9:0; }
+      setFlash(m);
     }
-    if(b.fx){ if(dPlayer<(coarse?36:55)&&b.g.visible) b.fx.mixer.update(dt); for(const mt of m.mats){ mt.emissive.setHex(m.flash>0?0xff3322:0x000000); mt.emissiveIntensity=m.flash>0?.9:0; } }
+    if(b.fx){ if(dPlayer<(coarse?36:55)&&b.g.visible) b.fx.mixer.update(dt); setFlash(m); }
     const sw=Math.sin(m.phase)*.8*(mv>0?1:0);
     if(b.legs.length===4){ b.legs[0].rotation.x=sw; b.legs[3].rotation.x=sw; b.legs[1].rotation.x=-sw; b.legs[2].rotation.x=-sw; if(b.tail) b.tail.rotation.z=Math.sin(time*5+m.id)*.4; }
     else if(b.legs.length===2){ b.legs[0].rotation.x=sw; b.legs[1].rotation.x=-sw; if(b.arms[0]) b.arms[0].rotation.x=-sw*.6; }
@@ -3881,12 +3884,14 @@ function updateDrops(dt){ for(const d of drops){ d.age+=dt; const k=clamp(d.age/
 const tagVec=new THREE.Vector3();
 function updateTags(){
   for(const m of mobs){
-    if(!m.group.visible||m.dead||!(m.type==='stone'?true:true)){ m.tag.style.display='none'; continue; }
-    const d=Math.hypot(m.group.position.x-P.pos.x,m.group.position.z-P.pos.z); if(d>26){ m.tag.style.display='none'; continue; }
-    tagVec.copy(m.group.position); tagVec.y+=m.b.h*m.T.scale+.45; const s=toScreen(tagVec); if(!s.ok){ m.tag.style.display='none'; continue; }
-    const diff=m.lvl-S.lvl; m.tag.style.color= diff>=5?'#ff4a3a':diff>=2?'#ffa24a':diff>=-2?'#fff4c8':'#a8d890';
-    if(m.tag._l!==S.lvl){ m.tag.textContent=`Sv.${m.lvl} ${m.T.name}`; m.tag._l=S.lvl; }
-    m.tag.style.display='block'; m.tag.style.transform=`translate(${s.x}px,${s.y}px) translate(-50%,-100%)`; m.tag.style.left='0'; m.tag.style.top='0';
+    if(!m.group.visible||m.dead){ tagOff(m); continue; }
+    const d=Math.hypot(m.group.position.x-P.pos.x,m.group.position.z-P.pos.z); if(d>26){ tagOff(m); continue; }
+    tagVec.copy(m.group.position); tagVec.y+=m.b.h*m.T.scale+.45; const s=toScreen(tagVec); if(!s.ok){ tagOff(m); continue; }
+    const tg=m.tag, st=tg.style, diff=m.lvl-S.lvl, col=diff>=5?'#ff4a3a':diff>=2?'#ffa24a':diff>=-2?'#fff4c8':'#a8d890';
+    if(tg._c!==col){ st.color=col; tg._c=col; }
+    if(tg._l!==S.lvl){ tg.textContent=`Sv.${m.lvl} ${m.T.name}`; tg._l=S.lvl; }
+    if(m.tagOn!==true){ st.display='block'; st.left='0'; st.top='0'; m.tagOn=true; }
+    const tr=`translate(${s.x}px,${s.y}px) translate(-50%,-100%)`; if(tg._t!==tr){ st.transform=tr; tg._t=tr; }
   }
   for(const n of npcs){ if(MAP.id!=='village'){ n.tag.style.display='none'; continue; } tagVec.copy(n.pos); tagVec.y+=2.7; const s=toScreen(tagVec); if(!s.ok){ n.tag.style.display='none'; continue; } n.tag.style.display='block'; n.tag.style.left='0'; n.tag.style.top='0'; n.tag.style.transform=`translate(${s.x}px,${s.y}px) translate(-50%,-100%)`; }
   if(playerGroup.userData.ready){ refreshPlate(); tagVec.copy(P.pos); tagVec.y+=2.35+MOUNT.blend*1.1; const s=toScreen(tagVec); const t=myTag; if(s.ok&&!S.dead){ t.style.display='block'; t.style.left='0'; t.style.top='0'; t.style.transform=`translate(${s.x}px,${s.y}px) translate(-50%,-100%)`; } else t.style.display='none'; }
@@ -4475,7 +4480,7 @@ async function boot(){
     initMapUI(); initVillageMap(); setAtmos('village'); try{ warmFx(); }catch(e){ console.warn('[Efekt] ısınma atlandı',e); } setP(100);
     myTag=document.createElement('div'); myTag.className='pn'; $('pops').appendChild(myTag);
     $('loading').classList.add('hidden'); mountAuthUI();
-    window.__game={enterGame,MAPS,keys,useSlot,killPlayer,respawnPlayer,DEATH,drawMini,updateHUD2:()=>{},lakeE,LAKE_B,LAKE_WL,FROG_SPOTS,CROC_SPOTS,hForest,placePlayer,spawnMob,respawn,fxAttack,fxDeath,get LAKE_STATS(){return LAKE_STATS},get DESERT_BUILD(){return DESERT_BUILD}, updateVeg, get VEG(){return VEG}, get QT(){return QT}, DPONDS, D_RUINS, DHILLS, hDesert,get DESERT_MESAS(){return DESERT_MESAS},get LAKE_MOBS(){return LAKE_MOBS},get CROC(){return CROC},CORE,rankOf,rankReward,grantRank,plateHTML,refreshPlate,RANKS,RANK_REWARD,get plateKey(){return plateKey},get myTag(){return myTag},TYPES,guards,updateGuards,addTime:d=>{time+=d},get ATK_HOLD(){return ATK_HOLD},equipWeaponModel,WMODELS,get sword(){return sword},charPreview,CLOTH,updateArmorCloth,AFX,updateArmorFx,ARMOR_FX_LV,horseCaps,clothCaps,ARMOR,ARMOR_ITEMS,syncArmor,armorDef,defPow,LEGEND_WEAPONS,legEq,LGLB,LFAIL,loadLegend,get SWKEY(){return SWKEY},weapName,wCrit,critCh,buyLegend,SWCFG,refreshWins,updateSmith,upgradeWeapon,buyStone,fixWeapon,WLV,swRoll,wAtk,wMag,aspd,swEq,applySwordLook,updateSwordFx,SEAT,yawFix,get FOREST_STATS(){return FOREST_STATS},zoneAt,updateMount,groundFix,get GOFF(){return GOFF},get S(){return S},ITEMS,EQS,registerItem,addItem,moveItem,initInv,addStat,resetStats,qOf,expNeed,get PLANT_SETS(){return PLANT_SETS},renderMenu,setTab,toggleWin,closeWins,skillUp,skPoints,skL,skv,skStats,saveGame,loadGame,renderSkillWin,gainExp,updatePlayer,updateMobs,updateProjectiles,updateSkills,updateCamera,updateHUD,SKD,SLOT_DEF,SK,cds,fx2,pt2,sched,projectiles,SHAKE,clearSkillFx,MAPS,TRAVEL,travelTo,get MAP(){return MAP;},get obstacles(){return obstacles;},get MAP(){return MAP;},get renderer(){return renderer;},npcs,vRoadD,MAPS,hAt,get HAS3(){return HAS3;},get A3META(){return A3META;},damagePlayer,get COMBO(){return COMBO;},horseRear,horseAnim,playerHit,killMob,fxPlay,fxStep,get FROG2(){return FROG2;},MOUNT,toggleMount,get mixer(){return mixer},rotW,overlayPose,S,P,mobs,cam,actions,bones,setAnim,useSlot,clickAt,THREE,scene,camera,renderer,model,get tIdle(){return tIdle;},get TURN_DELTA(){return TURN_DELTA;}};
+    window.__game={updateTags,enterGame,MAPS,keys,useSlot,killPlayer,respawnPlayer,DEATH,drawMini,updateHUD2:()=>{},lakeE,LAKE_B,LAKE_WL,FROG_SPOTS,CROC_SPOTS,hForest,placePlayer,spawnMob,respawn,fxAttack,fxDeath,get LAKE_STATS(){return LAKE_STATS},get DESERT_BUILD(){return DESERT_BUILD}, updateVeg, get VEG(){return VEG}, get QT(){return QT}, DPONDS, D_RUINS, DHILLS, hDesert,get DESERT_MESAS(){return DESERT_MESAS},get LAKE_MOBS(){return LAKE_MOBS},get CROC(){return CROC},CORE,rankOf,rankReward,grantRank,plateHTML,refreshPlate,RANKS,RANK_REWARD,get plateKey(){return plateKey},get myTag(){return myTag},TYPES,guards,updateGuards,addTime:d=>{time+=d},get ATK_HOLD(){return ATK_HOLD},equipWeaponModel,WMODELS,get sword(){return sword},charPreview,CLOTH,updateArmorCloth,AFX,updateArmorFx,ARMOR_FX_LV,horseCaps,clothCaps,ARMOR,ARMOR_ITEMS,syncArmor,armorDef,defPow,LEGEND_WEAPONS,legEq,LGLB,LFAIL,loadLegend,get SWKEY(){return SWKEY},weapName,wCrit,critCh,buyLegend,SWCFG,refreshWins,updateSmith,upgradeWeapon,buyStone,fixWeapon,WLV,swRoll,wAtk,wMag,aspd,swEq,applySwordLook,updateSwordFx,SEAT,yawFix,get FOREST_STATS(){return FOREST_STATS},zoneAt,updateMount,groundFix,get GOFF(){return GOFF},get S(){return S},ITEMS,EQS,registerItem,addItem,moveItem,initInv,addStat,resetStats,qOf,expNeed,get PLANT_SETS(){return PLANT_SETS},renderMenu,setTab,toggleWin,closeWins,skillUp,skPoints,skL,skv,skStats,saveGame,loadGame,renderSkillWin,gainExp,updatePlayer,updateMobs,updateProjectiles,updateSkills,updateCamera,updateHUD,SKD,SLOT_DEF,SK,cds,fx2,pt2,sched,projectiles,SHAKE,clearSkillFx,MAPS,TRAVEL,travelTo,get MAP(){return MAP;},get obstacles(){return obstacles;},get MAP(){return MAP;},get renderer(){return renderer;},npcs,vRoadD,MAPS,hAt,get HAS3(){return HAS3;},get A3META(){return A3META;},damagePlayer,get COMBO(){return COMBO;},horseRear,horseAnim,playerHit,killMob,fxPlay,fxStep,get FROG2(){return FROG2;},MOUNT,toggleMount,get mixer(){return mixer},rotW,overlayPose,S,P,mobs,cam,actions,bones,setAnim,useSlot,clickAt,THREE,scene,camera,renderer,model,get tIdle(){return tIdle;},get TURN_DELTA(){return TURN_DELTA;}};
   }catch(err){ console.error(err); $('loadTxt').textContent='Yükleme başarısız oldu.'; $('loadTxt').style.color='#ff8a80'; $('err').textContent=String(err&&err.message||err); }
 }
 /* Hesap sistemi (auth/ modülleri) karakter seçilince bunu çağırır. Oyun motoru hesap koduna bağımlı değildir. */
