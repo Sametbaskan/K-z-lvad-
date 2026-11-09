@@ -1,0 +1,6 @@
+Çöl İblisi (dboss1) modeli
+Kaynak: CGTrader "Demon dwarven free low-poly 3d model" — sanatçı: dremorn.
+Dosyalar: demow40k maya.fbx (mesh), animation fbx.zip (iskelet + animasyon), demon texture all.zip (4096 PBR dokular).
+Dönüştürme: FBX -> GLB (yeniden iskeletlendirildi, ağırlıklar korundu, malzemeler BODY/ARMOR olarak birleştirildi,
+yürüme ve hasar animasyonu bu projede üretildi; bekleme / saldırı / ölüm sanatçının animasyonlarından alındı).
+LİSANS: kaynak sayfadaki lisans burada doğrulanmadı; ticari kullanım izni sahibi tarafından ayrıca kontrol edilmelidir.

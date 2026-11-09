@@ -2,8 +2,7 @@
 #auth{position:fixed;inset:0;z-index:30;background:#060203;color:#f1e6cf;font-family:var(--body,'Trebuchet MS',sans-serif)}
 #auth.gone,#auth.pre{display:none}
 #auth .abg{position:absolute;inset:0;overflow:hidden;background:#0a0304}
-#auth .aimg{position:absolute;inset:-4%;background:url(../img/valkor_loading.jpg) 20% 4%/auto 120% no-repeat;filter:saturate(1.05) brightness(.78) contrast(1.08);animation:akb 45s ease-in-out infinite alternate}
-@keyframes akb{from{transform:scale(1.02)}to{transform:scale(1.1) translate(-1%,.5%)}}
+#auth .aimg{position:absolute;inset:0;background:var(--vbg,#0a0304) center/cover no-repeat;filter:brightness(.8) saturate(1.05)}
 #auth .aglow{position:absolute;left:0;right:0;bottom:0;height:46%;background:radial-gradient(ellipse 70% 100% at 50% 110%,rgba(255,110,20,.5),rgba(190,30,10,.22) 45%,transparent 75%);mix-blend-mode:screen;animation:aht 3.2s ease-in-out infinite alternate}
 @keyframes aht{from{opacity:.55}to{opacity:1}}
 #auth .avig{position:absolute;inset:0;background:radial-gradient(ellipse 30% 78% at 50% 42%,rgba(6,1,2,.94) 20%,rgba(6,1,2,.55) 70%,transparent 100%),radial-gradient(ellipse at 50% 45%,transparent 38%,rgba(5,0,1,.75) 100%),linear-gradient(#000a 0,transparent 22%,transparent 80%,#000a 100%)}
@@ -74,7 +73,7 @@
 #auth .cslot b{width:14px;height:14px;border-radius:50%;border:1px solid #000}#auth .cslot small{font:500 13px var(--body,sans-serif);color:#b09a72}
 #auth .afoot{margin-top:4px;color:#7a6446;font-size:12px}
 @media (max-height:520px){#auth .awrap{justify-content:flex-start;gap:2px}#auth .alogo h1{font-size:34px}#auth .alogo p{display:none}#auth .awing{max-width:90px}#auth .abody{padding:12px 18px 2px}#auth h2{height:32px;font-size:15px}#auth .fld{margin:8px 0}#auth .fi{height:42px}#auth .abtn{height:44px;margin-top:10px}#auth .alinks a{padding:7px 2px}}
-@media (prefers-reduced-motion:reduce){#auth .aimg,#auth .aglow,#auth .asun{animation:none}}
+@media (prefers-reduced-motion:reduce){#auth .aglow,#auth .asun{animation:none}}
 
 /* ===== Karakter seçim ekranı (canlı 3D sahne üstünde; Metin2 tarzı sol bilgi paneli) ===== */
 #auth .csel{display:none;position:absolute;inset:0;z-index:2;font-family:Arial,Helvetica,sans-serif;color:#eee}

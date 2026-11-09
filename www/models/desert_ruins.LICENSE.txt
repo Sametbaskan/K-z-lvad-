@@ -1,0 +1,8 @@
+Çöl harabe binaları (desert_ruins.glb.b64.txt)
+
+Model: "Star Wars inspired low poly buildings"
+Yapımcı: OndyRen (ondrasaur) — https://sketchfab.com/saurondra
+Kaynak: https://sketchfab.com/3d-models/star-wars-inspired-low-poly-buildings-db883b9fd31f438e94abd3cb8cb3ead5
+Lisans: Creative Commons Attribution 4.0 (CC BY 4.0) — http://creativecommons.org/licenses/by/4.0/
+
+Yapılan değişiklikler: paket tek tek binalara ayrıldı, 22 bina seçildi, dokusu JPEG'e çevrildi ve her bina yer seviyesine oturacak şekilde yeniden konumlandırıldı.

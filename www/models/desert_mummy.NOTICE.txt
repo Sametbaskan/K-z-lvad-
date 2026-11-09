@@ -1,0 +1,5 @@
+desert_mummy_a.glb.b64.txt  — "deadpool-dead-mummy" paketi (SK_1057_1057302_Lobby, kullanıcı tarafından yüklendi); zırhlı kefenli savaşçı.
+desert_mummy_b.glb.b64.txt  — "bandaged-asylum-matron-needle-horror" paketi (Tripo çıktısı, kullanıcı tarafından yüklendi); iğneli kefenli matron.
+İkisi de iskeletli/animasyonlu glTF'e bu proje için çevrildi: A'da kendi 362 kemiklik iskeleti 22 ana eklemde birleştirildi, B'ye iskelet ve ağırlıklar eklendi; idle/walk/attack/hit/death klipleri bu proje için üretildi.
+Her modelde lod0 (tam detay) + lod1 (düşük çokgen); B'nin 1,95 milyon üçgenlik ham ağı 60 bine indirildi, 4096 dokuları 2048'e getirildi.
+Lisans koşulları kaynak sayfalarından doğrulanmalı; gerekiyorsa yayın öncesi kredi verilmeli.

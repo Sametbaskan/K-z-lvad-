@@ -1,0 +1,5 @@
+Kutup Kurdu (swolf) modeli
+Kaynak: "Dire Wolf Lite" — Literock Studios (https://literock-studios.itch.io/direwolf-pack). Credit: "Dire Wolf by Literock Studios".
+Dosya: Dire_Wolf_Lite.glb (değiştirilmeden base64 olarak saklanır; oyun açılışta çözer). Klipler: idle_loop, walk_loop, run_loop, bite. Ölüm klibi oyun kodunda üretilir.
+LİSANS (Dire Wolf Lite Free Licence): oyunlarda ücretsiz ve ticari kullanım serbest; değiştirme serbest; ham dosyanın tek başına yeniden dağıtımı / satışı / yeniden yüklenmesi yasak, oyunun içine paketlenmiş gönderim serbest; makine öğrenmesi eğitim verisi olarak kullanılamaz.
+NOT: Bu dosya kullanıcının bilgisi ve onayıyla herkese açık depoda tutulmaktadır; lisansın 3. maddesi açısından risk kullanıcıya aittir.

@@ -1,0 +1,4 @@
+Çöl bitkileri (desert_cactus.glb.b64.txt, desert_palm.glb.b64.txt)
+Kaynak paketler: "Cactus.zip" (Cactus.fbx + 4K Albedo/Normal/Roughness dokuları) ve "palm_FBX.zip" (palma.fbx + palm_leaf / Bark_Tex dokuları), proje sahibi tarafından sağlandı.
+Paketlerde lisans dosyası yoktu; kullanım/lisans koşulları kaynak sayfasından doğrulanmalıdır.
+Dönüşüm: FBX -> glTF, kaktüs 2048 doku (albedo/normal/roughness), palmiye orijinal çözünürlük; dört detay seviyesi (LOD) üretildi. Palmiye gövde renk dokusu pakette olmadığından gövde, paketteki Bark_Tex_AO dokusu üzerine kahverengi tonla kuruldu.
