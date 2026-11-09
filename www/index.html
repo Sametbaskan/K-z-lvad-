@@ -2366,6 +2366,7 @@ function crocStep(m,fx,mvIn,dt){
   if(m.hitReq){ m.hitReq=false; if(fx.sinceHit>.9&&fx.acts.hit&&!(fx.cur==='roar'&&fx.lockT>0)){ fx.sinceHit=0; fxPlay(fx,'hit',.08); fx.lockT=fx.acts.hit.getClip().duration; } }
   if(fx.lockT>0) return 0;
   if(fx.cur==='hit'||fx.cur==='roar') fxPlay(fx,'idle',.15);
+  if(mvIn>0&&fx.acts.run&&mvIn>(fx.runAt||2.4)){ if(fx.cur!=='run') fxPlay(fx,'run',.15); fx.acts.run.timeScale=clamp(mvIn/(fx.runRef||3.5),.7,1.8); return mvIn; }   // koşu klibi olan modeller kovalarken koşar
   if(mvIn>0&&fx.acts.walk){ if(fx.cur!=='walk') fxPlay(fx,'walk',.15); fx.acts.walk.timeScale=clamp(mvIn/(fx.walkRef||1.15),.7,2.3); return mvIn; }
   if(fx.cur!=='idle') fxPlay(fx,'idle',.25);
   return 0;
@@ -2403,6 +2404,34 @@ function prepScorp(glb){
   for(const need of ['idle','walk','attack','hit','death']) if(!clips[need]) console.error('[Akrep] gerekli animasyon yok: '+need);
   if(QT===0) glb.scene.traverse(o=>{ if(o.isMesh&&o.material){ const m=o.material; m.map=texHalf(m.map); m.normalMap=texHalf(m.normalMap); m.metalnessMap=texHalf(m.metalnessMap); m.roughnessMap=m.metalnessMap; m.needsUpdate=true; } });
   SCORP={scene:glb.scene,clips}; console.info('[Akrep] klipler: '+report.join(', '));
+}
+/* ---- Dire Wolf (Literock Studios "Dire Wolf Lite", ücretsiz lisans): iskeletli GLB, ~10 bin üçgen, 2K PBR doku; klipler: idle_loop · walk_loop · run_loop · bite.
+   Modelde hit/death klibi yok: ölüm klibi bu projede üretilir (son bekleme pozu + gövde yana yatar), vuruş tepkisi kırmızı parlama ile verilir. ---- */
+let WOLF=null; const WOLF_S=.85;   // model omuzda 1,3 m; Kutup Kurdu'nda TYPES ölçeği (1.25) ile birlikte ~1,4 m
+function prepWolf(glb){
+  const clips={}, report=[]; const map={idle_loop:'idle',walk_loop:'walk',run_loop:'run',bite:'attack'};
+  for(const c of glb.animations){ report.push(c.name); const k=map[c.name.toLowerCase()]||c.name.toLowerCase(); clips[k]=c; }
+  let sk=false; glb.scene.traverse(o=>{ if(o.isSkinnedMesh) sk=true; }); if(!sk) throw new Error('GLB içinde iskeletli mesh bulunamadı');
+  for(const need of ['idle','walk','run','attack']) if(!clips[need]) console.error('[Kurt] gerekli animasyon yok: '+need+' (mevcut: '+report.join(', ')+')');
+  if(clips.idle){   // ölüm: bekleme pozunu dondur + kökü 0,8 sn'de yana yatır
+    const tr=[]; for(const t of clips.idle.tracks){ const n=t.getValueSize(); tr.push(new t.constructor(t.name,[0,.8],Array.from(t.values.slice(0,n)).concat(Array.from(t.values.slice(0,n))))); }
+    const q0=new THREE.Quaternion(), q1=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,0,1),Math.PI/2*.97), qm=q0.clone().slerp(q1,.7);
+    tr.push(new THREE.QuaternionKeyframeTrack('.quaternion',[0,.35,.8],[0,0,0,1, qm.x,qm.y,qm.z,qm.w, q1.x,q1.y,q1.z,q1.w]));
+    tr.push(new THREE.VectorKeyframeTrack('.position',[0,.35,.8],[0,0,0, .35,.12,0, .52,.2,0]));
+    clips.death=new THREE.AnimationClip('death',.8,tr);
+  }
+  if(QT===0) glb.scene.traverse(o=>{ if(o.isMesh&&o.material){ const m=o.material; m.map=texHalf(m.map); m.normalMap=texHalf(m.normalMap); m.metalnessMap=texHalf(m.metalnessMap); m.roughnessMap=m.metalnessMap; m.needsUpdate=true; } });
+  WOLF={scene:glb.scene,clips}; console.info('[Kurt] klipler: '+report.join(', '));
+}
+function makeWolfGLB(){
+  const root=cloneSkinned(WOLF.scene); root.scale.setScalar(WOLF_S); const g=new THREE.Group(); g.add(root);
+  root.traverse(o=>{ if(o.isSkinnedMesh){ o.material=o.material.clone(); o.castShadow=!coarse; o.frustumCulled=false; } });
+  const mixer=new THREE.AnimationMixer(root), acts={};
+  for(const k in WOLF.clips){ const a=mixer.clipAction(WOLF.clips[k]); acts[k]=a; if(k!=='idle'&&k!=='walk'&&k!=='run'){ a.setLoop(THREE.LoopOnce,1); a.clampWhenFinished=true; } }
+  const dur=k=>acts[k]?acts[k].getClip().duration:0;
+  const fx={kind:'grif',walkRef:1.6,runRef:3.6,runAt:2.4,atkName:'attack',mixer,acts,cur:'idle',curA:acts.idle||null,lockT:0,atkT:0,dead:false,sinceHit:9,ts:{idle:1,walk:1,run:1,attack:1,hit:1,death:1},atkDur:dur('attack')||1,atkImpact:.4};
+  if(acts.idle){ acts.idle.play(); acts.idle.time=R()*dur('idle'); }
+  return {g,legs:[],arms:[],head:null,tail:null,h:1.4*WOLF_S/.85,fx,root};
 }
 function makeScorpGLB(){
   const root=cloneSkinned(SCORP.scene); root.scale.setScalar(SCORP_S); const g=new THREE.Group(); g.add(root);
@@ -2653,7 +2682,7 @@ const TYPES={
   dboss1:{name:'Çöl İblisi Kemikboynuz',mk:()=>DEMON?makeDemon():makeScorpion(true),hp:10,atk:2.0,exp:12,speed:3.0,aggro:14,range:3.6,cd:2.0,scale:2.4,hit:1.0,boss:true,aura:0x8a3a14},
   dboss2:{name:'Haydut Reisi Karakılıç',mk:()=>makeBandit(true),hp:9.5,atk:2.1,exp:14,speed:2.8,aggro:13,range:2.9,cd:2.0,scale:1.7,hit:1.1,boss:true,aura:0x7a5a18},
   dboss3:{name:'Kum Solucanı Sarhan',mk:makeSandWorm,hp:11.5,atk:2.5,exp:16,speed:2.6,aggro:14,range:3.4,cd:2.3,scale:2.2,hit:1.5,boss:true,aura:0x8a3418},
-  swolf:{name:'Kutup Kurdu',mk:makeFrostWolf,hp:1.7,atk:1.25,exp:1.7,speed:3.5,aggro:11,range:1.9,cd:1.5,scale:1.25,hit:1.0},
+  swolf:{name:'Kutup Kurdu',mk:()=>WOLF?makeWolfGLB():makeFrostWolf(),hp:1.7,atk:1.25,exp:1.7,speed:3.5,aggro:11,range:1.9,cd:1.5,scale:1.25,hit:1.0},
   sskel:{name:'Donmuş İskelet',mk:makeFrostSkeleton,hp:1.85,atk:1.3,exp:1.75,speed:2.6,aggro:10,range:2.2,cd:1.8,scale:1.1,hit:1.0},
   yeti:{name:'Yeti',mk:()=>makeYeti(false),hp:2.1,atk:1.4,exp:1.9,speed:2.5,aggro:10,range:2.6,cd:2.0,scale:1.35,hit:1.2},
   sgolem:{name:'Buz Golemi',mk:()=>makeIceGolem(false),hp:2.4,atk:1.45,exp:2.0,speed:2.0,aggro:9,range:2.7,cd:2.3,scale:1.3,hit:1.3},
@@ -4463,6 +4492,7 @@ async function boot(){
     try{ const tpm=await get('models/desert_palm.glb.b64.txt',()=>{}); prepPalm(await new Promise((ok,no)=>new GLTFLoader().parse(dec(tpm),'',ok,no))); }catch(e){ DPALM=null; console.error('[Palmiye] model yüklenemedi, basit palmiye kullanılacak:',e); }
     try{ const trb=await get('models/desert_ruins.glb.b64.txt',()=>{}); prepRuins(await new Promise((ok,no)=>new GLTFLoader().parse(dec(trb),'',ok,no))); }catch(e){ DRUINS=null; console.error('[Harabe] bina modelleri yüklenemedi, binasız devam:',e); }
     try{ const tms=await get('models/desert_mesa.glb.b64.txt',()=>{}); prepMesa(await new Promise((ok,no)=>new GLTFLoader().parse(dec(tms),'',ok,no))); }catch(e){ DMESA=null; console.error('[Mesa] çöl kaya modeli yüklenemedi, basit kayalar kullanılacak:',e); }
+    try{ const twf=await get('models/dire_wolf.glb.b64.txt',()=>{}); prepWolf(await new Promise((ok,no)=>new GLTFLoader().parse(dec(twf),'',ok,no))); }catch(e){ WOLF=null; console.warn('[Kurt] model yüklenemedi, basit kurt kullanılacak:',e&&e.message||e); }
     try{ const tsc=await get('models/desert_scorpion.glb.b64.txt',()=>{}); prepScorp(await new Promise((ok,no)=>new GLTFLoader().parse(dec(tsc),'',ok,no))); }catch(e){ SCORP=null; console.error('[Akrep] model yüklenemedi, basit akrep kullanılacak:',e); }
     try{ const tma=await get('models/desert_mummy_a.glb.b64.txt',()=>{}); prepMum('a',await new Promise((ok,no)=>new GLTFLoader().parse(dec(tma),'',ok,no)),1.0,2.0); }catch(e){ MUM.a=null; console.error('[Kefenli A] model yüklenemedi:',e); }
     try{ const tmb=await get('models/desert_mummy_b.glb.b64.txt',()=>{}); prepMum('b',await new Promise((ok,no)=>new GLTFLoader().parse(dec(tmb),'',ok,no)),1.08,2.0); }catch(e){ MUM.b=null; console.error('[Kefenli B] model yüklenemedi:',e); }
