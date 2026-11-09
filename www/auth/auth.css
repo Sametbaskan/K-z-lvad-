@@ -3,7 +3,7 @@
 #auth.gone,#auth.pre{display:none}
 #auth .abg{position:absolute;inset:0;overflow:hidden;background:#0a0b0e}
 #auth .aimg{position:absolute;inset:0;background:var(--vbg,#0a0b0e) center/cover no-repeat;filter:brightness(.66) saturate(.95)}
-#auth .avig{position:absolute;inset:0;background:linear-gradient(transparent 12%,rgba(3,4,6,.66) 32%,rgba(3,4,6,.66) 64%,transparent 86%),radial-gradient(ellipse at 50% 48%,transparent 40%,rgba(3,4,6,.7) 100%),linear-gradient(rgba(0,0,0,.5) 0,transparent 20%,transparent 78%,rgba(0,0,0,.55) 100%)}
+#auth .avig{position:absolute;inset:0;background:linear-gradient(transparent 12%,rgba(3,4,6,.74) 32%,rgba(3,4,6,.74) 64%,transparent 86%),radial-gradient(ellipse at 50% 48%,transparent 40%,rgba(3,4,6,.7) 100%),linear-gradient(rgba(0,0,0,.5) 0,transparent 20%,transparent 78%,rgba(0,0,0,.55) 100%)}
 #auth .ascroll{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 #auth .awrap{min-height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;box-sizing:border-box;padding:max(26px,env(safe-area-inset-top)) 14px max(30px,env(safe-area-inset-bottom));gap:0}
 /* logo: küçük, sade */
