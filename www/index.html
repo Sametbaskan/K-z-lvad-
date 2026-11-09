@@ -2341,24 +2341,28 @@ function crocStep(m,fx,mvIn,dt){
   if(fx.cur!=='idle') fxPlay(fx,'idle',.25);
   return 0;
 }
-/* ---- Çöl Griffini (boss): iskeletli GLB (griffin.glb.b64.txt; 26 kemik: Pelvis·Spine1·Chest·Neck·Head·Tail1-3·WingA/B/C_R/L·FUp/FLow/FPaw_R/L·HUp/HLow/HFoot_R/L); klipler: idle · walk · attack · hit · death ---- */
-let GRIF=null; const GRIF_H=2.35;   // model ~2,6 m (kanat uçları dahil); boss ölçeği TYPES'ta
-function prepGrif(glb){
+/* ---- Çöl İblisi (dboss1): iskeletli GLB (demon_boss.glb.b64.txt; 118 kemik, 2 malzeme [BODY/ARMOR], ~12 bin üçgen, 4096 PBR dokular); klipler: idle · walk · attack · hit · death ---- */
+let DEMON=null; const DEMON_H=2.6;   // model ~2,6 m (boynuz dahil); boss ölçeği TYPES'ta
+function prepDemon(glb){
   const clips={}, report=[]; for(const c of glb.animations){ clips[c.name.toLowerCase()]=c; report.push(c.name); }
   let sk=false; glb.scene.traverse(o=>{ if(o.isSkinnedMesh) sk=true; }); if(!sk) throw new Error('GLB içinde iskeletli mesh bulunamadı');
-  for(const need of ['idle','walk','attack','hit','death']) if(!clips[need]) console.error('[Griffin] gerekli animasyon yok: '+need+' (mevcut: '+report.join(', ')+')');
-  if(QT===0) glb.scene.traverse(o=>{ if(o.isMesh&&o.material){ const m=o.material; m.map=texHalf(m.map); m.normalMap=texHalf(m.normalMap); m.metalnessMap=texHalf(m.metalnessMap); m.roughnessMap=m.metalnessMap; m.needsUpdate=true; } });
-  GRIF={scene:glb.scene,clips,h:GRIF_H}; console.info('[Griffin] klipler: '+report.join(', '));
+  for(const need of ['idle','walk','attack','hit','death']) if(!clips[need]) console.error('[Demon] gerekli animasyon yok: '+need+' (mevcut: '+report.join(', ')+')');
+  const lim=QT>=2?4096:QT===1?2048:1024, lim2=QT>=2?2048:QT===1?1024:512;   // yüksek sınıfta orijinal çözünürlük; düşük sınıflarda doku boyu kısılır
+  glb.scene.traverse(o=>{ if(o.isMesh&&o.material){ const m=o.material;
+    if(QT<2){ m.map=texCap(m.map,lim); m.normalMap=texCap(m.normalMap,lim); }
+    if(QT<2||true){ const r=texCap(m.metalnessMap,lim2); if(r&&r!==m.metalnessMap){ m.metalnessMap=r; m.roughnessMap=r; if(m.aoMap) m.aoMap=r; } }
+    m.needsUpdate=true; } });
+  DEMON={scene:glb.scene,clips,h:DEMON_H}; console.info('[Demon] klipler: '+report.join(', '));
 }
-function makeGrif(){
-  const root=cloneSkinned(GRIF.scene); const g=new THREE.Group(); g.add(root);
+function makeDemon(){
+  const root=cloneSkinned(DEMON.scene); const g=new THREE.Group(); g.add(root);
   root.traverse(o=>{ if(o.isSkinnedMesh){ o.material=o.material.clone(); o.castShadow=!coarse; o.frustumCulled=false; } });
   const mixer=new THREE.AnimationMixer(root), acts={};
-  for(const k in GRIF.clips){ const a=mixer.clipAction(GRIF.clips[k]); acts[k]=a; if(k!=='idle'&&k!=='walk'){ a.setLoop(THREE.LoopOnce,1); a.clampWhenFinished=true; } }
-  const dur=k=>acts[k]?acts[k].getClip().duration:0;
-  const fx={kind:'grif',walkRef:2.65,atkName:'attack',mixer,acts,cur:'idle',curA:acts.idle||null,lockT:0,atkT:0,dead:false,sinceHit:9,ts:{idle:1,walk:1,attack:1,hit:1,death:1},atkDur:dur('attack')||1,atkImpact:.46};
-  if(acts.idle){ acts.idle.play(); acts.idle.time=R()*dur('idle'); }
-  return {g,legs:[],arms:[],head:null,tail:null,h:GRIF.h,fx,root};
+  for(const k in DEMON.clips){ const a=mixer.clipAction(DEMON.clips[k]); acts[k]=a; if(k!=='idle'&&k!=='walk'){ a.setLoop(THREE.LoopOnce,1); a.clampWhenFinished=true; } }
+  const ts={idle:1,walk:1,attack:1.25,hit:1,death:1}, dur=k=>acts[k]?acts[k].getClip().duration/(ts[k]||1):0;
+  const fx={kind:'grif',walkRef:2.6,atkName:'attack',mixer,acts,cur:'idle',curA:acts.idle||null,lockT:0,atkT:0,dead:false,sinceHit:9,ts,atkDur:dur('attack')||1,atkImpact:.80/ts.attack};   // pençe darbesi klibin 0,80. saniyesinde iniyor
+  if(acts.idle){ acts.idle.play(); acts.idle.time=R()*acts.idle.getClip().duration; }
+  return {g,legs:[],arms:[],head:null,tail:null,h:DEMON.h,fx,root};
 }
 /* ---- Çöl Akrebi: iskeletli GLB (desert_scorpion.glb.b64.txt; 62 kemik; klipler: idle · walk · attack · hit · death) — kıskaç +Z'ye bakar, kuyruk kıskaçların tersindedir ---- */
 let SCORP=null; const SCORP_S=.62;   // model ~2,8 m boyunda (kuyruk dahil); sıradan çöl akrebi için ölçeklenir
@@ -2559,7 +2563,7 @@ const TYPES={
   scorp:{name:'Çöl Akrebi',mk:()=>SCORP?makeScorpGLB():makeScorpion(false),hp:1.2,atk:1.25,exp:1.25,speed:3.0,aggro:9,range:1.7,cd:1.5,scale:1,hit:1.0},
   bandit:{name:'Çöl Haydudu',mk:()=>makeBandit(false),hp:1.4,atk:1.1,exp:1.35,speed:2.8,aggro:10,range:2.1,cd:1.7,scale:1,hit:1.1},
   mummy:{name:'Kefenli Muhafız',mk:()=>{ const k=(MUM.a&&MUM.b)?((MUMN++%2)?'b':'a'):(MUM.a?'a':MUM.b?'b':null); return k?makeMumGLB(k):makeMummy(false); },hp:1.65,atk:1.25,exp:1.5,speed:2.2,aggro:9,range:2.1,cd:2.0,scale:1.05,hit:1.1},
-  dboss1:{name:'Çöl Griffini Kızılkanat',mk:()=>GRIF?makeGrif():makeScorpion(true),hp:10,atk:2.0,exp:12,speed:3.0,aggro:14,range:3.6,cd:2.0,scale:2.4,hit:1.0,boss:true,aura:0x8a3a14},
+  dboss1:{name:'Çöl İblisi Kemikboynuz',mk:()=>DEMON?makeDemon():makeScorpion(true),hp:10,atk:2.0,exp:12,speed:3.0,aggro:14,range:3.6,cd:2.0,scale:2.4,hit:1.0,boss:true,aura:0x8a3a14},
   dboss2:{name:'Haydut Reisi Karakılıç',mk:()=>makeBandit(true),hp:9.5,atk:2.1,exp:14,speed:2.8,aggro:13,range:2.9,cd:2.0,scale:1.7,hit:1.1,boss:true,aura:0x7a5a18},
   dboss3:{name:'Kum Solucanı Sarhan',mk:makeSandWorm,hp:11.5,atk:2.5,exp:16,speed:2.6,aggro:14,range:3.4,cd:2.3,scale:2.2,hit:1.5,boss:true,aura:0x8a3418},
   stone:{name:'Mühür Taşı',mk:makeStone,hp:6,atk:0,exp:12,speed:0,aggro:0,range:0,cd:9,scale:1,hit:1.6}
@@ -4188,7 +4192,7 @@ async function boot(){
     try{ const tsc=await get('models/desert_scorpion.glb.b64.txt',()=>{}); prepScorp(await new Promise((ok,no)=>new GLTFLoader().parse(dec(tsc),'',ok,no))); }catch(e){ SCORP=null; console.error('[Akrep] model yüklenemedi, basit akrep kullanılacak:',e); }
     try{ const tma=await get('models/desert_mummy_a.glb.b64.txt',()=>{}); prepMum('a',await new Promise((ok,no)=>new GLTFLoader().parse(dec(tma),'',ok,no)),1.0,2.0); }catch(e){ MUM.a=null; console.error('[Kefenli A] model yüklenemedi:',e); }
     try{ const tmb=await get('models/desert_mummy_b.glb.b64.txt',()=>{}); prepMum('b',await new Promise((ok,no)=>new GLTFLoader().parse(dec(tmb),'',ok,no)),1.08,2.0); }catch(e){ MUM.b=null; console.error('[Kefenli B] model yüklenemedi:',e); }
-    try{ const tgf=await get('models/griffin.glb.b64.txt',()=>{}); prepGrif(await new Promise((ok,no)=>new GLTFLoader().parse(dec(tgf),'',ok,no))); }catch(e){ GRIF=null; console.error('[Griffin] model yüklenemedi, boss için eski akrep modeli kullanılacak:',e); }
+    try{ const tdm=await get('models/demon_boss.glb.b64.txt',()=>{}); prepDemon(await new Promise((ok,no)=>new GLTFLoader().parse(dec(tdm),'',ok,no))); }catch(e){ DEMON=null; console.error('[Demon] model yüklenemedi, boss için eski akrep modeli kullanılacak:',e); }
     try{ const tcr=await get('models/croc.glb.b64.txt',()=>{}); prepCroc(await new Promise((ok,no)=>new GLTFLoader().parse(dec(tcr),'',ok,no))); }catch(e){ CROC=null; console.error('[Timsah] model yüklenemedi, timsahlar yerine kurbağa kullanılacak:',e); }
     try{ const twc=await get('models/witch.b64.txt',()=>{}); WITCH_GLB=await new Promise((ok,no)=>new GLTFLoader().parse(dec(twc),'',ok,no)); }catch(e){ console.error('[Satıcı] cadı modeli yüklenemedi, eski model kullanılacak:',e); }
     setupPlayer(hero,HJ); try{ const th=await get('models/horse.glb.b64.txt',()=>{}); const hg=await new Promise((ok,no)=>new GLTFLoader().parse(dec(th),'',ok,no)); setupMount(hg); }catch(e){ console.error('[At] Warhorse Lite yüklenemedi, binek devre dışı:',e); MOUNT.ready=false; }
