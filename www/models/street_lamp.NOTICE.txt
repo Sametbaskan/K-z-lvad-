@@ -1,0 +1,3 @@
+street_lamp.glb — iki kollu sokak lambası (köy meşalelerinin yerine).
+Kullanıcının sağladığı "streeetlight_model" paketinden: gövde mesh'i 24.562 → 1.800 üçgene indirildi, doku 512 px JPEG'e küçültüldü.
+Kaynak/yazar ve lisans bilgisi pakette yoktu; kullanıcıdan teyit edilecek (CC BY ise burada kredi verilecek).
