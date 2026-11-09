@@ -3673,6 +3673,7 @@ const TEXKEYS=['map','normalMap','aoMap','roughnessMap','metalnessMap','emissive
 function prewarm(){ try{
   renderer.compile(scene,camera);
   const seen=new Set(); scene.traverse(o=>{ const m0=o.material; if(!m0) return; for(const m of (Array.isArray(m0)?m0:[m0])) for(const k of TEXKEYS){ const t=m[k]; if(t&&t.isTexture&&!seen.has(t)){ seen.add(t); if(t.image&&(t.image.width||t.image.videoWidth||t.image.data)) renderer.initTexture(t); } } });
+  camera.updateMatrixWorld(true); renderer.render(scene,camera);   // gölge derinlik programları yalnız gerçek çizimde derlenir: tek kare karartma arkasında çizilir
 }catch(e){ console.warn('[Ön-ısıtma] atlandı:',e); } }
 async function travelTo(id,opt={}){
   if(TRAVEL.busy||id===MAP.id) return; TRAVEL.busy=true; TRAVEL.near=false; if(mapPromptEl) mapPromptEl.style.display='none'; if(tpEl) tpEl.style.display='none';
