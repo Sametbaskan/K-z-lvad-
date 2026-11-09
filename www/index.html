@@ -656,8 +656,10 @@ const RIDER_OPTS={ankle:.11,hs:1.06,center:[-0.01,0.0],pow:3,skip:/npc-mount/,ri
   RightUpLeg:[-.10,.58,0],RightLeg:[-.10,.32,.04],RightFoot:[-.09,.10,-.01],RightToeBase:[-.08,.04,.07],RightToe_End:[-.08,.02,.14]}};
 
 const SCALE = 0.01;            // FBX santimetre -> metre
-const HALF = 105;              // dünya yarı genişliği (orman)
-const DHALF = 148;             // Zahrak Çölü ve Akbaş Zirveleri yarı genişliği: alan ≈2× (297×297 m)
+const HALF = 148;              // dünya yarı genişliği (orman): alan 2× büyütüldü (210→297 m); sabit konumlar FK ile ölçeklenir, nesne sayıları değişmedi
+const DHALF = 209;             // Zahrak Çölü ve Akbaş Zirveleri yarı genişliği: alan 2× büyütüldü (297→418 m); sabit konumlar DK ile ölçeklenir
+const FK=HALF/105, DK=DHALF/148;   // eski boyuta göre ölçek (≈1,41)
+const sk2=(L,k,n=2)=>L.map(c=>c.map((v,i)=>i<n?Math.round(v*k):v));   // listede ilk n sayıyı (konum) ölçekle
 const halfOf=id=>id==='forest'?HALF:DHALF;
 const VILL_R = 15;             // köy yarıçapı (güvenli bölge)
 let RUN_CLIP_SPEED = 1.98;   // jogging klibinin gömülü hızı (m/sn)
@@ -666,10 +668,10 @@ let HERO_PICK='classic'; try{ if(localStorage.getItem('valkor.hero')==='cc') HER
 const ANIM_SET='yeni';   // bekleme+koşu animasyon seti: 'yeni' (Standing_Idle__1 + Unarmed_Run_Forward) | 'eski' (önceki Standing_Idle + Run_With_Sword) — eski dosyalar silinmedi
 
 const FOREST_CLEAR=12;                      // Kızıl Orman: dönüş kapısı etrafındaki güvenli açıklık
-const FCAMPS=[[0,-42],[38,34],[-52,28],[-30,-70],[70,-70],[-90,-90],[90,-92],[-90,90],[90,90],[0,-96],[0,96],[-96,0],[96,0]];   // canavar bölgeleri (mevcut avlak noktaları)
-const F_RUINS=[[48,-12,.5],[-36,50,.5],[30,70,.5]];            // harabeler
-const F_CAVE={x:-58,z:-20,h:6.0};                              // mağara girişi (tepenin yamacında düzlük)
-const FHILLS=[[-70,-20,22,10],[62,12,20,8],[-20,62,18,7],[10,-96,16,7],[-92,60,22,9],[88,-34,18,7],[-8,18,14,3.5],[40,90,14,6]];   // x,z,yarıçap,yükseklik (+ tepe, − çukur)
+const FCAMPS=sk2([[0,-42],[38,34],[-52,28],[-30,-70],[70,-70],[-90,-90],[90,-92],[-90,90],[90,90],[0,-96],[0,96],[-96,0],[96,0]],FK);   // canavar bölgeleri (mevcut avlak noktaları)
+const F_RUINS=sk2([[48,-12,.5],[-36,50,.5],[30,70,.5]],FK);            // harabeler
+const F_CAVE={x:Math.round(-58*FK),z:Math.round(-20*FK),h:6.0};                              // mağara girişi (tepenin yamacında düzlük)
+const FHILLS=sk2([[-70,-20,22,10],[62,12,20,8],[-20,62,18,7],[10,-96,16,7],[-92,60,22,9],[88,-34,18,7],[-8,18,14,3.5],[40,90,14,6]],FK,3);   // x,z,yarıçap,yükseklik (+ tepe, − çukur)
 /* ---- Kara Göl: göl + bataklık (Kurbağa Bataklığı bölgesinin içinde; Kızıl Orman'ın kuzeydoğusunda) ---- */
 const LAKE_B=[[30,-38,11],[41,-31,6.5],[23,-30,5.2],[38,-46,5.5]];   // x, z, yarıçap: birleşik düzensiz göl gövdesi
 const LAKE_WL=-.30;            // su yüzeyi yüksekliği
@@ -678,7 +680,7 @@ const LAKE_ZONE=14;            // avlak bölgesi etiketi için kıyıdan uzaklı
 function lakeE(x,z){ if(x<-2||x>68||z>-4||z<-72) return 99; let e=1e9; for(const b of LAKE_B){ const dx=x-b[0], dz=z-b[1], th=Math.atan2(dz,dx); e=Math.min(e,Math.hypot(dx,dz)-b[2]*(1+.06*Math.sin(3*th+b[0]*.37)+.04*Math.sin(5*th+b[1]*.21))); } return e; }   // <0: gölün içi
 const FROG_SPOTS=[[13,-31,4,[1,2]],[14,-46,3,[2,3]],[24,-57,4,[3,5]],[28,-22,3,[3,4]]];   // x,z,sayı,seviye aralığı
 const CROC_SPOTS=[[48,-40,2,[7,8]],[41,-55,1,[8,9]],[53,-31,2,[8,9]],[53,-47,1,[9,10]]];   // x,z,sayı,seviye aralığı
-const FPITS=[[30,-25,10,-4],[-45,-52,12,-4.5],[55,60,11,-4],[-82,-70,10,-4],[12,38,8,-3]];
+const FPITS=sk2([[30,-25,10,-4],[-45,-52,12,-4.5],[55,60,11,-4],[-82,-70,10,-4],[12,38,8,-3]],FK,3);
 /* ---- Valkor Kalesi: köy düzeni sabitleri (yalnız köy haritası; Kızıl Orman VILL_R'yi kullanmaya devam eder) ---- */
 const VR=58;                                         // sur yarıçapı
 const VHILL={x:32,z:-32,h:4.6,r0:9,r1:16};           // Granit Lejyon Kulesi'nin yüksek noktası
@@ -721,11 +723,11 @@ function hForest(x,z){
   return h*k;
 }
 /* ---- Zahrak Çölü (Sv. 17-32): Kızıl Orman'ın doğusundaki kapıdan girilir; Kızıl Orman ile aynı büyüklükte ---- */
-const F_DESERT_GATE={x:98,z:46};                                  // Kızıl Orman'daki Çöl kapısı (doğu kenarı)
-const D_RUINS=[[54,-48],[-93,71],[124,-122],[-56,-93],[42,102],[-121,-48],[105,98],[-112,-100],[-30,128],[132,30]];   // ilk üçü boss harabeleri (alan 2× büyütüldü: konumlar ×1,41 + 4 yeni harabe)
-const D_STONES=[[-42,37,19],[73,-85,24],[-130,-99,29],[99,119,29],[110,-30,25],[-60,125,28],[20,-125,28]];         // x,z,seviye (mühür taşları)
-const DHILLS=[[-88,-42,20,9],[82,25,18,8],[28,-119,16,7],[-124,110,18,9],[113,-31,14,6],[-31,110,14,5],[128,92,12,6],[60,122,16,7],[-125,-8,15,7],[135,-70,14,6],[-70,-122,16,8],[-20,-70,14,6]];   // mesa/kaya yığınları: x,z,yarıçap,yükseklik
-const DPONDS=[[31,8,6],[-59,-28,7],[65,99,6],[-105,35,7],[100,-62,6],[-15,-100,6]];                    // vaha gölcükleri: x,z,yarıçap
+const F_DESERT_GATE={x:HALF-7,z:Math.round(46*FK)};                                  // Kızıl Orman'daki Çöl kapısı (doğu kenarı)
+const D_RUINS=sk2([[54,-48],[-93,71],[124,-122],[-56,-93],[42,102],[-121,-48],[105,98],[-112,-100],[-30,128],[132,30]],DK,2);   // ilk üçü boss harabeleri (alan 2× büyütüldü: konumlar ×1,41 + 4 yeni harabe)
+const D_STONES=sk2([[-42,37,19],[73,-85,24],[-130,-99,29],[99,119,29],[110,-30,25],[-60,125,28],[20,-125,28]],DK,2);         // x,z,seviye (mühür taşları)
+const DHILLS=sk2([[-88,-42,20,9],[82,25,18,8],[28,-119,16,7],[-124,110,18,9],[113,-31,14,6],[-31,110,14,5],[128,92,12,6],[60,122,16,7],[-125,-8,15,7],[135,-70,14,6],[-70,-122,16,8],[-20,-70,14,6]],DK,3);   // mesa/kaya yığınları: x,z,yarıçap,yükseklik
+const DPONDS=sk2([[31,8,6],[-59,-28,7],[65,99,6],[-105,35,7],[100,-62,6],[-15,-100,6]],DK,2);                    // vaha gölcükleri: x,z,yarıçap
 const DWL=-.9;                                                    // su seviyesi
 function hDesert(x,z){
   const d=Math.hypot(x,z), k=smooth(FOREST_CLEAR-2,FOREST_CLEAR+14,d);
@@ -738,15 +740,15 @@ function hDesert(x,z){
 }
 function dSlope(x,z,rad){ let lo=1e9,hi=-1e9; for(let i=0;i<6;i++){ const a=i*1.0472, h=hDesert(x+Math.cos(a)*rad,z+Math.sin(a)*rad); lo=Math.min(lo,h); hi=Math.max(hi,h); } return hi-lo; }
 /* ---- Akbaş Zirveleri (kar dağı haritası, Sv. 33-48; çölle aynı boyut) ---- */
-const S_SITES=[[66,-72],[-100,-34],[-24,130],[104,100],[-112,102],[32,-128]];   // boss sunakları: ilk üçü boss (Buz Devi, Yeti Kralı, Ejderha), diğerleri süs
-const S_STONES=[[-48,42,34],[72,48,38],[-86,-98,41],[118,-42,44],[-44,-126,46],[62,122,47]];   // x,z,seviye (mühür taşları)
-const SLAKES=[[-62,-62,8],[44,74,7],[102,-110,7],[-114,44,7]];                 // donmuş göller: x,z,yarıçap
-const D_SNOW_GATE={x:14,z:131};                                                  // Zahrak Çölü'ndeki Akbaş kapısı (kuzey kenarı)
+const S_SITES=sk2([[66,-72],[-100,-34],[-24,130],[104,100],[-112,102],[32,-128]],DK);   // boss sunakları: ilk üçü boss (Buz Devi, Yeti Kralı, Ejderha), diğerleri süs
+const S_STONES=sk2([[-48,42,34],[72,48,38],[-86,-98,41],[118,-42,44],[-44,-126,46],[62,122,47]],DK);   // x,z,seviye (mühür taşları)
+const SLAKES=sk2([[-62,-62,8],[44,74,7],[102,-110,7],[-114,44,7]],DK);                 // donmuş göller: x,z,yarıçap
+const D_SNOW_GATE={x:Math.round(14*DK),z:DHALF-17};                                                  // Zahrak Çölü'ndeki Akbaş kapısı (kuzey kenarı)
 function sBase(x,z){
   const c=Math.max(Math.abs(x),Math.abs(z)), u=(x*.7+z*.7)*.045, v=(-x*.7+z*.7)*.037;
   let h=Math.sin(u+1.1*Math.sin(v*1.3))*4.2+Math.sin(v*1.7+.8)*3.4+Math.sin(x*.09+z*.06)*1.2+Math.cos(z*.13-x*.1)*.8;
   h+=(1-Math.abs(Math.sin(x*.031+Math.sin(z*.027)*1.5)))*5.5;      // sırtlar
-  h+=smooth(30,142,c)*26;                                           // merkezden kenara doğru yükselen dağ
+  h+=smooth(30*DK,142*DK,c)*26;                                           // merkezden kenara doğru yükselen dağ
   return h; }
 const S_SITE_H=S_SITES.map(p=>sBase(p[0],p[1])), S_LAKE_H=SLAKES.map(p=>sBase(p[0],p[1])-.9);
 function hSnow(x,z){
@@ -807,7 +809,7 @@ addEventListener('resize',resize); resize();
 /* ---- arazi ---- */
 function makeTerrain(kind){
   const F=kind==='forest', D=kind==='desert', SN=kind==='snow', hf=SN?hSnow:D?hDesert:F?hForest:hVillage;
-  const size = (D||SN)?DHALF*2+60:F?HALF*2+60:260, seg = (D||SN)?210:F?160:176;
+  const size = (D||SN)?DHALF*2+60:F?HALF*2+60:260, seg = (D||SN)?240:F?190:176;
   const geo = new THREE.PlaneGeometry(size,size,seg,seg); geo.rotateX(-Math.PI/2);
   const p = geo.attributes.position, col = new Float32Array(p.count*3), c = new THREE.Color();
   const grassA = new THREE.Color(D?0xd0a06a:F?(NATURE?0x3f6030:0x4d7c32):0x5d7f40), grassB = new THREE.Color(D?0xb07c48:F?(NATURE?0x233d1f:0x2c5424):0x3a5530), dirt = new THREE.Color(F?0x7a6040:0x8a7658), rock = new THREE.Color(0x7d7a6c), moss=new THREE.Color(0x35602a), cob=new THREE.Color(0x85847d);
@@ -4093,9 +4095,9 @@ function frame(now){
 /* Kızıl Orman bölgeleri (merkezden uzaklaştıkça zorlaşır): her türün kendi alanı */
 const ZONES=[
   {id:'gate', name:'Dönüş Kapısı',        type:null,   r0:0,  r1:FOREST_CLEAR, l0:1,  l1:1},
-  {id:'frog', name:'Kurbağa Bataklığı',   type:'wolf', r0:FOREST_CLEAR, r1:60, l0:1, l1:5},
-  {id:'mage', name:'Gölge Elfi Ormanı',   type:'mage', r0:60, r1:84,  l0:5,  l1:10},
-  {id:'orc',  name:'Ork Toprakları',      type:'orc',  r0:84, r1:HALF+8, l0:10, l1:15}];
+  {id:'frog', name:'Kurbağa Bataklığı',   type:'wolf', r0:FOREST_CLEAR, r1:Math.round(60*FK), l0:1, l1:5},
+  {id:'mage', name:'Gölge Elfi Ormanı',   type:'mage', r0:Math.round(60*FK), r1:Math.round(84*FK),  l0:5,  l1:10},
+  {id:'orc',  name:'Ork Toprakları',      type:'orc',  r0:Math.round(84*FK), r1:HALF+8, l0:10, l1:15}];
 /* bölgeler artık kare halkalar (merkezden Chebyshev uzaklığı): köşeler ve kenarlar da avlak bölgesi */
 const ZONE_LAKE={id:'lake',name:'Kara Göl Bataklığı',type:'wolf',r0:0,r1:0,l0:1,l1:5}, ZONE_CROC={id:'croc',name:'Timsah Bataklığı',type:'croc',r0:0,r1:0,l0:7,l1:10};
 function zoneAt(x,z){ const ZS=MAP.id==='desert'?DZONES:MAP.id==='snow'?SZONES:ZONES; if(Math.hypot(x,z)<FOREST_CLEAR) return ZS[0]; if(MAP.id==='forest'){ const le=lakeE(x,z); if(le<LAKE_ZONE){ for(const c of CROC_SPOTS) if(Math.hypot(x-c[0],z-c[1])<11) return ZONE_CROC; return ZONE_LAKE; } } const c=Math.max(Math.abs(x),Math.abs(z)); for(let i=3;i>=2;i--) if(c>=ZS[i].r0) return ZS[i]; return ZS[1]; }
@@ -4104,7 +4106,7 @@ const FMOB={sepMob:4.2, sepCamp:25, wander:[1.5,4.5]};   // mob-mob en az mesafe
 function populateForest(){
   const lvAt=(zn,c)=>clamp(Math.floor(zn.l0+clamp((c-zn.r0)/(zn.r1-zn.r0)+rr(-.12,.12),0,.999)*(zn.l1-zn.l0+1)),zn.l0,zn.l1);
   const homes=[];   // doğan her mobun ev noktası (aralık denetimi için)
-  const fixed=[...FCAMPS.slice(0,4).map(c=>[c[0],c[1]]),[F_RUINS[0][0],F_RUINS[0][1]],[F_RUINS[2][0],F_RUINS[2][1]],[70,-70]];   // mühür taşları ve boss noktaları
+  const fixed=[...FCAMPS.slice(0,4).map(c=>[c[0],c[1]]),[F_RUINS[0][0],F_RUINS[0][1]],[F_RUINS[2][0],F_RUINS[2][1]],[FCAMPS[4][0],FCAMPS[4][1]]];   // mühür taşları ve boss noktaları
   const terrainOk=(x,z)=>{ if(Math.abs(x)>HALF-5||Math.abs(z)>HALF-5) return false; if(Math.hypot(x,z)<FOREST_CLEAR+7) return false;
     for(const o of obstacles) if(Math.hypot(o.x-x,o.z-z)<o.r+1.3) return false;
     for(const c of F_RUINS) if(Math.hypot(x-c[0],z-c[1])<9) return false; if(Math.hypot(x-F_CAVE.x,z-F_CAVE.z)<13) return false;
@@ -4126,7 +4128,7 @@ function populateForest(){
   const nFrog=lakeSpawn('wolf',FROG_SPOTS,4.4,4.6,13), nCroc=lakeSpawn('croc',CROC_SPOTS,6.5,4.6,14);
   LAKE_MOBS={frogs:nFrog,crocs:nCroc};
   // 1) kamp merkezleri: köşe/kenar çapaları + tüm kareye eşit aralıklı serpilmiş noktalar (Poisson-disk benzeri)
-  const camps=FCAMPS.slice(5).map(c=>[c[0],c[1]]); let tries=0; const target=coarse?30:38;
+  const camps=FCAMPS.slice(5).map(c=>[c[0],c[1]]); let tries=0; const target=coarse?68:88;
   // en iyi aday yöntemi: her yeni kamp, mevcut kamplardan en uzak (boş kalan) noktaya konur → harita eşit kaplanır
   while(camps.length<target&&tries++<400){ let best=null, bd=0;
     for(let k=0;k<40;k++){ const x=rr(-HALF+8,HALF-8), z=rr(-HALF+8,HALF-8); if(!terrainOk(x,z)) continue; let d=1e9; for(const c of camps) d=Math.min(d,Math.hypot(c[0]-x,c[1]-z)); for(const f of fixed) d=Math.min(d,Math.hypot(f[0]-x,f[1]-z)+6); if(d>bd){ bd=d; best=[x,z]; } }
@@ -4137,9 +4139,9 @@ function populateForest(){
     for(let k=0;k<want*14&&n<want;k++){ const aa=a0+k*2.399+rr(-.4,.4), rad=rr(2.2,2.2+n*1.4+4.2), x=cx+Math.cos(aa)*rad, z=cz+Math.sin(aa)*rad;
       if(!terrainOk(x,z)||!roomFor(x,z)) continue; const c=Math.max(Math.abs(x),Math.abs(z)), zz=zoneAt(x,z); if(!zz.type) continue;
       spawnMob(zz.type,lvAt(zz,c),x,z); homes.push([x,z]); n++; total++; perType[zz.type]=(perType[zz.type]||0)+1; } }
-  for(const [x,z,l] of [[0,-42,4],[38,34,5],[-52,28,7],[-30,-70,9]]) spawnMob('stone',l,x,z);
+  for(const [x,z,l] of [[FCAMPS[0][0],FCAMPS[0][1],4],[FCAMPS[1][0],FCAMPS[1][1],5],[FCAMPS[2][0],FCAMPS[2][1],7],[FCAMPS[3][0],FCAMPS[3][1],9]]) spawnMob('stone',l,x,z);
   // bosslar: her biri kendi bölgesinin harabesinde / kampında, türünden büyük ve güçlü
-  spawnMob('fboss',7,F_RUINS[0][0],F_RUINS[0][1]); spawnMob('mboss',12,F_RUINS[2][0],F_RUINS[2][1]); spawnMob('boss',16,70,-70);
+  spawnMob('fboss',7,F_RUINS[0][0],F_RUINS[0][1]); spawnMob('mboss',12,F_RUINS[2][0],F_RUINS[2][1]); spawnMob('boss',16,FCAMPS[4][0],FCAMPS[4][1]);
   FOREST_STATS={camps:camps.length,mobs:total,perType,minGap:homes.length>1?Math.min(...homes.flatMap((h,i)=>homes.slice(i+1).map(o=>Math.hypot(h[0]-o[0],h[1]-o[1])))):0};
   console.info('[Orman] '+camps.length+' avlak kampı, '+total+' mob; türler '+JSON.stringify(perType)+'; en yakın iki mob arası '+FOREST_STATS.minGap.toFixed(1)+' m');
 }
@@ -4147,9 +4149,9 @@ let FOREST_STATS=null, LAKE_MOBS=null;
 /* ============================== Çöl haritası ============================== */
 const DZONES=[
   {id:'gate',  name:'Vaha Kampı',        type:null,     r0:0,  r1:FOREST_CLEAR, l0:1,  l1:1},
-  {id:'dune',  name:'Kavruk Kumullar',   type:'scorp',  r0:FOREST_CLEAR, r1:78, l0:17, l1:21},
-  {id:'bandit',name:'Haydut Vadisi',     type:'bandit', r0:78, r1:113, l0:21, l1:26},
-  {id:'ruin',  name:'Kefenli Harabeler', type:'mummy',  r0:113, r1:DHALF+8, l0:26, l1:31}];
+  {id:'dune',  name:'Kavruk Kumullar',   type:'scorp',  r0:FOREST_CLEAR, r1:Math.round(78*DK), l0:17, l1:21},
+  {id:'bandit',name:'Haydut Vadisi',     type:'bandit', r0:Math.round(78*DK), r1:Math.round(113*DK), l0:21, l1:26},
+  {id:'ruin',  name:'Kefenli Harabeler', type:'mummy',  r0:Math.round(113*DK), r1:DHALF+8, l0:26, l1:31}];
 const D_BOSSES=[['dboss1',22,0],['dboss2',27,1],['dboss3',32,2]];   // tür, seviye, D_RUINS dizinindeki boss harabesi
 function mergeGeos(list){   // [{geo,m(Matrix4),c(Color)}] → tek, köşe renkli geometri
   const P=[],N=[],C=[]; for(const e of list){ const g=e.geo.index?e.geo.toNonIndexed():e.geo.clone(); g.applyMatrix4(e.m); const p=g.attributes.position.array, n=g.attributes.normal.array; for(let i=0;i<p.length;i++){ P.push(p[i]); N.push(n[i]); } for(let i=0;i<p.length/3;i++) C.push(e.c.r,e.c.g,e.c.b); }
@@ -4229,7 +4231,7 @@ function buildDesertDecor(){
     // serpiştirilmiş küçük kaya çıkıntıları
     let ns=0; for(let t=0;t<700&&ns<(coarse?72:120);t++){ const s2=rr(3.5,6.5), x=rr(-lim+8,lim-8), z=rr(-lim+8,lim-8); if(Math.hypot(x,z)<FOREST_CLEAR+8||!roomM(x,z,s2)||dSlope(x,z,s2*.3)>s2*.2+1) continue; addMesa(x,z,s2,{sy:rr(.8,1.4)}); ns++; }
     // kenar duvarı: harita sınırında kesintisiz kanyon cephesi (oyuncu/canavar içeri giremez)
-    const NW=17, span=2*DHALF+8; for(let side=0;side<4;side++){ for(let i=0;i<NW;i++){ const tt=-DHALF-4+i*span/(NW-1), sz=rr(29,35), sg=side<2?-1:1, vert=side%2===1, rot=vert?(sg>0?-Math.PI/2:Math.PI/2):(sg>0?Math.PI:0), e=sg*(DHALF+3);
+    const NW=24, span=2*DHALF+8; for(let side=0;side<4;side++){ for(let i=0;i<NW;i++){ const tt=-DHALF-4+i*span/(NW-1), sz=rr(29,35), sg=side<2?-1:1, vert=side%2===1, rot=vert?(sg>0?-Math.PI/2:Math.PI/2):(sg>0?Math.PI:0), e=sg*(DHALF+3);
         addMesa(vert?e:tt,vert?tt:e,sz,{rot:rot+rr(-.12,.12),sy:rr(1.0,1.5),wall:true,sink:0});
         for(const k of [-1,0,1]) addObstacle(vert?sg*(DHALF-1):tt+k*sz*.3,vert?tt+k*sz*.3:sg*(DHALF-1),6); } }
   }
@@ -4351,7 +4353,7 @@ function populateDesert(){
     if(Math.hypot(x-D_SNOW_GATE.x,z-D_SNOW_GATE.z)<12) return false;
     if(hDesert(x,z)<DWL+.4||dSlope(x,z,1.5)>1.1) return false; return true; };
   const roomFor=(x,z)=>{ for(const h of homes) if(Math.hypot(h[0]-x,h[1]-z)<FMOB.sepMob) return false; return true; };
-  const camps=[[-130,-130],[0,-138],[-138,0],[130,0],[-130,130],[0,138],[100,-100],[-100,100]].filter(c=>terrainOk(c[0],c[1])&&!fixed.some(f=>Math.hypot(f[0]-c[0],f[1]-c[1])<14)); let tries=0; const target=coarse?52:74;
+  const camps=sk2([[-130,-130],[0,-138],[-138,0],[130,0],[-130,130],[0,138],[100,-100],[-100,100]],DK).filter(c=>terrainOk(c[0],c[1])&&!fixed.some(f=>Math.hypot(f[0]-c[0],f[1]-c[1])<14)); let tries=0; const target=coarse?120:170;
   while(camps.length<target&&tries++<700){ let best=null, bd=0;
     for(let k=0;k<40;k++){ const x=rr(-DHALF+8,DHALF-8), z=rr(-DHALF+8,DHALF-8); if(!terrainOk(x,z)) continue; let d=1e9; for(const c of camps) d=Math.min(d,Math.hypot(c[0]-x,c[1]-z)); for(const f of fixed) d=Math.min(d,Math.hypot(f[0]-x,f[1]-z)+6); if(d>bd){ bd=d; best=[x,z]; } }
     if(best&&bd>=17) camps.push(best); else if(!best) continue; else break; }
@@ -4368,9 +4370,9 @@ function populateDesert(){
 
 const SZONES=[
   {id:'camp',  name:'Donmuş Kamp',       type:null,    r0:0,  r1:FOREST_CLEAR, l0:1,  l1:1},
-  {id:'pine',  name:'Çam Vadisi',        type:'swolf', mix:['swolf','swolf','sskel'],          r0:FOREST_CLEAR, r1:78,  l0:33, l1:37},
-  {id:'glac',  name:'Buzul Yamaçları',   type:'yeti',  mix:['yeti','sgolem','sskel'],          r0:78,  r1:113, l0:37, l1:42},
-  {id:'storm', name:'Fırtına Sırtı',     type:'switch',mix:['switch','sgolem','yeti','switch'],r0:113, r1:DHALF+8, l0:42, l1:48}];
+  {id:'pine',  name:'Çam Vadisi',        type:'swolf', mix:['swolf','swolf','sskel'],          r0:FOREST_CLEAR, r1:Math.round(78*DK),  l0:33, l1:37},
+  {id:'glac',  name:'Buzul Yamaçları',   type:'yeti',  mix:['yeti','sgolem','sskel'],          r0:Math.round(78*DK),  r1:Math.round(113*DK), l0:37, l1:42},
+  {id:'storm', name:'Fırtına Sırtı',     type:'switch',mix:['switch','sgolem','yeti','switch'],r0:Math.round(113*DK), r1:DHALF+8, l0:42, l1:48}];
 const S_BOSSES=[['sboss1',38,0],['sboss2',43,1],['sboss3',48,2]];   // tür, seviye, S_SITES dizinindeki sunak
 /* kaya/uçurum geometrisi: bozulmuş ikosahedron; yukarı bakan yüzeyler kar, dikler kaya (köşe rengi) */
 function cliffGeo(seed,detail,tall){
@@ -4434,7 +4436,7 @@ function buildSnowDecor(){
   const addCliff=(x,z,sz,o={})=>{ const k=o.k!==undefined?o.k:(R()*4)|0, y=hSnow(x,z)-sz*.12, sy=o.sy||rr(.85,1.3); cl[k].push({m:TM(x,y,z,0,rr(0,6.28),0,sz*rr(.9,1.15),sz*sy,sz*rr(.9,1.15)),c:tone(.9,1.08)});
     if(!o.noObs){ addObstacle(x,z,sz*.72); } if(!o.wall) taken.push([x,z,sz*.8]); };
   // kenar duvarı: harita sınırında kesintisiz uçurum (içeri girilemez)
-  { const span=2*DHALF+8, NW=34; for(let side=0;side<4;side++) for(let i=0;i<NW;i++){ const tt=-DHALF-4+i*span/(NW-1), sg=side<2?-1:1, vert=side%2===1, sz=rr(11,16), e=sg*(DHALF+rr(0,3));
+  { const span=2*DHALF+8, NW=48; for(let side=0;side<4;side++) for(let i=0;i<NW;i++){ const tt=-DHALF-4+i*span/(NW-1), sg=side<2?-1:1, vert=side%2===1, sz=rr(11,16), e=sg*(DHALF+rr(0,3));
       addCliff(vert?e:tt,vert?tt:e,sz,{wall:true,noObs:true,sy:rr(1.5,2.4)}); addObstacle(vert?sg*(DHALF-2):tt,vert?tt:sg*(DHALF-2),sz*.7); } }
   // büyük uçurumlar, orta ve küçük kayalar
   const place=(n,szA,szB,tries,slackA)=>{ let got=0; for(let t=0;t<tries&&got<n;t++){ const sz=rr(szA,szB), x=rr(-lim+sz,lim-sz), z=rr(-lim+sz,lim-sz); if(Math.hypot(x,z)<FOREST_CLEAR+sz||!free(x,z,sz*.8)) continue; addCliff(x,z,sz); got++; } };
@@ -4486,7 +4488,7 @@ function populateSnow(){
     for(const f of fixed) if(Math.hypot(x-f[0],z-f[1])<6) return false;
     if(sSlope(x,z,1.5)>1.4) return false; return true; };
   const roomFor=(x,z)=>{ for(const h of homes) if(Math.hypot(h[0]-x,h[1]-z)<FMOB.sepMob) return false; return true; };
-  const camps=[[-100,-100],[0,-104],[-104,0],[100,0],[-100,100],[100,-100]].filter(c=>terrainOk(c[0],c[1])&&!fixed.some(f=>Math.hypot(f[0]-c[0],f[1]-c[1])<14)); let tries=0; const target=coarse?46:64;
+  const camps=sk2([[-100,-100],[0,-104],[-104,0],[100,0],[-100,100],[100,-100]],DK).filter(c=>terrainOk(c[0],c[1])&&!fixed.some(f=>Math.hypot(f[0]-c[0],f[1]-c[1])<14)); let tries=0; const target=coarse?106:148;
   while(camps.length<target&&tries++<700){ let best=null, bd=0;
     for(let k=0;k<40;k++){ const x=rr(-DHALF+8,DHALF-8), z=rr(-DHALF+8,DHALF-8); if(!terrainOk(x,z)) continue; let d=1e9; for(const c of camps) d=Math.min(d,Math.hypot(c[0]-x,c[1]-z)); for(const f of fixed) d=Math.min(d,Math.hypot(f[0]-x,f[1]-z)+6); if(d>bd){ bd=d; best=[x,z]; } }
     if(best&&bd>=17) camps.push(best); else if(!best) continue; else break; }
