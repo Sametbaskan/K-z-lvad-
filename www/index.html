@@ -91,6 +91,7 @@ body{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-c
 .gauge .gf{position:absolute;left:0;top:0;transition:clip-path .15s linear;clip-path:inset(0 0 0 0)}
 .gauge b{position:absolute;left:12%;right:10%;top:50%;transform:translateY(-52%);text-align:center;font:700 11px var(--body);color:#fff;text-shadow:0 1px 2px #000,0 0 3px #000;font-variant-numeric:tabular-nums;white-space:nowrap}
 #menuBtn{pointer-events:auto;flex:none;width:calc(var(--slot)*1.15);padding:0;border:0;background:none;cursor:pointer;filter:drop-shadow(0 2px 3px #000)}
+#gfxw{width:min(320px,92vw)}#gfxw h2{display:flex;align-items:center;justify-content:space-between;margin:0;font-size:18px}#gfxw h2 .x{cursor:pointer;pointer-events:auto}#gfxw h2 .x img{display:block;width:30px;height:30px}.gfxopts{display:grid;gap:6px;margin-top:8px}.gfxopts button{pointer-events:auto;text-align:left;cursor:pointer;padding:8px 11px;color:var(--ink);background:linear-gradient(#3b2d1b,#241a10);border:1px solid var(--gold-d);border-radius:3px;font:600 13px var(--body)}.gfxopts button b{display:block;font-size:14px}.gfxopts button small{display:block;opacity:.7;font-size:11px;margin-top:2px}.gfxopts button.on{border-color:#e0c26a;background:linear-gradient(#5a4326,#33261a);box-shadow:inset 0 0 0 1px rgba(224,194,106,.5)}.gfxnote{margin:9px 2px 2px;font-size:11px;opacity:.7;line-height:1.4}
 #menuBtn img{display:block;width:100%;height:auto}#menuBtn:active{transform:translateY(1px);filter:brightness(1.2) drop-shadow(0 2px 3px #000)}
 #slotcol{flex:none}
 /* ana pencere (sekmeli) */
@@ -433,6 +434,7 @@ body{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-c
     <button class="rb" data-win="skw" aria-label="Yetenekler"><img data-ui="spellbook" alt=""><span>Yetenek</span></button>
     <button class="rb" data-win="chr" aria-label="Karakter"><img data-ui="royal_scroll" alt=""><span>Karakter</span></button>
     <button class="rb" id="menuBtn" aria-label="Menü"><img data-ui="menu" alt=""><span>Menü</span></button>
+    <button class="rb" id="gfxBtn" aria-label="Grafik ayarları"><i>☀</i><span>Grafik</span></button>
   </div>
   <div id="lcol">
     <button class="rb" id="tgtBtn" aria-label="Hedef"><i>◎</i><span>Hedef</span></button>
@@ -462,6 +464,14 @@ body{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-c
     <div class="mwpage" id="pg-skw"></div>
     <div class="mwpage" id="pg-sta"></div>
   </div>
+  <div id="gfxw" class="win panel fr hidden"><h2>Grafik Ayarları <span class="x" data-close="gfxw"><img data-ui="close" alt=""></span></h2>
+    <div class="gfxopts" id="gfxOpts">
+      <button data-g="auto"><b>Otomatik</b><small>Cihaza göre (önerilen)</small></button>
+      <button data-g="high"><b>Yüksek</b><small>Gölgeler açık, tam yoğunluk, en net görüntü</small></button>
+      <button data-g="mid"><b>Orta</b><small>Gölgeler açık, ağaç ve kaya biraz az</small></button>
+      <button data-g="low"><b>Düşük (akıcı)</b><small>Gölge kapalı, ağaç ve kaya yarı yarıya az, çözünürlük sınırlı</small></button>
+    </div>
+    <p class="gfxnote" id="gfxNote">Gölge ve çözünürlük hemen değişir. Ağaç/kaya sayısı haritaya yeniden girince uygulanır.</p></div>
   <div id="shop" class="win panel fr hidden"><h2><span id="shopTitle" style="display:none">Tüccar Han</span> <span class="x" data-close="shop"><img data-ui="close" alt=""></span></h2><img class="banner" data-ui="banShop" alt="Dükkan">
     <div class="row"><span>Kırmızı İksir <small>can yeniler</small></span><button class="btn" data-buy="red">40 Yang</button></div>
     <div class="row"><span>Mavi İksir <small>enerji yeniler</small></span><button class="btn" data-buy="blue">40 Yang</button></div>
@@ -755,9 +765,14 @@ function texHalf(t){ if(!t||!t.image) return t; const w=t.image.width||t.image.n
   const n=new THREE.CanvasTexture(c); n.flipY=t.flipY; n.colorSpace=t.colorSpace; n.wrapS=t.wrapS; n.wrapT=t.wrapT; n.anisotropy=2; return n; }
 // cihaz kalite kademesi: 2 yüksek (masaüstü / güçlü telefon), 1 orta, 0 düşük — doku çözünürlüğü ve model detayı buna göre seçilir
 const QT=(()=>{ try{ if(!coarse) return 2; const mem=navigator.deviceMemory||4, cores=navigator.hardwareConcurrency||4; return (mem>=6&&cores>=8)?2:(mem>=3&&cores>=6)?1:0; }catch(e){ return 1; } })();
+/* ---- grafik ayarı (Menü › Grafik): auto = cihaza göre mevcut davranış; yüksek/orta/düşük elle seçilir ----
+   sh: güneş gölgesi · dn: ağaç/kaya/kaktüs yoğunluğu (harita kurulurken uygulanır) · pr: çözünürlük üst sınırı */
+const GFXP={high:{sh:1,dn:1,pr:9},mid:{sh:1,dn:.72,pr:1.25},low:{sh:0,dn:.5,pr:1}};
+let GFX='auto'; try{ const g=localStorage.getItem('valkor_gfx'); if(g==='high'||g==='mid'||g==='low') GFX=g; }catch(e){}
+const gfxP=()=>GFXP[GFX]||null, gfxDn=n=>{ const p=gfxP(); return p?Math.max(1,Math.round(n*p.dn)):n; };
 const renderer = new THREE.WebGLRenderer({canvas, antialias:!coarse, powerPreference:'high-performance'});
 /* dinamik çözünürlük: telefon düşük fps verirse çözünürlük otomatik düşer, rahatlayınca yükselir */
-const PRMAX=coarse?Math.min(1.5,devicePixelRatio||1):Math.min(devicePixelRatio||1,2), PRMIN=coarse?1:.8; let PR=PRMAX;   // net görüntü: çözünürlük 1.0'ın altına inmez
+const PRBASE=coarse?Math.min(1.5,devicePixelRatio||1):Math.min(devicePixelRatio||1,2), PRMIN=coarse?1:.8; let PRMAX=gfxP()?Math.max(PRMIN,Math.min(PRBASE,gfxP().pr)):PRBASE; let PR=PRMAX;   // net görüntü: çözünürlük 1.0'ın altına inmez
 renderer.setPixelRatio(PR);
 renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05; renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = coarse?THREE.PCFShadowMap:THREE.PCFSoftShadowMap;
@@ -779,7 +794,7 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(50, 1, .1, 400);
 const hemi = new THREE.HemisphereLight(0xcfe2ff, 0x5a6a38, .75); scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xffe9c2, 2.6);
-sun.position.set(30,48,18); sun.castShadow = true;
+sun.position.set(30,48,18); sun.castShadow = !gfxP()||!!gfxP().sh;
 sun.shadow.mapSize.set(coarse?1024:2048, coarse?1024:2048);
 Object.assign(sun.shadow.camera, {left:-26,right:26,top:26,bottom:-26,near:1,far:140}); sun.shadow.bias=-.0004; sun.shadow.normalBias=.04;
 scene.add(sun, sun.target);
@@ -3018,6 +3033,15 @@ addEventListener('keydown',e=>{
 addEventListener('keyup',e=>{ keys[e.key.toLowerCase()]=false; });
 $('menuBtn').addEventListener('click',e=>{ e.stopPropagation(); if(!$('mw').classList.contains('hidden')) closeWins(); else toggleWin(MTAB); });
 $('menuBtn').addEventListener('pointerdown',e=>e.stopPropagation());
+/* ---- grafik ayarı penceresi ---- */
+function gfxApply(){ const p=gfxP();
+  if(sun) sun.castShadow=!p||!!p.sh;
+  PRMAX=p?Math.max(PRMIN,Math.min(PRBASE,p.pr)):PRBASE; if(PR>PRMAX){ PR=PRMAX; renderer.setPixelRatio(PR); resize(); } }
+function gfxMark(){ document.querySelectorAll('#gfxOpts button').forEach(b=>b.classList.toggle('on',b.dataset.g===GFX)); }
+$('gfxBtn').addEventListener('click',e=>{ e.stopPropagation(); const w=$('gfxw'); if(w.classList.contains('hidden')){ closeWins(); gfxMark(); w.classList.remove('hidden'); } else w.classList.add('hidden'); });
+$('gfxBtn').addEventListener('pointerdown',e=>e.stopPropagation());
+$('gfxOpts').addEventListener('click',e=>{ const b=e.target.closest('button[data-g]'); if(!b) return; GFX=b.dataset.g; try{ localStorage.setItem('valkor_gfx',GFX); }catch(_){} gfxApply(); gfxMark(); say('Grafik: '+b.querySelector('b').textContent+(MAP.id!=='village'&&GFX!=='auto'?' — ağaç/kaya sayısı haritaya yeniden girince değişir.':'.'),'c-sys'); });
+$('gfxw').addEventListener('pointerdown',e=>e.stopPropagation());
 $('mountBtn').addEventListener('click',e=>{ e.stopPropagation(); if(started) toggleMount(); });
 addEventListener('blur',()=>{ for(const k in keys) keys[k]=false; });
 
@@ -3059,7 +3083,7 @@ canvas.addEventListener('wheel',e=>{ e.preventDefault(); cam.dist=clamp(cam.dist
 
 /* pencereler */
 function toggleWin(id){ if(id==='sta') id='chr'; const mw=$('mw'); if(!mw.classList.contains('hidden')&&MTAB===id){ closeWins(); return; } $('shop').classList.add('hidden'); mw.classList.remove('hidden'); setTab(id); }
-function closeWins(){ $('mw').classList.add('hidden'); $('shop').classList.add('hidden'); }
+function closeWins(){ $('gfxw').classList.add('hidden'); $('mw').classList.add('hidden'); $('shop').classList.add('hidden'); }
 document.addEventListener('click',e=>{
   const t=e.target.closest('[data-win],[data-close],[data-buy],[data-sbuy],[data-stat],[data-skup],[data-tab],[data-use],[data-ipg],[data-sksel],[data-lbuy],[data-abuy],#upg'); if(!t) return;
   if(t.dataset.win) toggleWin(t.dataset.win); else if(t.dataset.close) $(t.dataset.close).classList.add('hidden');
@@ -4242,7 +4266,7 @@ function buildDesertDecor(){
     const col2=(v)=>new THREE.Color(1,1,1).multiplyScalar(v);
     const okAt=(x,z,r,tw)=>free(x,z,r)&&!onTrack(x,z,tw);
     if(DCAC){
-      const items=[], cap=coarse?120:192;
+      const items=[], cap=gfxDn(coarse?120:192);
       const plant=(x,z,H)=>{ if(items.length>=cap) return false; const r=Math.max(.5,H*.2); if(!okAt(x,z,r,3.4)) return false; const sx=H*vr(.9,1.1), sz=H*vr(.9,1.1), y=gmin(x,z,H*.1)-H*.02;
         taken.push([x,z,r*.9]); addObstacle(x,z,Math.max(.3,H*.12));
         items.push({x,z,y,r:H*.2,h:H,c:col2(vr(.86,1.1)),m:TM(x,y,z,vr(-.04,.04),vr(0,6.283),vr(-.04,.04),sx,H,sz),dl:[9+H*2,26+H*4,58+H*6,135]}); return true; };
@@ -4254,7 +4278,7 @@ function buildDesertDecor(){
       addVeg(DCAC.geo.map(g=>[{geo:g,mat:DCAC.mat}]),items,7); console.info('[Kaktüs] '+items.length+' adet yerleştirildi');
     }
     if(DPALM){
-      const items=[], cap=coarse?64:96;
+      const items=[], cap=gfxDn(coarse?64:96);
       const palm=(x,z,H,toward)=>{ if(items.length>=cap) return false; const r=H*.12; if(!okAt(x,z,r,3.6)) return false; const y=gmin(x,z,H*.03)-H*.015, yaw=toward?Math.atan2(-(toward[1]-z),toward[0]-x)+vr(-.7,.7):vr(0,6.283);
         taken.push([x,z,r+.6]); addObstacle(x,z,Math.max(.3,H*.045));
         items.push({x,z,y,r:H*.3,h:H,c:col2(vr(.88,1.08)),m:TM(x,y,z,vr(-.03,.03),yaw,vr(-.03,.03),H*vr(.92,1.08),H,H*vr(.92,1.08)),dl:[10+H*1.2,26+H*2.4,56+H*4,135]}); return true; };
@@ -4273,11 +4297,11 @@ function buildDesertDecor(){
     inst(geo,vm,arr); }
   // kuru çalı
   { const g=[]; const c1=col(0x8a7040), c2=col(0x6e5832); for(let i=0;i<7;i++){ const a=i/7*6.283; g.push({geo:new THREE.CylinderGeometry(.02,.05,.9,4),m:TM(Math.cos(a)*.18,.42,Math.sin(a)*.18,Math.sin(a)*.8,0,-Math.cos(a)*.8),c:i%2?c1:c2}); }
-    const geo=mergeGeos(g), arr=[]; for(let t=0,n=coarse?120:220;t<1800&&arr.length<n;t++){ const x=rr(-lim,lim), z=rr(-lim,lim), s=rr(.8,1.6); if(!free(x,z,.5)) continue; arr.push({m:TM(x,hDesert(x,z),z,0,rr(0,6.28),0,s,s,s)}); }
+    const geo=mergeGeos(g), arr=[]; for(let t=0,n=gfxDn(coarse?120:220);t<1800&&arr.length<n;t++){ const x=rr(-lim,lim), z=rr(-lim,lim), s=rr(.8,1.6); if(!free(x,z,.5)) continue; arr.push({m:TM(x,hDesert(x,z),z,0,rr(0,6.28),0,s,s,s)}); }
     inst(geo,vm,arr,false); }
   // kumtaşı kayalar
   { const arr=[]; const geo=new THREE.DodecahedronGeometry(1,0); const mat=new THREE.MeshLambertMaterial({color:0xffffff,flatShading:true});
-    for(let t=0,n=coarse?(DMESA?52:120):(DMESA?88:190);t<2400&&arr.length<n;t++){ const x=rr(-lim,lim), z=rr(-lim,lim), s=rr(.6,2.2); if(!free(x,z,s*.9)) continue; taken.push([x,z,s*.7]); if(s>1.2) addObstacle(x,z,s*.8);
+    for(let t=0,n=gfxDn(coarse?(DMESA?52:120):(DMESA?88:190));t<2400&&arr.length<n;t++){ const x=rr(-lim,lim), z=rr(-lim,lim), s=rr(.6,2.2); if(!free(x,z,s*.9)) continue; taken.push([x,z,s*.7]); if(s>1.2) addObstacle(x,z,s*.8);
       const c=new THREE.Color().setHSL(rr(.05,.075),rr(.32,.45),rr(.34,.5)); arr.push({m:TM(x,hDesert(x,z)+s*.25,z,rr(0,3),rr(0,6),rr(0,3),s,s*rr(.6,.9),s*rr(.8,1.2)),c}); }
     inst(geo,mat,arr); }
   // hurma ağaçları (vahalar) — basit yedek: GLB yüklenemezse
@@ -4414,10 +4438,10 @@ function buildSnowDecor(){
       addCliff(vert?e:tt,vert?tt:e,sz,{wall:true,noObs:true,sy:rr(1.5,2.4)}); addObstacle(vert?sg*(DHALF-2):tt,vert?tt:sg*(DHALF-2),sz*.7); } }
   // büyük uçurumlar, orta ve küçük kayalar
   const place=(n,szA,szB,tries,slackA)=>{ let got=0; for(let t=0;t<tries&&got<n;t++){ const sz=rr(szA,szB), x=rr(-lim+sz,lim-sz), z=rr(-lim+sz,lim-sz); if(Math.hypot(x,z)<FOREST_CLEAR+sz||!free(x,z,sz*.8)) continue; addCliff(x,z,sz); got++; } };
-  place(coarse?14:22,7,10,900); place(coarse?26:46,3.5,6,1400); place(coarse?60:110,1.2,2.6,2000);
+  place(gfxDn(coarse?14:22),7,10,900); place(gfxDn(coarse?26:46),3.5,6,1400); place(gfxDn(coarse?60:110),1.2,2.6,2000);
   CG.forEach((g,i)=>inst(g,cm,cl[i]));
   // çamlar: vadide yoğun, yükseldikçe seyrek; fırtına bölgesinde ölü ağaçlar
-  { const PG=[pineGeo(0),pineGeo(1),pineGeo(2),pineGeo(3)], arr=[[],[],[],[]], want=coarse?330:560;
+  { const PG=[pineGeo(0),pineGeo(1),pineGeo(2),pineGeo(3)], arr=[[],[],[],[]], want=gfxDn(coarse?330:560);
     for(let t=0,n=0;t<9000&&n<want;t++){ const x=rr(-lim,lim), z=rr(-lim,lim), c=Math.max(Math.abs(x),Math.abs(z)); if(Math.hypot(x,z)<FOREST_CLEAR+5) continue; const dead=c>108, pr=dead?.25:1-smooth(70,118,c)*.6; if(R()>pr) continue;
       const s=dead?rr(.8,1.3):rr(.75,1.5), r=.9*s; if(!free(x,z,r)) continue; const k=dead?3:(R()*3)|0; taken.push([x,z,r*.9]); addObstacle(x,z,.42*s); arr[k].push({m:TM(x,hSnow(x,z)-.12,z,rr(-.03,.03),rr(0,6.28),rr(-.03,.03),s*rr(.9,1.1),s,s*rr(.9,1.1)),c:tone(.88,1.1)}); n++; }
     PG.forEach((g,i)=>inst(g,vm,arr[i])); }
@@ -4426,7 +4450,7 @@ function buildSnowDecor(){
     const geo=mergeCol(cg), mat=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.15,metalness:.1,emissive:0x2a7fc0,emissiveIntensity:.55,transparent:true,opacity:.88}), arr=[];
     const put=(x,z,s)=>{ if(!free(x,z,s*.8)) return; taken.push([x,z,s*.6]); arr.push({m:TM(x,hSnow(x,z)-.05,z,0,rr(0,6.28),0,s,s*rr(.9,1.4),s)}); };
     for(const p of SLAKES) for(let k=0;k<9;k++){ const a=rr(0,6.28), d=p[2]*rr(1.3,2.2); put(p[0]+Math.cos(a)*d,p[1]+Math.sin(a)*d,rr(.7,1.5)); }
-    for(let t=0,n=0;t<800&&n<(coarse?30:60);t++){ const x=rr(-lim,lim), z=rr(-lim,lim), c=Math.max(Math.abs(x),Math.abs(z)); if(c<76||c>130) continue; if(free(x,z,1.2)){ put(x,z,rr(.8,1.9)); n++; } }
+    for(let t=0,n=0;t<800&&n<gfxDn(coarse?30:60);t++){ const x=rr(-lim,lim), z=rr(-lim,lim), c=Math.max(Math.abs(x),Math.abs(z)); if(c<76||c>130) continue; if(free(x,z,1.2)){ put(x,z,rr(.8,1.9)); n++; } }
     inst(geo,mat,arr,false); }
   // donmuş göller
   for(let i=0;i<SLAKES.length;i++){ const p=SLAKES[i]; const wm=new THREE.Mesh(new THREE.CircleGeometry(p[2]*1.12,32),new THREE.MeshStandardMaterial({color:0xbfe3f5,roughness:.12,metalness:.15,transparent:true,opacity:.93})); wm.rotation.x=-Math.PI/2; wm.position.set(p[0],S_LAKE_H[i]+.2,p[1]); wm.receiveShadow=true; scene.add(wm); addObstacle(p[0],p[1],p[2]*.6); obstacles[obstacles.length-1].lake=true; }
