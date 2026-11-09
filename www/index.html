@@ -3668,6 +3668,12 @@ function updateMapPrompt(){
 }
 function tryTravel(){ if(!TRAVEL.near||TRAVEL.busy||S.dead||!TRAVEL.to) return; if(TRAVEL.to==='__menu'){ toggleTP(); return; } travelTo(TRAVEL.to); }
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
+/* ön-ısıtma: gölgelendirici derleme + doku yüklemesi, harita geçişinin karartması arkasında yapılır; oyuncu ilk karelerde takılma görmez */
+const TEXKEYS=['map','normalMap','aoMap','roughnessMap','metalnessMap','emissiveMap','alphaMap','bumpMap','lightMap'];
+function prewarm(){ try{
+  renderer.compile(scene,camera);
+  const seen=new Set(); scene.traverse(o=>{ const m0=o.material; if(!m0) return; for(const m of (Array.isArray(m0)?m0:[m0])) for(const k of TEXKEYS){ const t=m[k]; if(t&&t.isTexture&&!seen.has(t)){ seen.add(t); if(t.image&&(t.image.width||t.image.videoWidth||t.image.data)) renderer.initTexture(t); } } });
+}catch(e){ console.warn('[Ön-ısıtma] atlandı:',e); } }
 async function travelTo(id,opt={}){
   if(TRAVEL.busy||id===MAP.id) return; TRAVEL.busy=true; TRAVEL.near=false; if(mapPromptEl) mapPromptEl.style.display='none'; if(tpEl) tpEl.style.display='none';
   const from=MAP.id; mapFadeTxt.textContent=MAPS[id].name; mapFadeSub.textContent='Yükleniyor…'; mapFadeEl.style.pointerEvents='auto'; mapFadeEl.style.opacity='1';
@@ -3681,7 +3687,7 @@ async function travelTo(id,opt={}){
     else if(opt.respawn){ const sp=MAPS.village.spawn; placePlayer(sp.x,sp.z,sp.yaw); }
     else { const g=MAPS.village.gate, d=Math.hypot(g.x,g.z), ux=-g.x/d, uz=-g.z/d; placePlayer(g.x+ux*4,g.z+uz*4,Math.atan2(ux,uz)); }
     if(opt.at){ placePlayer(opt.at.x,opt.at.z,opt.at.yaw); if(Number.isFinite(opt.at.cam)) cam.yaw=opt.at.cam; collide(P.pos,.5); P.pos.y=hAt(P.pos.x,P.pos.z); cam.tx=P.pos.x; cam.ty=P.pos.y+1.55; cam.tz=P.pos.z; }   // kayıtlı son konum (harita yüklendikten sonra)
-    updatePlants(0,true);
+    updatePlants(0,true); prewarm();
     say(id==='snow'?'Akbaş Zirveleri\'ne girdin (Sv. 33-48). Dönüş kapısı Donmuş Kamp\'ta; yükseldikçe fırtına sertleşir.':id==='desert'?'Zahrak Çölü\'ne girdin (Sv. 17-32). Dönüş kapısı vaha kampında.':id==='forest'?(from==='desert'?'Kızıl Orman\'a döndün.':'Kızıl Orman\'a girdin. Canavarlar bu bölgede dolaşıyor. Dönüş kapısı başlangıç noktasında.'):'Valkor Köyü\'ne döndün.','c-sys');
   }catch(e){
     console.error('[Harita] geçiş başarısız ('+from+' → '+id+'):',e); mapFadeSub.textContent='Geçiş başarısız oldu';
@@ -4503,7 +4509,7 @@ function enterGame({uid,username,character}){ try{ $("heroPick").remove(); }catc
   cam.yaw=0; cam.pitch=.8; cam.dist=11; cam.tx=P.pos.x; cam.ty=1.5; cam.tz=P.pos.z;
   say('Valkor\'a hoş geldin, '+S.name+'!','c-sys'); say('Joystick: yürü. Büyük kılıç tuşu: en yakın hedefe saldır. Çevresi: beceriler, altı: iksirler.','c-sys'); say('Mühür Taşları güçlü ödüller verir ama canavar çağırır.','c-sys');
   saveGame(); refreshWins();      // LOC_LIVE henüz false: köy başlangıcı kayıtlı konumun üzerine yazılmaz
-  restoreLoc(startLoc);
+  restoreLoc(startLoc); prewarm();
   if(coarse){ safe(()=>document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen().catch(()=>{})); safe(()=>screen.orientation&&screen.orientation.lock&&screen.orientation.lock('landscape').catch(()=>{})); }
 }
 requestAnimationFrame(frame);
