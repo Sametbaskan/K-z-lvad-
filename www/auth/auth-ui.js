@@ -54,36 +54,11 @@ const VIEWS = {
     `<div class="alinks" id="a_back"><a href="#" data-v="chars">← Geri</a></div>`
 };
 
-/* Ateş kıvılcımları (canvas): yukarı süzülen, titreşen, sönen kor parçacıkları */
-function sparks(cv, host) {
-  const ctx = cv.getContext('2d'); let W = 0, H = 0, dpr = 1, last = 0, burstT = 2;
-  const reduce = matchMedia('(prefers-reduced-motion:reduce)').matches, N = reduce ? 24 : 150;
-  const spr = [[255, 240, 190], [255, 170, 60], [255, 80, 30]].map(c => { const s = document.createElement('canvas'); s.width = s.height = 32; const g = s.getContext('2d'), r = g.createRadialGradient(16, 16, 0, 16, 16, 16); r.addColorStop(0, `rgba(${c},1)`); r.addColorStop(.14, `rgba(${c},1)`); r.addColorStop(.4, `rgba(${c},.35)`); r.addColorStop(1, `rgba(${c},0)`); g.fillStyle = r; g.fillRect(0, 0, 32, 32); return s; });
-  const size = () => { dpr = Math.min(2, devicePixelRatio || 1); W = cv.clientWidth; H = cv.clientHeight; cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); };
-  const P = Array.from({ length: N }, () => ({}));
-  const spawn = (p, init, x, boost) => { p.x = x != null ? x + (Math.random() - .5) * 40 : Math.random() * W; p.y = init ? Math.random() * H : H + 8; p.vy = -(35 + Math.random() * 95) * (boost || 1); p.vx = (Math.random() - .5) * 20; p.r = .9 + Math.random() * 3; p.t = 0; p.max = 3 + Math.random() * 5; p.ph = Math.random() * 6.28; p.sw = 8 + Math.random() * 28; p.c = Math.random() < .25 ? 0 : Math.random() < .6 ? 1 : 2; };
-  size(); P.forEach(p => spawn(p, true)); addEventListener('resize', size);
-  function frame(t) {
-    requestAnimationFrame(frame);
-    if (host.classList.contains('gone') || host.classList.contains('pre') || document.hidden) { last = t; return; }
-    const dt = Math.min(.05, (t - last) / 1000 || .016); last = t; if (!W) size();
-    ctx.clearRect(0, 0, W, H); ctx.globalCompositeOperation = 'lighter';
-    burstT -= dt; if (burstT <= 0 && !reduce) { burstT = 2.5 + Math.random() * 3; const bx = Math.random() * W; let k = 0; for (const p of P) { if (p.t > p.max * .6 && k < 14) { spawn(p, false, bx, 1.5); k++; } } }
-    for (const p of P) {
-      p.t += dt; if (p.t > p.max || p.y < -20) { spawn(p, false); continue; }
-      p.x += (p.vx + Math.sin(p.t * 2 + p.ph) * p.sw) * dt; p.y += p.vy * dt; p.vy *= 1 - .06 * dt;
-      const a = Math.sin(Math.PI * p.t / p.max) * (.65 + .35 * Math.sin(p.t * 17 + p.ph));
-      ctx.globalAlpha = Math.max(0, a); const s = p.r * 5.5; ctx.drawImage(spr[p.c], p.x - s / 2, p.y - s / 2, s, s);
-    }
-    ctx.globalAlpha = 1;
-  }
-  requestAnimationFrame(frame);
-}
 
 export async function mountAuth({ root, onEnter, preview = () => {}, info = () => ({ lvl: 1, guild: '' }), purge = () => {} }) {
   let state = { user: null, name: '', chars: [], ci: 0 }, view = 'login', busy = false, booted = false, registering = false;
-  root.innerHTML = `<div class="abg"><i class="aimg"></i><i class="aglow"></i><i class="avig"></i><canvas class="asp"></canvas></div>
-  <div class="ascroll"><div class="awrap"><div class="alogo"><svg class="awing l" viewBox="0 0 200 70" aria-hidden="true"><defs><linearGradient id="wg" x1="0" x2="1"><stop offset="0" stop-color="#7a4a12"/><stop offset=".5" stop-color="#f3cf7a"/><stop offset="1" stop-color="#fff0b8"/></linearGradient></defs><path d="M200 36C150 22 90 14 6 24c46 2 86 8 130 18-40-2-84 0-122 14 52-8 100-6 150 2-30 0-66 4-96 12 60-10 100-6 132 4z" fill="url(#wg)" opacity=".95"/></svg><div class="alogo-c"><i class="asun"></i><h1>VALKOR</h1><p>Efsane seni bekliyor</p></div><svg class="awing r" viewBox="0 0 200 70" aria-hidden="true"><path d="M200 36C150 22 90 14 6 24c46 2 86 8 130 18-40-2-84 0-122 14 52-8 100-6 150 2-30 0-66 4-96 12 60-10 100-6 132 4z" fill="url(#wg)" opacity=".95"/></svg></div><form class="acard" id="a_card" novalidate></form><div class="afoot" id="a_foot"></div></div></div>
+  root.innerHTML = `<div class="abg"><i class="aimg"></i><i class="avig"></i></div>
+  <div class="ascroll"><div class="awrap"><div class="alogo"><div class="alogo-c"><h1>VALKOR</h1><p>Efsane seni bekliyor</p></div></div><form class="acard" id="a_card" novalidate></form><div class="afoot" id="a_foot"></div></div></div>
   <div class="csel" id="c_sel"><div class="cbrand">VALKOR</div>
     <div class="ccls"><h3 id="c_cls"></h3><p id="c_sub"></p><div class="cnav"><button class="carr" id="c_l" type="button" aria-label="Önceki sınıf"><svg viewBox="0 0 10 16"><path d="M9 1 2 8l7 7" /></svg></button><div class="cdots" id="c_dots"></div><button class="carr" id="c_r" type="button" aria-label="Sonraki sınıf"><svg viewBox="0 0 10 16"><path d="M1 1l7 7-7 7" /></svg></button></div></div>
     <div class="cpanel"><div class="ckr"><div class="cflag" id="c_flag"></div><div class="cstk"><div class="cbox" id="c_king"></div><div class="cbox" id="c_guild"></div></div></div>
@@ -93,7 +68,6 @@ export async function mountAuth({ root, onEnter, preview = () => {}, info = () =
     <div class="amsg" id="c_msg" role="alert"></div>
     <div class="cfoot"><span id="c_acct"></span><a href="#" id="c_pw">Şifre Değiştir</a></div>
     <div class="cmodal" id="c_modal"><div class="cm"><h4>Karakteri Sil</h4><p id="c_mt"></p><input id="c_mi" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Karakter adı"><div class="amsg" id="c_mm"></div><div class="cmb"><button type="button" class="cbtn" id="c_mc">Vazgeç</button><button type="button" class="cbtn danger" id="c_md">Sil</button></div></div></div></div>`;
-  sparks(root.querySelector('.asp'), root);
   const card = root.querySelector('#a_card'), foot = root.querySelector('#a_foot');
   const $ = s => card.querySelector(s);
   const msg = (t, ok) => { const m = $('#a_msg'); if (m) { m.textContent = t || ''; m.className = 'amsg' + (ok ? ' ok' : ''); } };
