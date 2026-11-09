@@ -170,11 +170,19 @@ body{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-c
 
 /* Açılış ekranları */
 #loading{padding:0;background:#0a0405;overflow:hidden}
-#spl{position:absolute;left:50%;bottom:0;width:max(100vw,calc(100vh*1672/941));aspect-ratio:1672/941;transform:translateX(-50%)}
-#spl img{position:absolute;inset:0;width:100%;height:100%;user-select:none;-webkit-user-drag:none}
-#splTrack{position:absolute;left:31.9%;width:34.8%;top:87.9%;height:2%;overflow:hidden;border-radius:2px}
+#splImg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;user-select:none;-webkit-user-drag:none}
+#loading::before,#enterLoad .elScrim{content:'';position:absolute;left:0;right:0;bottom:0;height:34%;background:linear-gradient(transparent,rgba(0,0,0,.72));pointer-events:none}
+#splBar{position:absolute;left:50%;transform:translateX(-50%);bottom:max(9%,calc(env(safe-area-inset-bottom) + 18px));width:min(520px,62vw);display:flex;align-items:center;gap:10px}
+#splTrack{flex:1;height:8px;overflow:hidden;border-radius:5px;background:rgba(0,0,0,.6);border:1px solid rgba(233,201,138,.5)}
 #splTrack i{display:block;height:100%;width:0;background:linear-gradient(#ff5a4a,#e00610 45%,#8a0008);box-shadow:0 0 10px #f22,inset 0 1px 0 rgba(255,200,180,.55);transition:width .25s ease-out}
-#splPct{position:absolute;left:66.9%;top:87.6%;font:700 12px/2.2 var(--body,serif);color:#e9c98a;text-shadow:0 1px 2px #000;width:5%}
+#splPct{font:700 13px var(--body,serif);color:#e9c98a;text-shadow:0 1px 3px #000;min-width:38px}
+/* karakter seçimi sonrası dünya yüklenirken (rastgele arka plan) */
+#enterLoad{display:none;position:fixed;inset:0;z-index:95;background:#0a0405 center/cover no-repeat;transition:opacity .3s}#enterLoad.off{opacity:0;pointer-events:none}
+#enterLoad .elBox{position:absolute;left:50%;transform:translateX(-50%);bottom:max(9%,calc(env(safe-area-inset-bottom) + 18px));width:min(520px,62vw);text-align:center}
+#enterLoad .elTxt{font:700 14px var(--body,serif);letter-spacing:.06em;color:#f0d9a0;text-shadow:0 1px 4px #000,0 0 10px #000;margin-bottom:8px}
+#enterLoad .elTrack{height:6px;border-radius:4px;overflow:hidden;background:rgba(0,0,0,.6);border:1px solid rgba(233,201,138,.5)}
+#enterLoad .elTrack i{display:block;height:100%;width:40%;background:linear-gradient(#ff5a4a,#e00610 45%,#8a0008);animation:elSlide 1.1s ease-in-out infinite alternate}
+@keyframes elSlide{from{transform:translateX(0)}to{transform:translateX(150%)}}
 #loadTxt{position:absolute;left:0;right:0;top:94.4%;margin:0;text-align:center;font:13px var(--body,serif);color:transparent}
 #err{position:absolute;left:10%;right:10%;top:80%;text-align:center;color:#ff8a80;font:13px var(--body,sans-serif);text-shadow:0 1px 3px #000}
 #heroPick{display:none;position:fixed;left:max(10px,env(safe-area-inset-left));bottom:max(8px,env(safe-area-inset-bottom));z-index:60;font:700 12px var(--body);color:#e8d9b0;background:rgba(15,8,5,.7);border:1px solid rgba(180,140,70,.7);border-radius:14px;padding:6px 12px}#auth.sel~#heroPick{display:block}#heroPick:active{filter:brightness(1.3)}
@@ -467,10 +475,15 @@ body{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-c
 
 <div id="rotate"><div><svg viewBox="0 0 24 24" fill="none" stroke="#d3ad62" stroke-width="1.6"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 19h2"/></svg>Telefonu yatay çevir</div></div>
 <div id="loading" class="screen">
-  <div id="spl"><img src="img/valkor_loading.jpg" alt="Valkor" draggable="false">
-    <div id="splTrack"><i id="loadBar"></i></div><div id="splPct">0%</div>
-    <p id="loadTxt">Valkor Dünyasına Hoş Geldin…</p><div id="err"></div></div>
+  <img id="splImg" alt="Valkor" draggable="false">
+  <div id="splBar"><div id="splTrack"><i id="loadBar"></i></div><div id="splPct">0%</div></div>
+  <p id="loadTxt">Valkor Dünyasına Hoş Geldin…</p><div id="err"></div>
 </div>
+<script>
+/* rastgele arka plan: a = açılış yüklemesi + giriş ekranı (aynı görsel, bir kez yüklenir) · b = karakter seçimi sonrası yükleme; aynı görselin art arda gelmesi serbest */
+window.VBG=(function(){ const N=3, pick=()=>1+Math.floor(Math.random()*N), u=n=>'img/bg/valkor_bg'+n+'.webp'; return {a:pick(),b:pick(),url:u,abs:n=>new URL(u(n),document.baseURI).href}; })();
+document.getElementById('splImg').src=VBG.url(VBG.a);
+</script>
 <link rel="stylesheet" href="auth/auth.css">
 <div id="auth" class="pre"></div><div id="credits">Çöl binaları: ondrasaur (OndyRen) · CC BY 4.0 · sketchfab.com/saurondra</div>
 <button id="heroPick" type="button" aria-label="Karakter modelini değiştir"></button>
@@ -4523,6 +4536,7 @@ window.__gear={useSlot,P,SLOT_DEF,fitZone,S,stoneCount,upgradeGear,moveItem,EQS,
   b.addEventListener('click',()=>{ try{ localStorage.setItem('valkor.hero',HERO_PICK==='cc'?'classic':'cc'); }catch(e){} b.textContent='Yükleniyor…'; setTimeout(()=>location.reload(),60); }); })();
 (function(){ const b=$('authOut'); let t=0; b.addEventListener('click',()=>{ if(!b.classList.contains('arm')){ b.classList.add('arm'); b.textContent='Emin misin? Çıkış'; saveGame(); t=setTimeout(()=>{ b.classList.remove('arm'); b.textContent='⎋ Çıkış'; },3500); } else { clearTimeout(t); saveGame(); window.ValkorAuth&&window.ValkorAuth.logout(); } }); b.addEventListener('pointerdown',e=>e.stopPropagation()); })();
 async function mountAuthUI(){
+  $('auth').style.setProperty('--vbg','url("'+VBG.abs(VBG.a)+'")'); if(VBG.b!==VBG.a) setTimeout(()=>{ new Image().src=VBG.url(VBG.b); },1500);   // seçim sonrası perdenin görseli önceden hazır olsun
   $('auth').classList.remove('pre'); try{ const m=await import('./auth/auth-ui.js'); await m.mountAuth({root:$('auth'),onEnter:enterGame,preview:charPreview,info:charInfo,purge:charPurge}); }
   catch(e){ console.error('[Hesap] arayüz yüklenemedi',e); $('auth').innerHTML='<div style="position:absolute;inset:0;display:grid;place-items:center;color:#ffb4a8;padding:20px;text-align:center">Giriş ekranı yüklenemedi. Uygulamayı yeniden aç.</div>'; }
 }
@@ -4535,7 +4549,12 @@ async function restoreLoc(l){                                          // kayıt
 }
 ['pagehide','beforeunload','offline'].forEach(ev=>addEventListener(ev,()=>{ if(started) saveGame(); }));   // uygulama kapanırken/bağlantı kesilirken son konumu yaz
 document.addEventListener('pause',()=>{ if(started) saveGame(); }); document.addEventListener('visibilitychange',()=>{ if(document.hidden&&started) saveGame(); });
-function enterGame({uid,username,character}){ try{ $("heroPick").remove(); }catch(e){}
+const ENTL={t0:0};
+function enterLoadShow(){ let el=$('enterLoad'); if(!el){ el=document.createElement('div'); el.id='enterLoad'; el.innerHTML='<div class="elScrim"></div><div class="elBox"><div class="elTxt">Valkor dünyasına giriliyor…</div><div class="elTrack"><i></i></div></div>'; document.body.appendChild(el); }
+  el.style.backgroundImage='url("'+VBG.abs(VBG.b)+'")'; el.classList.remove('off'); el.style.display='block'; ENTL.t0=performance.now(); setTimeout(enterLoadHide,25000); }   // güvenlik: bir hata olsa bile perde sonsuza dek kalmaz
+async function enterLoadHide(){ const el=$('enterLoad'); if(!el||el.style.display==='none'||el.classList.contains('off')) return; const wait=ms=>new Promise(r=>setTimeout(r,ms));
+  await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))); const left=Math.max(0,600-(performance.now()-ENTL.t0)); if(left) await wait(left); el.classList.add('off'); await wait(350); el.style.display='none'; }
+function enterGame({uid,username,character}){ enterLoadShow(); try{ $("heroPick").remove(); }catch(e){}
   charPreview(false,true);
   SAVEKEY='valkor.v1.'+uid+'.'+character.id; loadGame(); S.name=character.name; S.king=character.king|0; S.acct=username;
   initAudio(); S.hp=Math.max(S.hp,maxHP()); S.hp=maxHP(); S.sp=maxSP(); P.pos.set(0,0,7); P.yaw=Math.PI;
@@ -4545,7 +4564,7 @@ function enterGame({uid,username,character}){ try{ $("heroPick").remove(); }catc
   cam.yaw=0; cam.pitch=.8; cam.dist=11; cam.tx=P.pos.x; cam.ty=1.5; cam.tz=P.pos.z;
   say('Valkor\'a hoş geldin, '+S.name+'!','c-sys'); say('Joystick: yürü. Büyük kılıç tuşu: en yakın hedefe saldır. Çevresi: beceriler, altı: iksirler.','c-sys'); say('Mühür Taşları güçlü ödüller verir ama canavar çağırır.','c-sys');
   saveGame(); refreshWins();      // LOC_LIVE henüz false: köy başlangıcı kayıtlı konumun üzerine yazılmaz
-  restoreLoc(startLoc); prewarm();
+  restoreLoc(startLoc).finally(enterLoadHide); prewarm();
   if(coarse){ safe(()=>document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen().catch(()=>{})); safe(()=>screen.orientation&&screen.orientation.lock&&screen.orientation.lock('landscape').catch(()=>{})); }
 }
 requestAnimationFrame(frame);
