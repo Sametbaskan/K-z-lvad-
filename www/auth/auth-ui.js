@@ -21,10 +21,10 @@ const VIEWS = {
   login: () => `<h2><span>Hesap Girişi</span></h2>` + B(`
     ${fld('a_id', 'user', 'Kullanıcı adı veya e-posta', { ac: 'username' })}
     ${fld('a_pw', 'lock', 'Şifre', { type: 'password', ac: 'current-password', max: 64 })}
-    <label class="rem"><input type="checkbox" id="a_rem" checked><span></span>Beni hatırla</label>
+    <div class="arow"><label class="rem"><input type="checkbox" id="a_rem" checked><span></span>Beni hatırla</label><a href="#" class="chip" data-v="forgot">Şifremi Unuttum</a></div>
     <div class="amsg" id="a_msg" role="alert"></div>
     <button class="abtn" id="a_go" type="submit"><i>Giriş Yap</i></button>`) +
-    `<div class="alinks"><a href="#" data-v="register">Hesap Oluştur</a><a href="#" data-v="forgot">Şifremi Unuttum</a></div>`,
+    `<div class="alinks one"><a href="#" data-v="register">Hesap Oluştur</a></div>`,
   register: () => `<h2><span>Hesap Oluştur</span></h2>` + B(`
     ${fld('a_user', 'user', 'Kullanıcı adı (3-16: harf, rakam, _)', { ac: 'username', max: 16 })}
     ${fld('a_mail', 'mail', 'E-posta', { type: 'email', ac: 'email', mode: 'email' })}
@@ -58,7 +58,7 @@ const VIEWS = {
 export async function mountAuth({ root, onEnter, preview = () => {}, info = () => ({ lvl: 1, guild: '' }), purge = () => {} }) {
   let state = { user: null, name: '', chars: [], ci: 0 }, view = 'login', busy = false, booted = false, registering = false;
   root.innerHTML = `<div class="abg"><i class="aimg"></i><i class="avig"></i></div>
-  <div class="ascroll"><div class="awrap"><div class="alogo"><div class="alogo-c"><h1>VALKOR</h1><p>Efsane seni bekliyor</p></div></div><form class="acard" id="a_card" novalidate></form><div class="afoot" id="a_foot"></div></div></div>
+  <div class="ascroll"><div class="awrap"><div class="abanner"><div class="alogo"><div class="alogo-c"><h1>VALKOR</h1><p>Efsane seni bekliyor</p></div></div><form class="acard" id="a_card" novalidate></form><div class="afoot" id="a_foot"></div></div></div></div>
   <div class="csel" id="c_sel"><div class="cbrand">VALKOR</div>
     <div class="ccls"><h3 id="c_cls"></h3><p id="c_sub"></p><div class="cnav"><button class="carr" id="c_l" type="button" aria-label="Önceki sınıf"><svg viewBox="0 0 10 16"><path d="M9 1 2 8l7 7" /></svg></button><div class="cdots" id="c_dots"></div><button class="carr" id="c_r" type="button" aria-label="Sonraki sınıf"><svg viewBox="0 0 10 16"><path d="M1 1l7 7-7 7" /></svg></button></div></div>
     <div class="cpanel"><div class="ckr"><div class="cflag" id="c_flag"></div><div class="cstk"><div class="cbox" id="c_king"></div><div class="cbox" id="c_guild"></div></div></div>
