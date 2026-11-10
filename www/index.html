@@ -3668,7 +3668,7 @@ function updateLake(dt){ if(MAP.id!=='forest'||!LAKE_NRM) return; LAKE_NRM.offse
 function buildForestExtras(){
   const Yo=new THREE.Object3D(), boxes=[], cyls=[], rc=new THREE.Color();
   const col=()=>{ rc.setHSL(rr(.17,.3),rr(.06,.2),rr(.36,.55)); return rc.clone(); };
-  for(const [cx,cz] of F_RUINS){ const y0=hAt(cx,cz), rot=rr(0,6.283), cr=Math.cos(rot), sr=Math.sin(rot); const W=(lx,lz)=>[cx+lx*cr+lz*sr,cz-lx*sr+lz*cr];
+  for(const [cx,cz] of F_RUINS.filter((_,i)=>i===1)){ const y0=hAt(cx,cz), rot=rr(0,6.283)   /* boss harabelerinin (0 ve 2) taş/sütun süsleri kaldırıldı; yalnız boss olmayan harabe duruyor */, cr=Math.cos(rot), sr=Math.sin(rot); const W=(lx,lz)=>[cx+lx*cr+lz*sr,cz-lx*sr+lz*cr];
     boxes.push({p:[cx,y0+.15,cz],s:[8.4,.3,8.4],r:[0,rot,0],c:col()});
     for(const [lx,lz] of [[-3.7,-3.7],[3.7,-3.7],[-3.7,3.7],[3.7,3.7]]){ if(rnd01()<.2) continue; const h=rr(1.3,3.4), [wx,wz]=W(lx,lz); cyls.push({p:[wx,y0+.3+h/2,wz],s:[.95,h,.95],r:[0,rr(0,6),0],c:col()}); addObstacle(wx,wz,.6); }
     for(const lx of [-2.5,.4,2.7]){ const hh=rr(.9,1.9), [wx,wz]=W(lx,-3.8); boxes.push({p:[wx,y0+.3+hh/2,wz],s:[2.2,hh,.5],r:[0,rot,0],c:col()}); addObstacle(wx,wz,1.1); }
@@ -4380,7 +4380,8 @@ function buildDesertDecor(){
   for(const p of DPONDS){ const wm=new THREE.Mesh(new THREE.CircleGeometry(p[2]*1.12,28),new THREE.MeshLambertMaterial({color:0x237a8c,transparent:true,opacity:.9})); wm.rotation.x=-Math.PI/2; wm.position.set(p[0],DWL,p[1]); scene.add(wm); addObstacle(p[0],p[1],p[2]*.55); obstacles[obstacles.length-1].lake=true; }
   // harabeler: sütunlar, duvar kalıntıları, moloz; boss harabelerinde ayrıca iri kaburga kemikleri
   { const cyls=[],boxes=[]; const sc=()=>new THREE.Color().setHSL(rr(.09,.12),rr(.3,.42),rr(.55,.7));
-    D_RUINS.forEach((c,ri)=>{ const [cx,cz]=c, y0=hDesert(cx,cz), rot=rr(0,6.28), W=(lx,lz)=>[cx+lx*Math.cos(rot)+lz*Math.sin(rot),cz-lx*Math.sin(rot)+lz*Math.cos(rot)];
+    D_RUINS.forEach((c,ri)=>{ if(ri<3) return;   // boss harabelerinde (ilk üç) sütun/duvar/kaburga süsü yok
+      const [cx,cz]=c, y0=hDesert(cx,cz), rot=rr(0,6.28), W=(lx,lz)=>[cx+lx*Math.cos(rot)+lz*Math.sin(rot),cz-lx*Math.sin(rot)+lz*Math.cos(rot)];
       for(const [lx,lz] of [[-5,-5],[5,-5],[-5,5],[5,5],[0,-5.4],[0,5.4],[-5.4,0],[5.4,0]]){ if(rnd01()<.15) continue; const h=rr(1.4,4.6), [wx,wz]=W(lx,lz); cyls.push({p:[wx,y0+h/2,wz],s:[1.0,h,1.0],r:[0,rr(0,6),rnd01()<.2?rr(-.14,.14):0],c:sc()}); cyls.push({p:[wx,y0+.12,wz],s:[1.4,.24,1.4],r:[0,0,0],c:sc()}); addObstacle(wx,wz,.62); }
       for(const lx of [-3.3,.1,3.2]){ const hh=rr(.8,1.9), [wx,wz]=W(lx,-5.7); boxes.push({p:[wx,y0+hh/2,wz],s:[2.5,hh,.55],r:[0,rot,0],c:sc()}); addObstacle(wx,wz,1.2); }
       for(const lz of [-2.2,2.6]){ const hh=rr(.7,1.5), [wx,wz]=W(-5.9,lz); boxes.push({p:[wx,y0+hh/2,wz],s:[.55,hh,2.7],r:[0,rot,0],c:sc()}); addObstacle(wx,wz,1.2); }
@@ -4519,7 +4520,8 @@ function buildSnowDecor(){
   for(let i=0;i<SLAKES.length;i++){ const p=SLAKES[i]; const wm=new THREE.Mesh(new THREE.CircleGeometry(p[2]*1.12,32),new THREE.MeshStandardMaterial({color:0xbfe3f5,roughness:.12,metalness:.15,transparent:true,opacity:.93})); wm.rotation.x=-Math.PI/2; wm.position.set(p[0],S_LAKE_H[i]+.2,p[1]); wm.receiveShadow=true; scene.add(wm); addObstacle(p[0],p[1],p[2]*.6); obstacles[obstacles.length-1].lake=true; }
   // boss sunakları: yıkık taş halkası, orta kaide, çatlak anıt taşları
   { const slate=new THREE.Color(0x4d5560), cap=new THREE.Color(0xf4f8fc), mono=[], caps=[], dais=[];
-    S_SITES.forEach((s,si)=>{ const [cx,cz]=s, y0=S_SITE_H[si]*smooth(FOREST_CLEAR-2,FOREST_CLEAR+14,Math.hypot(cx,cz)), rot=rr(0,6.28), n=8;
+    S_SITES.forEach((s,si)=>{ if(si<3) return;   // boss sunaklarında (ilk üç) taş halka/kaide/anıt taşı yok
+      const [cx,cz]=s, y0=S_SITE_H[si]*smooth(FOREST_CLEAR-2,FOREST_CLEAR+14,Math.hypot(cx,cz)), rot=rr(0,6.28), n=8;
       for(let i=0;i<n;i++){ if(R()<.12) continue; const a=rot+i/n*6.283, d=7.2, h=rr(2.6,5.6), x=cx+Math.cos(a)*d, z=cz+Math.sin(a)*d, tilt=R()<.25?rr(-.18,.18):0, y=hSnow(x,z);
         mono.push({m:TM(x,y+h/2-.2,z,tilt,a,tilt*.5,1.3,h,.95),c:slate.clone().multiplyScalar(rr(.8,1.15))}); caps.push({m:TM(x,y+h-.15,z,tilt,a,tilt*.5,1.45,.28,1.1)}); addObstacle(x,z,.85); }
       dais.push({m:TM(cx,y0+.15,cz,0,0,0,1,1,1)});
