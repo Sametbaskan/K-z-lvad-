@@ -1,0 +1,1 @@
+hero_cut.json / cc/cut.json: Mixamo "Standing Melee Run Jump Attack" (kullanici yukledi, Mixamo kosullari). Guclu Vurus icin.
