@@ -1,0 +1,4 @@
+sand_worm.glb — Kum Solucanı Sarhan (Zahrak Çölü boss'u).
+Kaynak: kullanıcının sağladığı "Cyclostome Agaricus" paketi (mesh adı: Meshy_AI_Moonrot_Leviathan, Meshy AI ile üretilmiş).
+Değişiklikler: 310.426 → ~7.000 üçgene indirildi; doku yoktu, renkler kodda üretilir; iskelet, deri ağırlıkları ve animasyonlar oyun kodunda oluşturulur.
+Lisans: Meshy AI planına bağlı (ücretsiz plan genelde CC BY 4.0); kullanıcıdan teyit edilecek, gerekirse kredi buraya eklenecek.
