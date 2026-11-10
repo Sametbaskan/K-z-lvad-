@@ -2967,6 +2967,21 @@ function updateDash(dt){
   const d=P.dash; d.t+=dt; d.tr-=dt; if(d.tr<=0){ d.tr=.035; dashTrailFx(d.dx,d.dz); }
   dashSweep(); if(d.t>=d.dur) endDash();
 }
+/* ---- normal saldırı: çoklu hedef (yerde ve binekte aynı; yön = P.yaw) ---- */
+const ATK_MULTI={max:4, range:4.5, cone:Math.PI*2/3};   // en çok hedef, menzil (m), toplam koni açısı (120°) — ileride ayarlanabilir
+function meleeTargets(f){
+  const out=[], t=P.target, M=ATK_MULTI;
+  if(t&&!t.dead){ const dd=Math.hypot(t.group.position.x-P.pos.x,t.group.position.z-P.pos.z); if(dd<=t.T.scale*.7+2.6+(t.type==='stone'?1.2:0)+(t.T.boss?.6:0)) out.push(t); }   // seçili hedef önceliklidir
+  if(out.length>=M.max) return out;
+  const c=[], r2=(M.range+3)*(M.range+3), half=M.cone/2;
+  for(const m of mobs){ if(m===t||m.dead||(m.fade>0&&m.state==='dead')) continue;
+    const dx=m.group.position.x-P.pos.x, dz=m.group.position.z-P.pos.z; if(dx*dx+dz*dz>r2) continue;   // ucuz ön eleme
+    const d=Math.hypot(dx,dz)-m.T.scale*.5; if(d>M.range) continue; if(Math.abs(wrap(Math.atan2(dx,dz)-f))>half) continue;
+    c.push({m,d}); }
+  c.sort((x,y)=>x.d-y.d);
+  for(let i=0;i<c.length&&out.length<M.max;i++) out.push(c[i].m);
+  return out;
+}
 function doAttackHit(){
   const a=P.atk; a.hit=true; SFX.swing(); const f=P.yaw; const id=a.skill, v=id?skv(id):null, fl=id?skFx(id):1, sr=1+(fl-1)*.5; FXL=fl;
   if(id==='cut'){
@@ -2997,11 +3012,8 @@ function doAttackHit(){
     say(`Buz Kalkanı: ${S.shield} hasar emer.`,'c-sys');
   } else {
     slashArc(P.pos,f,2.8,1.9,0xffffff,1.15,.22,.3);
-    // hedef yalnızca hasarı belirler: seçili hedef menzildeyse ona; hedef yoksa önündeki en yakın canavara; menzil dışıysa hasar yok
-    const t=P.target; let hm=null;
-    if(t&&!t.dead){ const dd=Math.hypot(t.group.position.x-P.pos.x,t.group.position.z-P.pos.z); if(dd<=t.T.scale*.7+2.6+(t.type==='stone'?1.2:0)+(t.T.boss?.6:0)) hm=t; }
-    else if(!t){ const l=mobsIn(3.4,f,2.2).sort((x,y)=>Math.hypot(x.group.position.x-P.pos.x,x.group.position.z-P.pos.z)-Math.hypot(y.group.position.x-P.pos.x,y.group.position.z-P.pos.z)); if(l.length) hm=l[0]; }
-    if(hm) playerHit(hm,1);
+    // çoklu hedef: seçili hedef (menzildeyse) + önündeki koni içindeki en yakın canavarlar; her canavar bu vuruştan yalnızca bir kez hasar alır
+    for(const m of meleeTargets(f)) playerHit(m,1);
   }
   if(id&&skIsP(id)) perfectFx();
 }
