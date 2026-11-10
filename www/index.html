@@ -3466,7 +3466,10 @@ function vStall(x,z,ry,cloth,goods){ vFrame(x,z,ry); vBox(0,.45,.15,2.8,.9,1.0,C
   const G=[0xa33a22,0x57803a,0xc09a30,0x5c6fa0,0x8a4a7a,0x7a5a3a]; for(let i=0;i<5;i++){ const c=G[(goods+i)%G.length]; if(goods%2) vBox(-1+i*.5,1.1+.1,.1,.34,.22,.3,c); else vP(GS,-1+i*.5,1.2,.1,c,{sx:.2,sy:.17,sz:.2}); }
   vBox(1.9,.35,-.6,.7,.7,.7,C.woodL); vCyl(-1.9,.45,-.5,.4,.9,C.wood);
   addObstacle(...loc(x,z,ry,-.85,.2),1.1); addObstacle(...loc(x,z,ry,.85,.2),1.1); VLIST.push({name:'tezgah',x,z,w:3.4,d:2.3,ry,kind:'stall'}); }
-function vFountain(){ vFrame(0,0,0,hAt(0,0)); vCyl(0,.45,0,3.7,.9,C.stone); vCyl(0,.9,0,3.2,.1,0x1c4a60,{e:1}); vCyl(0,.5,0,3.95,.5,C.stoneD); vCyl(0,1.5,0,.8,2.0,C.stoneL); vCyl(0,2.55,0,1.7,.35,C.stone); vCyl(0,2.75,0,1.4,.08,0x1c4a60,{e:1}); vCyl(0,3.4,0,.28,1.3,C.stoneL); vP(GS,0,4.2,0,0x8a7440,{sx:.34,sy:.34,sz:.34});
+let FOUNT=null, FW_Y=1.6, FW_R=2.8; const FOUNT_S=1.2;   // model 6,4 m genişlik → ≈7,7 m
+function vFountain(){ if(FOUNT){ const f=FOUNT.clone(true), y=hAt(0,0); f.scale.setScalar(FOUNT_S); f.position.set(0,y,0); f.traverse(o=>{ if(o.isMesh){ o.castShadow=!coarse; o.receiveShadow=true; } }); scene.add(f);
+    vFrame(0,0,0,y); vCyl(0,FW_Y,0,FW_R,.05,0x1c4a60,{e:1}); addObstacle(0,0,3.9); VLIST.push({name:'çeşme',x:0,z:0,w:8,d:8,ry:0,kind:'fountain'}); return; }
+  vFrame(0,0,0,hAt(0,0)); vCyl(0,.45,0,3.7,.9,C.stone); vCyl(0,.9,0,3.2,.1,0x1c4a60,{e:1}); vCyl(0,.5,0,3.95,.5,C.stoneD); vCyl(0,1.5,0,.8,2.0,C.stoneL); vCyl(0,2.55,0,1.7,.35,C.stone); vCyl(0,2.75,0,1.4,.08,0x1c4a60,{e:1}); vCyl(0,3.4,0,.28,1.3,C.stoneL); vP(GS,0,4.2,0,0x8a7440,{sx:.34,sy:.34,sz:.34});
   for(let i=0;i<8;i++){ const a=i/8*6.283; vBox(Math.cos(a)*3.7,1.0,Math.sin(a)*3.7,.5,.5,.5,C.stoneL,{ry:-a}); } addObstacle(0,0,4.1); VLIST.push({name:'çeşme',x:0,z:0,w:8,d:8,ry:0,kind:'fountain'}); }
 function vGatehouse(sg){   // sg=+1 güney (+z), -1 kuzey; sur kapısı: iki taş sütun, üst kiriş, sancaklar
   const z0=sg*VR; vFrame(0,z0,0);
@@ -4605,6 +4608,7 @@ async function boot(){
     setupPlayer(hero,HJ); try{ const th=await get('models/horse.glb.b64.txt',()=>{}); const hg=await new Promise((ok,no)=>new GLTFLoader().parse(dec(th),'',ok,no)); setupMount(hg); }catch(e){ console.error('[At] Warhorse Lite yüklenemedi, binek devre dışı:',e); MOUNT.ready=false; }
     if(tm){ try{ const mb=atob(tm.trim()); const mu=new Uint8Array(mb.length); for(let i=0;i<mb.length;i++) mu[i]=mb.charCodeAt(i); prepMaw(L.parse(mu.buffer,''),b); }catch(e){ console.warn('Maw yüklenemedi, eski ork kullanılacak',e); MAW=null; } }
     try{ const tl=await get('models/street_lamp.glb.b64.txt',()=>{}); prepLamp(await new Promise((ok,no)=>new GLTFLoader().parse(dec(tl),'',ok,no))); }catch(e){ LAMP=null; console.warn('[Lamba] model yüklenemedi, meşale kullanılacak:',e&&e.message||e); }
+    try{ const tf=await get('models/medieval_fountain.glb.b64.txt',()=>{}); FOUNT=(await new Promise((ok,no)=>new GLTFLoader().parse(dec(tf),'',ok,no))).scene; }catch(e){ FOUNT=null; console.warn('[Çeşme] model yüklenemedi, eski çeşme kullanılacak:',e&&e.message||e); }
     try{ const ta=await get('models/archway.b64.txt',()=>{}); const ag=await new Promise((ok,no)=>new GLTFLoader().parse(dec(ta),'',ok,no)); ARCH=ag.scene; }catch(e){ console.error('[Geçit] kemer modeli yüklenemedi, eski kapı kullanılacak:',e); }
     try{ const cj=JSON.parse(await get('models/castle.json',()=>{})), parts={}; for(const k in cj) parts[k]=await new Promise((ok,no)=>new GLTFLoader().parse(dec(cj[k]),'',ok,no)); prepCastle(parts); }catch(e){ CASTLE=null; console.error('[Sur] Castle Siege kiti yüklenemedi, eski sur kullanılacak:',e); }
     try{ for(const [k,n] of [['av','Avonmere_House_II'],['wh','Wolfhold_Barracks_II'],['gl','Granite_Legion_Watchtower_III']]){ const tb=await get('models/'+n+'.b64.txt',()=>{}); prepBuilding(k,await new Promise((ok,no)=>new GLTFLoader().parse(dec(tb),'',ok,no))); } }catch(e){ console.error('[Köy] bina modelleri yüklenemedi:',e); }
