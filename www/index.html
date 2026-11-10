@@ -12,6 +12,7 @@
   --slot:clamp(34px,9.2vw,46px);
   color-scheme:dark;
 }
+html{-webkit-tap-highlight-color:transparent}
 html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);overflow:hidden;overscroll-behavior:none}
 body{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 #view{position:fixed;inset:0;width:100%;height:100%;display:block;outline:none}
@@ -256,8 +257,9 @@ body{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-c
 #slots .slot .k{display:none} #slots .slot .n{right:50%;transform:translateX(50%);bottom:-1px;font-size:11px} #slots .slot .mp{left:50%;transform:translateX(-50%);bottom:-1px;font-size:9px} #slots .slot .lv{right:50%;transform:translateX(50%);top:-1px;font-size:9px}
 #slots .slot.pot .n{bottom:2px}
 #atkBtn{position:absolute;pointer-events:auto;right:calc(var(--ar) - var(--u)*1.15);bottom:calc(var(--ab) - var(--u)*1.15);width:calc(var(--u)*2.3);height:calc(var(--u)*2.3);border-radius:50%;border:3px solid #c8a24a;
-  background:radial-gradient(circle at 38% 30%,#6a2a18,#2a0f08 70%);box-shadow:0 0 0 2px #1a1209,0 4px 10px #000,inset 0 0 14px #000;padding:0;display:grid;place-items:center;touch-action:manipulation;cursor:pointer}
-#atkBtn img{width:58%;height:auto;max-height:70%;object-fit:contain;pointer-events:none;filter:drop-shadow(0 2px 3px #000)} #atkBtn:active{filter:brightness(1.35);transform:scale(.96)}
+  background:radial-gradient(circle at 38% 30%,#6a2a18,#2a0f08 70%);box-shadow:0 0 0 2px #1a1209,0 4px 10px #000,inset 0 0 14px #000;padding:0;display:grid;place-items:center;touch-action:none;cursor:pointer;-webkit-tap-highlight-color:transparent;outline:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+#atkBtn:focus,#atkBtn:focus-visible{outline:none} #atkBtn::selection,#atkBtn *::selection{background:transparent}
+#atkBtn img{-webkit-user-drag:none;width:58%;height:auto;max-height:70%;object-fit:contain;pointer-events:none;filter:drop-shadow(0 2px 3px #000)} #atkBtn:active{filter:brightness(1.35);transform:scale(.96)}
 #joyBase{position:absolute;pointer-events:auto;left:var(--sl);bottom:var(--pb);width:clamp(96px,33vh,150px);aspect-ratio:1;border-radius:50%;z-index:3;touch-action:none;
   border:3px solid rgba(200,162,74,.75);background:radial-gradient(circle,rgba(30,20,10,.35),rgba(10,7,4,.6));box-shadow:0 0 0 2px #1a1209,inset 0 0 18px #000}
 #joyBase::before{content:"";position:absolute;inset:18%;border-radius:50%;border:1px dashed rgba(255,226,150,.25)}
@@ -1534,7 +1536,7 @@ function loadGame(){ try{ initInv(); }catch(e){} const d=safe(()=>JSON.parse(loc
 const playerGroup = new THREE.Group(); scene.add(playerGroup);
 const P = { pos:playerGroup.position, yaw:Math.PI, dest:null, target:null, anim:'idle', turn:null, turnOut:null, atk:null, flinch:0, spin:null, lastAtk:0, moving:false, velKick:0 };
 /* ---- Metin2 mobil saldırı butonu: dokun = en yakın hedefi seç (pasif), basılı tut = otomatik yaklaş + saldır ---- */
-let ATK_HOLD=false, ATK_PTR=null, ATK_NOMSG=false;
+let ATK_HOLD=false, ATK_PTR=null, ATK_NOMSG=false, ATK_TAP=-9;   // ATK_TAP: son dokunuş zamanı (bir kareden kısa dokunuş kaybolmasın)
 const nearMobs=rng=>mobs.filter(m=>!m.dead&&Math.hypot(m.group.position.x-P.pos.x,m.group.position.z-P.pos.z)<rng).sort((a,b)=>Math.hypot(a.group.position.x-P.pos.x,a.group.position.z-P.pos.z)-Math.hypot(b.group.position.x-P.pos.x,b.group.position.z-P.pos.z));
 let HAS3=false, A3META=null, atkAlt=0, lastDmgAnim=0; const ATK_TS=1.3;   // Human Melee Animations (retarget edilmiş): models/anim3.json
 let COMBO=null; const COMBO_TS=1.5;   // One_Hand_Club_Combo: oynatma hızı ve vuruş anları (kol hızı tepelerinden)
@@ -3206,11 +3208,12 @@ SLOT_DEF.forEach((id,i)=>{ const sk=SK[i]; const d=document.createElement('div')
   const cancelSwing=()=>{ if(P.atk&&P.atk.combo&&!P.atk.skill) P.atk=null; };   // eski hedefe yarım kalan vuruş sürmesin
   const lock=m=>{ if(P.target!==m) cancelSwing(); P.target=m; P.dest=null; P.npc=null; P.pickT=null; P.passive=true; faceTarget(m); };
   const atk=$('atkBtn');
-  const atkOff=e=>{ if(e&&ATK_PTR!==null&&e.pointerId!==ATK_PTR) return; if(ATK_HOLD){ ATK_HOLD=false; ATK_PTR=null; ATK_NOMSG=false; cancelSwing(); } try{ if(e&&atk.hasPointerCapture(e.pointerId)) atk.releasePointerCapture(e.pointerId); }catch(_){} };
+  const atkOff=e=>{ if(e&&ATK_PTR!==null&&e.pointerId!==ATK_PTR) return; if(ATK_HOLD){ ATK_HOLD=false; ATK_PTR=null; ATK_NOMSG=false; if(!(P.atk&&P.atk.combo&&P.atk.hi<1)) cancelSwing(); }   /* ilk vuruş isabetinden önce bırakılırsa vuruş yarıda kesilmez */ try{ if(e&&atk.hasPointerCapture(e.pointerId)) atk.releasePointerCapture(e.pointerId); }catch(_){} };
   atk.addEventListener('pointerdown',e=>{ e.stopPropagation(); e.preventDefault(); if(!started||S.dead) return; initAudio();
-    try{ atk.setPointerCapture(e.pointerId); }catch(_){} ATK_HOLD=true; ATK_PTR=e.pointerId;
+    try{ atk.setPointerCapture(e.pointerId); }catch(_){} ATK_HOLD=true; ATK_PTR=e.pointerId; ATK_TAP=performance.now();
     /* serbest saldırı: buton hedef seçmez/istemez; hedef yalnızca hasarı belirler */ });
-  atk.addEventListener('pointerup',atkOff); atk.addEventListener('pointercancel',atkOff); atk.addEventListener('lostpointercapture',atkOff);
+  atk.addEventListener('contextmenu',e=>e.preventDefault()); atk.addEventListener('selectstart',e=>e.preventDefault()); atk.addEventListener('dragstart',e=>e.preventDefault());
+  atk.addEventListener('pointerup',e=>{ atkOff(e); atk.blur(); }); atk.addEventListener('pointercancel',atkOff); atk.addEventListener('lostpointercapture',atkOff);
   window.addEventListener('blur',()=>atkOff()); document.addEventListener('visibilitychange',()=>{ if(document.hidden) atkOff(); });
   $('tgtBtn').addEventListener('pointerdown',e=>{ e.stopPropagation(); e.preventDefault(); if(!started||S.dead) return;
     const l=near(30); if(!l.length){ say('Yakında hedef yok.','c-sys'); return; } const i=l.indexOf(P.target); lock(l[(i+1)%l.length]); });
@@ -3853,7 +3856,7 @@ function updatePlayer(dt){
     if(Math.hypot(ix,iz)>.2){ manual=true; if(P.target&&!P.target.dead) P.lockT=P.target; const f=new THREE.Vector3(-Math.sin(cam.yaw),0,-Math.cos(cam.yaw)), r=new THREE.Vector3(-f.z,0,f.x).multiplyScalar(-1); r.set(-Math.cos(cam.yaw),0,Math.sin(cam.yaw)); moveDir.copy(f).multiplyScalar(iz).addScaledVector(r,-ix).setY(0).normalize(); P.dest=null; P.target=null; P.npc=null; P.pickT=null; dest.visible=false; }
   }
   if(ATK_HOLD&&dead){ ATK_HOLD=false; ATK_PTR=null; }
-  const engage=ATK_HOLD||!P.passive;   // pasif (Hedef butonuyla seçilmiş) hedefe yalnızca buton basılıyken yaklaşılır/saldırılır
+  const tapOn=performance.now()-ATK_TAP<180, engage=ATK_HOLD||tapOn||!P.passive;   // pasif (Hedef butonuyla seçilmiş) hedefe yalnızca buton basılıyken yaklaşılır/saldırılır
   const busy = !!(P.atk||P.turn||P.spin||dead);
   if(!manual && !dead && !P.atk && !P.turn){
     let goal=null, stopD=.25;
@@ -3869,7 +3872,7 @@ function updatePlayer(dt){
   if(P.dash&&!dead){ moveDir.set(P.dash.dx,0,P.dash.dz); updateDash(dt); } else if(P.dash) P.dash=null;
   // saldırı başlat
   S.combat=Math.max(0,S.combat-dt);
-  const tOk=!!(P.target&&!P.target.dead), freeSw=ATK_HOLD&&!tOk;   // hedefsiz serbest saldırı: karakter baktığı yöne sallar
+  const tOk=!!(P.target&&!P.target.dead), freeSw=(ATK_HOLD||tapOn)&&!tOk;   // hedefsiz serbest saldırı: karakter baktığı yöne sallar
   if(!dead&&(freeSw||(engage&&tOk))&&!P.atk&&!P.turn&&moveDir.lengthSq()===0){
     const t=P.target; let diff=0; if(tOk){ faceTarget(t); diff=Math.abs(wrap(P.yawGoal-P.yaw)); } else P.yawGoal=P.yaw;
     if(diff<.35 && time-P.lastAtk>.85/aspd()){
