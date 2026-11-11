@@ -1,0 +1,11 @@
+<!doctype html><meta charset="utf-8"><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three'; import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
+const L=new FBXLoader(), ld=u=>new Promise((ok,no)=>L.load(u,ok,undefined,no));
+const man=await ld('kq/KinemIQ_Mannequin.fbx'); man.updateMatrixWorld(true);
+const bones=[]; man.traverse(o=>{ if(o.isBone) bones.push(o); });
+const sk=bones.map(b=>({n:b.name,p:bones.indexOf(b.parent),pos:b.position.toArray(),q:b.quaternion.toArray(),s:b.scale.toArray()}));
+const out={bones:sk,rootScale:man.scale.toArray(),clips:{}};
+for(const n of ['Run_jog_forwards','Sword_slash']){ const f=await ld('kq/FBX/'+n+'.fbx'); const c=f.animations[0]; out.clips[n]={duration:c.duration,tracks:c.tracks.map(t=>({name:t.name,times:Array.from(t.times),values:Array.from(t.values)}))}; }
+window.OUT=out; window.DONE=1;
+</script>

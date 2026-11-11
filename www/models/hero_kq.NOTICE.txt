@@ -1,0 +1,1 @@
+hero_run_kq.json / hero_cut_kq.json: KinemIQ Free Animations (CC0, Quaternius) -> Mixamo iskeletine yeniden hedeflendi (tools/anim_library/retarget). Geri almak icin index.html icinde RUN_KQ / CUT_KQ = false.
