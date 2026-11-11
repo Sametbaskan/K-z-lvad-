@@ -609,6 +609,55 @@ function buildHero(THREE, skelJson, glb, opts){
 }
 
 /* ===== Oyuncu: Mixamo "MaleBruteA" (Sword_And_Shield_Idle.fbx) — models/brute.json ===== */
+/* ===================== klasik karakter: ten + saç + yüz (HERO_LOOK=false → eski siyah görünüm) =====================
+   Gövde dokusuz ten rengine çevrilir (şort bölgesi vertex rengiyle), saç kafa üçgenlerinden şişirilmiş kabuk olarak üretilir,
+   göz/kaş/burun/ağız baş yüzeyine ışın izlenerek yerleştirilir ve Head kemiğine bağlanır (animasyonla birlikte hareket eder). */
+const HERO_LOOK=true, HAIR_COL=0x2a1b12, SKIN_COL=0xc98f70, SHORT_COL=0x2a2623;
+function dressHero(root){
+  const parts=[]; root.traverse(o=>{ if(o.isSkinnedMesh) parts.push(o); }); if(!parts.length) return;
+  const sk=parts[0].skeleton, bn=sk.bones.map(b=>b.name.replace(/^mixamorig:?/,'')), hi=bn.indexOf('Head'); if(hi<0) return;
+  const dom=(g,v)=>{ const si=g.attributes.skinIndex, sw=g.attributes.skinWeight; let b=0,bw=-1; for(let c=0;c<4;c++){ const w=sw.getComponent(v,c); if(w>bw){ bw=w; b=si.getComponent(v,c); } } return bn[b]; };
+  const sc=new THREE.Color().setRGB(((SKIN_COL>>16)&255)/255,((SKIN_COL>>8)&255)/255,(SKIN_COL&255)/255,THREE.SRGBColorSpace), kc=new THREE.Color().setRGB(((SHORT_COL>>16)&255)/255,((SHORT_COL>>8)&255)/255,(SHORT_COL&255)/255,THREE.SRGBColorSpace);
+  const ss=(a,b,x)=>{ const t=Math.min(1,Math.max(0,(x-a)/(b-a))); return t*t*(3-2*t); }, tmp=new THREE.Color();
+  for(const m of parts){ const g=m.geometry, pa=g.attributes.position, col=new Float32Array(pa.count*3);
+    for(let v=0;v<pa.count;v++){ const d=dom(g,v), y=pa.getY(v); let k=0; if(d==='Hips'||d==='LeftUpLeg'||d==='RightUpLeg'||d==='Spine') k=1-ss(70,78,y); if(y>100&&(d==='Spine')) k=0;
+      tmp.copy(sc).lerp(kc,k); col[v*3]=tmp.r; col[v*3+1]=tmp.g; col[v*3+2]=tmp.b; }
+    g.setAttribute('color',new THREE.BufferAttribute(col,3));
+    m.material=new THREE.MeshStandardMaterial({color:0xffffff,vertexColors:true,roughness:.62,metalness:0}); m.userData.skin=true; }
+  // baş üçgenleri (bağlama uzayında)
+  let hp=null; for(const m of parts){ let n=0; const g=m.geometry; for(let v=0;v<g.attributes.position.count;v++) if(dom(g,v)==='Head') n++; if(n>1000){ hp=m; break; } } if(!hp) return;
+  const g=hp.geometry, idx=g.index.array, P=g.attributes.position, N=g.attributes.normal, SI=g.attributes.skinIndex, SW=g.attributes.skinWeight;
+  const headTris=[]; for(let i=0;i<idx.length;i+=3){ if(dom(g,idx[i])==='Head'&&dom(g,idx[i+1])==='Head'&&dom(g,idx[i+2])==='Head') headTris.push(i); }
+  // saç: tepe ve ense/yanlar (yüz bölgesi hariç)
+  const hairTris=headTris.filter(i=>{ let cy=0,cz=0,cx=0; for(let k=0;k<3;k++){ cx+=P.getX(idx[i+k]); cy+=P.getY(idx[i+k]); cz+=P.getZ(idx[i+k]); } cx/=3; cy/=3; cz/=3;
+    return (cy>181.5&&cz<15)||(cy>171&&cz<-1.5)||(cy>176&&Math.abs(cx)>8.2&&cz<8); });
+  { const hp2=[],hn=[],hs=[],hw=[],hc=[],map=new Map(), hi2=[]; const rnd=(a)=>{ const x=Math.sin(a*127.1)*43758.5453; return x-Math.floor(x); };
+    for(const i of hairTris) for(let k=0;k<3;k++){ const v=idx[i+k]; if(!map.has(v)){ map.set(v,hp2.length/3); const o=.9+rnd(v)*.5; hp2.push(P.getX(v)+N.getX(v)*o,P.getY(v)+N.getY(v)*o,P.getZ(v)+N.getZ(v)*o); hn.push(N.getX(v),N.getY(v),N.getZ(v)); for(let c=0;c<4;c++){ hs.push(SI.getComponent(v,c)); hw.push(SW.getComponent(v,c)); }
+        const sh=.75+rnd(v*3.1)*.5; tmp.setRGB(((HAIR_COL>>16)&255)/255,((HAIR_COL>>8)&255)/255,(HAIR_COL&255)/255,THREE.SRGBColorSpace).multiplyScalar(sh); hc.push(tmp.r,tmp.g,tmp.b); } hi2.push(map.get(v)); }
+    const hg=new THREE.BufferGeometry(); hg.setAttribute('position',new THREE.Float32BufferAttribute(hp2,3)); hg.setAttribute('normal',new THREE.Float32BufferAttribute(hn,3)); hg.setAttribute('skinIndex',new THREE.Uint16BufferAttribute(hs,4)); hg.setAttribute('skinWeight',new THREE.Float32BufferAttribute(hw,4)); hg.setAttribute('color',new THREE.Float32BufferAttribute(hc,3)); hg.setIndex(hi2);
+    const hm=new THREE.SkinnedMesh(hg,new THREE.MeshStandardMaterial({color:0xffffff,vertexColors:true,roughness:.85,metalness:0})); hm.name='hair'; hm.frustumCulled=false; hm.castShadow=true; root.add(hm); hm.bind(sk,new THREE.Matrix4()); root.userData.hair=hm; }
+  // yüz yüzeyi: ışın izleme için statik baş ağı
+  const fg=new THREE.BufferGeometry(); fg.setAttribute('position',P); fg.setIndex(headTris.flatMap(i=>[idx[i],idx[i+1],idx[i+2]])); const fm=new THREE.Mesh(fg,new THREE.MeshBasicMaterial({side:THREE.DoubleSide})); fm.updateMatrixWorld(true);
+  const rc=new THREE.Raycaster(), hit=(x,y)=>{ rc.set(new THREE.Vector3(x,y,60),new THREE.Vector3(0,0,-1)); const r=rc.intersectObject(fm)[0]; return r?{z:r.point.z,n:r.face.normal.clone()}:null; };
+  const headInv=sk.boneInverses[hi], headBone=sk.bones[hi];
+  const place=(obj,x,y,off,tiltX,rotZ)=>{ const h=hit(x,y); if(!h) return null; const nrm=h.n.clone(); if(nrm.z<0) nrm.negate(); const q=new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,0,1),nrm.normalize());
+    const m=new THREE.Matrix4().compose(new THREE.Vector3(x,y,h.z).addScaledVector(nrm,off),q.multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(tiltX||0,0,rotZ||0))),new THREE.Vector3(1,1,1));
+    obj.matrixAutoUpdate=false; obj.matrix.copy(headInv).multiply(m); headBone.add(obj); return h; };
+  const cv=(w,h,fn)=>{ const c=document.createElement('canvas'); c.width=w; c.height=h; const x=c.getContext('2d'); fn(x,w,h); const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; t.anisotropy=4; return t; };
+  const pm=(tex,r)=>new THREE.MeshStandardMaterial({map:tex,transparent:true,alphaTest:.35,roughness:r||.5,metalness:0,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
+  const eyeT=cv(128,64,(x,w,h)=>{ x.fillStyle='#e9e4dc'; x.beginPath(); x.moveTo(6,34); x.quadraticCurveTo(w/2,-6,w-6,34); x.quadraticCurveTo(w/2,70,6,34); x.fill();
+    x.fillStyle='#4a2f1c'; x.beginPath(); x.arc(w/2,33,17,0,7); x.fill(); x.fillStyle='#0b0806'; x.beginPath(); x.arc(w/2,33,8,0,7); x.fill(); x.fillStyle='rgba(255,255,255,.85)'; x.beginPath(); x.arc(w/2+7,26,3.5,0,7); x.fill();
+    x.strokeStyle='#241711'; x.lineWidth=6; x.lineCap='round'; x.beginPath(); x.moveTo(5,35); x.quadraticCurveTo(w/2,-8,w-5,35); x.stroke(); });
+  const browT=cv(128,32,(x,w,h)=>{ const gr=x.createLinearGradient(0,0,w,0); gr.addColorStop(0,'rgba(30,18,12,.0)'); gr.addColorStop(.25,'rgba(30,18,12,1)'); gr.addColorStop(1,'rgba(30,18,12,1)'); x.fillStyle=gr; x.beginPath(); x.moveTo(2,26); x.quadraticCurveTo(w*.55,0,w-2,10); x.quadraticCurveTo(w*.55,14,2,30); x.fill(); });
+  const mouthT=cv(128,48,(x,w,h)=>{ x.fillStyle='#a8574f'; x.beginPath(); x.moveTo(4,22); x.quadraticCurveTo(w*.3,6,w/2,12); x.quadraticCurveTo(w*.7,6,w-4,22); x.quadraticCurveTo(w*.5,26,4,22); x.fill();
+    x.fillStyle='#9a4a45'; x.beginPath(); x.moveTo(6,23); x.quadraticCurveTo(w/2,44,w-6,23); x.quadraticCurveTo(w/2,28,6,23); x.fill(); x.strokeStyle='#4a1f1c'; x.lineWidth=3; x.beginPath(); x.moveTo(4,22); x.quadraticCurveTo(w/2,28,w-4,22); x.stroke(); });
+  const EY=177, EX=3.7;
+  for(const sd of [-1,1]){ const e=new THREE.Mesh(new THREE.PlaneGeometry(4.2,2.1),pm(eyeT,.25)); place(e,sd*EX,EY,.25,0,0);
+    const b=new THREE.Mesh(new THREE.PlaneGeometry(5,1.25),pm(browT,.9)); b.scale.x=sd; place(b,sd*(EX+.2),EY+3.3,.3,0,sd*.1); }
+  const mo=new THREE.Mesh(new THREE.PlaneGeometry(5.4,2.0),pm(mouthT,.45)); place(mo,0,167.8,.25,0,0);
+  const no=new THREE.Mesh(new THREE.SphereGeometry(1,16,12),new THREE.MeshStandardMaterial({color:sc,roughness:.62})); no.scale.set(1.6,2.4,1.9); place(no,0,172.6,.55,-.25,0);
+  console.info('[Karakter] ten/saç/yüz uygulandı: saç '+hairTris.length+' üçgen');
+}
 function buildBrute(J,H=1.95){
   const root=new THREE.Group(); const bn=J.bones.map(d=>{ const b=new THREE.Bone(); b.name=d.n; b.position.fromArray(d.pos); b.quaternion.fromArray(d.q); b.scale.fromArray(d.s); return b; });
   J.bones.forEach((d,i)=>{ if(d.p>=0) bn[d.p].add(bn[i]); }); root.add(bn[0]); root.updateMatrixWorld(true);
@@ -1809,7 +1858,7 @@ function updateArmorCloth(dt){ const U=CLOTH.u; let mesh=null; for(const k in AR
   U.uGround.value.set(_clB.x,_clB.y,_clB.z,-_clB.dot(_clA)); }
 /* gövde gizleme: takılı parçaların kapattığı kemik bölgelerindeki gövde üçgenleri çizilmez (zırhın içinden taşmasın) */
 function armorBody(){ let hide=new Set(); for(const k in ARMOR.on){ const p=ARMOR_PIECES[k.split('/')[1]]; if(p) p.hide.forEach(h=>hide.add(h)); }
-  const sig=[...hide].sort().join(','); if(sig===ARMOR.bodySig) return; ARMOR.bodySig=sig;
+  const sig=[...hide].sort().join(','); if(model&&model.userData&&model.userData.hair) model.userData.hair.visible=!hide.has('Head'); if(sig===ARMOR.bodySig) return; ARMOR.bodySig=sig;
   const match=n=>{ for(const h of hide){ if(h.endsWith('*')?n.startsWith(h.slice(0,-1)):n===h) return true; } return false; };
   model.traverse(o=>{ if(!o.isSkinnedMesh||o.userData.armor) return; const g=o.geometry;
     if(!o.userData.idx0) o.userData.idx0=g.index.array.slice();
@@ -4632,7 +4681,7 @@ async function boot(){
     const b=JSON.parse(tc); try{ const t2=await get('models/frog2.glb.b64.txt',()=>{}); const g2=await new Promise((ok,no)=>new GLTFLoader().parse(dec(t2),'',ok,no)); prepFrog2(g2); }catch(e){ FROG2=null; console.error('[Kurbağa] Animasyonlu kurbağa GLB yüklenemedi, yedek model kullanılacak:',e); try{ prepFrog(JSON.parse(await get('models/frog.json',()=>{}))); }catch(e2){ FROG=null; console.error('[Kurbağa] Yedek kurbağa da yüklenemedi, kurt modeli kullanılacak:',e2); } }
     let hero=null, HJ=null; try{ HJ=JSON.parse(await get('models/hero.json',()=>{})); try{ HJ.death=JSON.parse(await get('models/hero_death.json',()=>{})); }catch(e){ console.error('[Anim] hero_death.json yüklenemedi:',e); } try{ HJ.run=JSON.parse(await get('models/hero_run.json',()=>{})); }catch(e){ console.error('[Anim] hero_run.json yüklenemedi:',e); }
       try{ HJ.heal=JSON.parse(await get('models/hero_heal.json',()=>{})); }catch(e){ console.error('[Anim] hero_heal.json yüklenemedi:',e); }
-      if(ANIM_SET==='yeni'){ try{ const ni=JSON.parse(await get('models/hero_idle2.json',()=>{})), nr=JSON.parse(await get('models/hero_run3.json',()=>{})); HJ.clip=ni; HJ.run=nr; console.info('[Anim] yeni bekleme+koşu seti kullanılıyor'); if(RUN_KQ){ try{ HJ.run=JSON.parse(await get('models/hero_run_kq.json',()=>{})); console.info('[Anim] KinemIQ koşusu'); }catch(e){ console.warn('[Anim] KinemIQ koşusu yüklenemedi, önceki koşu kalıyor:',e); } } }catch(e){ console.error('[Anim] yeni set yüklenemedi, eskisi kullanılıyor:',e); } } try{ HJ.combo=JSON.parse(await get('models/hero_combo.json',()=>{})); }catch(e){ console.error('[Anim] hero_combo.json yüklenemedi:',e); } try{ HJ.powerup=JSON.parse(await get('models/hero_powerup.json',()=>{})); }catch(e){ console.error('[Anim] hero_powerup.json yüklenemedi:',e); } try{ HJ.cut=JSON.parse(await get(CUT_KQ?'models/hero_cut_kq.json':'models/hero_cut.json',()=>{})); }catch(e){ console.warn('[Anim] hero_cut.json yüklenemedi, eski vuruş kullanılacak:',e); } if(HERO_PICK==='cc'){ try{ const HC=JSON.parse(await get('models/cc/hero_cc.json',()=>{})); for(const k of ['death','run','combo','powerup','heal']) HC[k]=JSON.parse(await get('models/cc/'+k+'.json',()=>{})); try{ HC.cut=JSON.parse(await get('models/cc/cut.json',()=>{})); }catch(e){} const t0=buildBrute(HC); HJ=HC; hero=t0; console.info('[Karakter] yeni karakter (Unity/CC) yüklendi'); }catch(e){ console.error('[Karakter] yeni karakter yüklenemedi, klasik karakter kullanılıyor:',e); HERO_PICK='classic'; } } if(!hero) hero=buildBrute(HJ); }catch(e){ console.error('[Karakter] hero.json yüklenemedi:',e); }
+      if(ANIM_SET==='yeni'){ try{ const ni=JSON.parse(await get('models/hero_idle2.json',()=>{})), nr=JSON.parse(await get('models/hero_run3.json',()=>{})); HJ.clip=ni; HJ.run=nr; console.info('[Anim] yeni bekleme+koşu seti kullanılıyor'); if(RUN_KQ){ try{ HJ.run=JSON.parse(await get('models/hero_run_kq.json',()=>{})); console.info('[Anim] KinemIQ koşusu'); }catch(e){ console.warn('[Anim] KinemIQ koşusu yüklenemedi, önceki koşu kalıyor:',e); } } }catch(e){ console.error('[Anim] yeni set yüklenemedi, eskisi kullanılıyor:',e); } } try{ HJ.combo=JSON.parse(await get('models/hero_combo.json',()=>{})); }catch(e){ console.error('[Anim] hero_combo.json yüklenemedi:',e); } try{ HJ.powerup=JSON.parse(await get('models/hero_powerup.json',()=>{})); }catch(e){ console.error('[Anim] hero_powerup.json yüklenemedi:',e); } try{ HJ.cut=JSON.parse(await get(CUT_KQ?'models/hero_cut_kq.json':'models/hero_cut.json',()=>{})); }catch(e){ console.warn('[Anim] hero_cut.json yüklenemedi, eski vuruş kullanılacak:',e); } if(HERO_PICK==='cc'){ try{ const HC=JSON.parse(await get('models/cc/hero_cc.json',()=>{})); for(const k of ['death','run','combo','powerup','heal']) HC[k]=JSON.parse(await get('models/cc/'+k+'.json',()=>{})); try{ HC.cut=JSON.parse(await get('models/cc/cut.json',()=>{})); }catch(e){} const t0=buildBrute(HC); HJ=HC; hero=t0; console.info('[Karakter] yeni karakter (Unity/CC) yüklendi'); }catch(e){ console.error('[Karakter] yeni karakter yüklenemedi, klasik karakter kullanılıyor:',e); HERO_PICK='classic'; } } if(!hero) hero=buildBrute(HJ); if(HERO_PICK==='classic'&&HERO_LOOK){ try{ dressHero(hero.root); }catch(e){ console.warn('[Karakter] ten/saç/yüz uygulanamadı, eski görünüm:',e); } } }catch(e){ console.error('[Karakter] hero.json yüklenemedi:',e); }
     if(!hero) throw new Error('Karakter modeli yüklenemedi');
     try{ const tsw=await get('models/weapons/gunes_mizragi.glb.b64.txt',()=>{}); SWORD_GLB=await new Promise((ok,no)=>new GLTFLoader().parse(dec(tsw),'',ok,no)); WGLB.mizrak=SWORD_GLB; }catch(e){ console.error('[Mızrak] model yüklenemedi, yedek silah çizimi kullanılacak:',e); }
     try{ const tdw=await get('models/dwarf.b64.txt',()=>{}); DWARF_GLB=await new Promise((ok,no)=>new GLTFLoader().parse(dec(tdw),'',ok,no)); }catch(e){ console.error('[Demirci] cüce modeli yüklenemedi, eski model kullanılacak:',e); }
