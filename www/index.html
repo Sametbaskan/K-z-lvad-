@@ -1817,20 +1817,36 @@ function armorBody(){ let hide=new Set(); for(const k in ARMOR.on){ const p=ARMO
     const domOf=v=>{ let best=0,bw=-1; for(let c=0;c<4;c++){ const w=sw.getComponent(v,c); if(w>bw){ bw=w; best=si.getComponent(v,c); } } return bn[best]; };
     for(let i=0;i<src.length;i+=3){ const a=src[i],b=src[i+1],c=src[i+2]; if(hide.size&&match(domOf(a))&&match(domOf(b))&&match(domOf(c))) continue; out.push(a,b,c); }
     g.setIndex(out); }); }
-const ARMOR_FIT=1.6;   // cc gövdesi için zırh şişirme (bağlama uzayı birimi ≈ cm)
+/* zırh köşelerini kaynak (klasik) bind pozundan hedef karakterin bind pozuna kemik kemik taşır: v' = Σ w·(Hedef_i · Kaynak_i⁻¹)·v
+   Kaynak ve hedef iskeletin eklem konumları aynıysa (klasik karakter) matrisler birim olur ve geometri değişmez. */
+function retargetArmorGeo(g, srcSk, dstSk, map){
+  if(HERO_PICK!=='cc') return false;   // klasik karakter: eski, çalışan davranış aynen korunur
+  const n=srcSk.bones.length, M=[]; let same=true; const _m=new THREE.Matrix4();
+  for(let i=0;i<n;i++){ const d=map[i]; if(d==null||d<0){ M.push(null); continue; }
+    const m=dstSk.boneInverses[d].clone().invert().multiply(srcSk.boneInverses[i]); M.push(m);
+    for(let e=0;e<16;e++){ if(Math.abs(m.elements[e]-(e%5===0?1:0))>1e-4){ same=false; break; } } }
+  if(same) return false;
+  const pa=g.attributes.position, na=g.attributes.normal, si=g.attributes.skinIndex, sw=g.attributes.skinWeight, v=new THREE.Vector3(), nv=new THREE.Vector3(), ro=new THREE.Vector3(), rn=new THREE.Vector3();
+  const nm=M.map(m=>m?new THREE.Matrix3().getNormalMatrix(m):null);
+  for(let k=0;k<pa.count;k++){ v.fromBufferAttribute(pa,k); ro.set(0,0,0); if(na){ nv.fromBufferAttribute(na,k); rn.set(0,0,0); } let ws=0;
+    for(let c=0;c<4;c++){ const w=sw.getComponent(k,c); if(w<=0) continue; const m=M[si.getComponent(k,c)]; if(!m) continue; ws+=w;
+      ro.addScaledVector(_v1.copy(v).applyMatrix4(m),w); if(na) rn.addScaledVector(_v2.copy(nv).applyMatrix3(nm[si.getComponent(k,c)]),w); }
+    if(ws>0){ ro.divideScalar(ws); pa.setXYZ(k,ro.x,ro.y,ro.z); if(na&&rn.lengthSq()>0){ rn.normalize(); na.setXYZ(k,rn.x,rn.y,rn.z); } } }
+  pa.needsUpdate=true; if(na) na.needsUpdate=true; g.computeBoundingSphere(); return true; }
+const _v1=new THREE.Vector3(), _v2=new THREE.Vector3();
 function attachArmor(k){ let hs=null; model.traverse(o=>{ if(!hs&&o.isSkinnedMesh&&!o.userData.armor) hs=o; }); if(!hs) return;
   const sk=hs.skeleton, idx=new Map(sk.bones.map((b,i)=>[b.name,i])), list=[];
   const bi=b=>{ for(let x=b;x;x=x.parent){ if(idx.has(x.name)) return idx.get(x.name); } return 0; };   // eşleşmeyen kemik → en yakın eşleşen ata kemik
   ARMOR.glb[k].scene.traverse(o=>{ if(!o.isSkinnedMesh) return;
     const set=k.split('/')[0], own=ARMOR_SETS[set]&&ARMOR_SETS[set].ownBind;
-    if(own){ const bones=o.skeleton.bones.map(b=>sk.bones[bi(b)]);
+    if(own){ const mp=o.skeleton.bones.map(bi), bones=mp.map(x=>sk.bones[x]), og=o.geometry.clone(); retargetArmorGeo(og,o.skeleton,sk,mp);
       const mats=(Array.isArray(o.material)?o.material:[o.material]).map(mt=>armorMat(mt,set));
-      const m=new THREE.SkinnedMesh(o.geometry.clone(),mats.length>1?mats:mats[0]); m.name='armor:'+k; m.userData.armor=k; m.frustumCulled=false; m.castShadow=true;
-      hs.parent.add(m); m.bind(new THREE.Skeleton(bones,o.skeleton.boneInverses.map(x=>x.clone())),hs.bindMatrix.clone()); list.push(m);   // kendi duruşunda bağlı: tek karışım
+      const m=new THREE.SkinnedMesh(og,mats.length>1?mats:mats[0]); m.name='armor:'+k; m.userData.armor=k; m.frustumCulled=false; m.castShadow=true;
+      hs.parent.add(m); m.bind(new THREE.Skeleton(bones,HERO_PICK==='cc'?mp.map(x=>sk.boneInverses[x].clone()):o.skeleton.boneInverses.map(x=>x.clone())),hs.bindMatrix.clone()); list.push(m);   // kendi duruşunda bağlı: tek karışım
       const cg=o.userData&&o.userData.cloth; if(ARMOR_SETS[set].cloth&&cg){ m.userData.clothGrid=cg; m.userData.hipsIdx=bones.findIndex(b=>/Hips$/.test(b.name)); clothMaterial(mats[0],ARMOR_SETS[set].glow||0xffb040,cg); CLOTH.p=null; }
       return; }
     const g=o.geometry.clone(), si=g.attributes.skinIndex, map=o.skeleton.bones.map(bi);
-    if(HERO_PICK==='cc'&&ARMOR_FIT>0){ const pa=g.attributes.position, na=g.attributes.normal; if(na){ for(let i=0;i<pa.count;i++) pa.setXYZ(i,pa.getX(i)+na.getX(i)*ARMOR_FIT,pa.getY(i)+na.getY(i)*ARMOR_FIT,pa.getZ(i)+na.getZ(i)*ARMOR_FIT); pa.needsUpdate=true; } }   // yeni karakterin gövdesi daha iri: zırhı dışa doğru şişir (cm)
+    retargetArmorGeo(g,o.skeleton,sk,map);
     const arr=new Uint16Array(si.count*4); for(let i=0;i<si.count;i++) for(let c=0;c<4;c++) arr[i*4+c]=Math.max(0,map[si.getComponent(i,c)]);
     g.setAttribute('skinIndex',new THREE.Uint16BufferAttribute(arr,4));
     const mats=(Array.isArray(o.material)?o.material:[o.material]).map(mt=>armorMat(mt,set));
