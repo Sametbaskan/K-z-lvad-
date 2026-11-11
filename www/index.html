@@ -1624,7 +1624,7 @@ function paintMesh(mesh){
 }
 function styleMesh(mesh){
   const list=Array.isArray(mesh.material)?mesh.material:[mesh.material];
-  const out=list.map(mt=>{ const n=new THREE.MeshStandardMaterial({map:mt.map||null,normalMap:mt.normalMap||null,color:mt.map?0xffffff:(mt.color||0xcccccc),roughness:.62,metalness:.12,side:THREE.DoubleSide,alphaTest:mt.map?.35:0,envMapIntensity:.8});
+  const out=list.map(mt=>{ const n=new THREE.MeshStandardMaterial({map:mt.map||null,normalMap:mt.normalMap||null,color:mt.map?0xffffff:(mt.color||0xcccccc),roughness:.62,metalness:.12,side:THREE.DoubleSide,alphaTest:mt.map?.35:0,envMapIntensity:.8,vertexColors:!!mt.vertexColors});
     if(n.map){ n.map.colorSpace=THREE.SRGBColorSpace; n.map.anisotropy=4; } return n; });
   mesh.material=Array.isArray(mesh.material)?out:out[0]; mesh.castShadow=true; mesh.frustumCulled=false;
 }
