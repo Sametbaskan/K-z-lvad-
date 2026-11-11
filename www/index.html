@@ -1821,10 +1821,14 @@ function armorBody(){ let hide=new Set(); for(const k in ARMOR.on){ const p=ARMO
    Kaynak ve hedef iskeletin eklem konumları aynıysa (klasik karakter) matrisler birim olur ve geometri değişmez. */
 function retargetArmorGeo(g, srcSk, dstSk, map, has){
   if(HERO_PICK!=='cc') return false;   // klasik karakter: eski, çalışan davranış aynen korunur
-  const n=srcSk.bones.length, M=[]; let same=true; const _m=new THREE.Matrix4();
+  const n=srcSk.bones.length, M=[]; let same=true;
+  const fb=(sk,re)=>sk.bones.findIndex(b=>re.test(b.name)); let sp=null;
+  { const a=fb(srcSk,/Hips$/), b=fb(srcSk,/Neck$/), c=fb(dstSk,/Hips$/), d=fb(dstSk,/Neck$/); if(a>=0&&b>=0&&c>=0&&d>=0) sp={sH:_rp(srcSk,a),sN:_rp(srcSk,b),dH:_rp(dstSk,c),dN:_rp(dstSk,d)}; }
   for(let i=0;i<n;i++){ const d=map[i]; if(d==null||d<0){ M.push(null); continue; }
     let si0=i; if(has&&!has.has(srcSk.bones[i].name)){ for(let x=srcSk.bones[i].parent;x;x=x.parent){ if(has.has(x.name)){ const q=srcSk.bones.indexOf(x); if(q>=0) si0=q; break; } } }   // karşılığı olmayan kemik: eşleşen atasının bind'i kullanılır
-    const m=dstSk.boneInverses[d].clone().invert().multiply(srcSk.boneInverses[si0]); M.push(m);
+    let m; { const a=_rp(srcSk,si0), b=_rp(dstSk,d); m=new THREE.Matrix4().makeTranslation(b.x-a.x,b.y-a.y,b.z-a.z); }   // yalnızca eklem konumu farkı (kemik eksen yönleri iskeletler arasında farklı olabilir; geometriye dönüş uygulanmaz)
+    if(sp&&/Spine[12]?$/.test(srcSk.bones[si0].name)){ const P=_rp(srcSk,si0), f=(P.y-sp.sH.y)/(sp.sN.y-sp.sH.y); m=new THREE.Matrix4().makeTranslation(0, sp.dH.y+f*(sp.dN.y-sp.dH.y)-P.y, sp.dH.z+f*(sp.dN.z-sp.dH.z)-P.z); }   // omurga: CC'de Spine2 çok aşağıda; Hips→Boyun oranına göre anatomik karşılık
+    M.push(m);
     for(let e=0;e<16;e++){ if(Math.abs(m.elements[e]-(e%5===0?1:0))>1e-4){ same=false; break; } } }
   if(same) return false;
   const pa=g.attributes.position, na=g.attributes.normal, si=g.attributes.skinIndex, sw=g.attributes.skinWeight, v=new THREE.Vector3(), nv=new THREE.Vector3(), ro=new THREE.Vector3(), rn=new THREE.Vector3();
@@ -1834,7 +1838,7 @@ function retargetArmorGeo(g, srcSk, dstSk, map, has){
       ro.addScaledVector(_v1.copy(v).applyMatrix4(m),w); if(na) rn.addScaledVector(_v2.copy(nv).applyMatrix3(nm[si.getComponent(k,c)]),w); }
     if(ws>0){ ro.divideScalar(ws); pa.setXYZ(k,ro.x,ro.y,ro.z); if(na&&rn.lengthSq()>0){ rn.normalize(); na.setXYZ(k,rn.x,rn.y,rn.z); } } }
   pa.needsUpdate=true; if(na) na.needsUpdate=true; g.computeBoundingSphere(); return true; }
-const _v1=new THREE.Vector3(), _v2=new THREE.Vector3();
+const _v1=new THREE.Vector3(), _v2=new THREE.Vector3(); function _rp(sk,i){ return new THREE.Vector3().setFromMatrixPosition(sk.boneInverses[i].clone().invert()); }
 function attachArmor(k){ let hs=null; model.traverse(o=>{ if(!hs&&o.isSkinnedMesh&&!o.userData.armor) hs=o; }); if(!hs) return;
   const sk=hs.skeleton, idx=new Map(sk.bones.map((b,i)=>[b.name,i])), list=[];
   const bi=b=>{ for(let x=b;x;x=x.parent){ if(idx.has(x.name)) return idx.get(x.name); } return 0; };   // eşleşmeyen kemik → en yakın eşleşen ata kemik
