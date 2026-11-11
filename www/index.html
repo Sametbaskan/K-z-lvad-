@@ -1819,21 +1819,22 @@ function armorBody(){ let hide=new Set(); for(const k in ARMOR.on){ const p=ARMO
     g.setIndex(out); }); }
 function attachArmor(k){ let hs=null; model.traverse(o=>{ if(!hs&&o.isSkinnedMesh&&!o.userData.armor) hs=o; }); if(!hs) return;
   const sk=hs.skeleton, idx=new Map(sk.bones.map((b,i)=>[b.name,i])), list=[];
+  const bi=b=>{ for(let x=b;x;x=x.parent){ if(idx.has(x.name)) return idx.get(x.name); } return 0; };   // eşleşmeyen kemik → en yakın eşleşen ata kemik
   ARMOR.glb[k].scene.traverse(o=>{ if(!o.isSkinnedMesh) return;
     const set=k.split('/')[0], own=ARMOR_SETS[set]&&ARMOR_SETS[set].ownBind;
-    if(own){ const bones=o.skeleton.bones.map(b=>sk.bones[idx.get(b.name)]); if(bones.includes(undefined)){ console.warn('[Zırh] '+k+': eşleşmeyen kemik var'); return; }
+    if(own){ const bones=o.skeleton.bones.map(b=>sk.bones[bi(b)]);
       const mats=(Array.isArray(o.material)?o.material:[o.material]).map(mt=>armorMat(mt,set));
       const m=new THREE.SkinnedMesh(o.geometry.clone(),mats.length>1?mats:mats[0]); m.name='armor:'+k; m.userData.armor=k; m.frustumCulled=false; m.castShadow=true;
       hs.parent.add(m); m.bind(new THREE.Skeleton(bones,o.skeleton.boneInverses.map(x=>x.clone())),hs.bindMatrix.clone()); list.push(m);   // kendi duruşunda bağlı: tek karışım
       const cg=o.userData&&o.userData.cloth; if(ARMOR_SETS[set].cloth&&cg){ m.userData.clothGrid=cg; m.userData.hipsIdx=bones.findIndex(b=>/Hips$/.test(b.name)); clothMaterial(mats[0],ARMOR_SETS[set].glow||0xffb040,cg); CLOTH.p=null; }
       return; }
-    const g=o.geometry.clone(), si=g.attributes.skinIndex, map=o.skeleton.bones.map(b=>idx.has(b.name)?idx.get(b.name):-1);
-    if(map.includes(-1)) console.warn('[Zırh] '+k+': eşleşmeyen kemik var');
+    const g=o.geometry.clone(), si=g.attributes.skinIndex, map=o.skeleton.bones.map(bi);
     const arr=new Uint16Array(si.count*4); for(let i=0;i<si.count;i++) for(let c=0;c<4;c++) arr[i*4+c]=Math.max(0,map[si.getComponent(i,c)]);
     g.setAttribute('skinIndex',new THREE.Uint16BufferAttribute(arr,4));
     const mats=(Array.isArray(o.material)?o.material:[o.material]).map(mt=>armorMat(mt,set));
     const m=new THREE.SkinnedMesh(g,mats.length>1?mats:mats[0]); m.name='armor:'+k; m.userData.armor=k; m.frustumCulled=false; m.castShadow=true;
     hs.parent.add(m); m.bind(sk,hs.bindMatrix.clone()); list.push(m); });
+  if(!list.length){ ARMOR.fail[k]=true; return; }   // mesh yoksa gövdeyi de gizleme
   ARMOR.on[k]=list; }
 function syncArmor(){ if(!model) return; const want=armorWant();
   for(const k in ARMOR.on) if(!want.has(k)){ for(const m of ARMOR.on[k]){ m.parent&&m.parent.remove(m); m.geometry.dispose(); } delete ARMOR.on[k]; }
