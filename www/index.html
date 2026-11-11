@@ -613,19 +613,23 @@ function buildHero(THREE, skelJson, glb, opts){
    Gövde dokusuz ten rengine çevrilir (şort bölgesi vertex rengiyle), saç kafa üçgenlerinden şişirilmiş kabuk olarak üretilir,
    göz/kaş/burun/ağız baş yüzeyine ışın izlenerek yerleştirilir ve Head kemiğine bağlanır (animasyonla birlikte hareket eder). */
 const HERO_LOOK=true, HAIR_COL=0x2a1b12, SKIN_COL=0xc98f70, SHORT_COL=0x2a2623;
-function dressFace(root,sk,hi,g,idx,headTris,FACE,tmp){
+function dressFace(root,sk,hi,g,idx,headTris,FACE,tmp,dom){
   // klasik başın üçgenlerini gizle (boyun altı gövdede kalır)
-  const drop=new Set(headTris), keep=[]; for(let i=0;i<idx.length;i+=3) if(!drop.has(i)) keep.push(idx[i],idx[i+1],idx[i+2]); g.setIndex(keep);
+  const keep=[]; { const sw=g.attributes.skinWeight, si=g.attributes.skinIndex, hw=v=>{ let w=0; for(let c=0;c<4;c++) if(si.getComponent(v,c)===hi) w+=sw.getComponent(v,c); return w; };
+    for(let i=0;i<idx.length;i+=3){ const a=idx[i],b=idx[i+1],c=idx[i+2]; if(dom(g,a)==='Head'||dom(g,b)==='Head'||dom(g,c)==='Head'||hw(a)>.4||hw(b)>.4||hw(c)>.4) continue; keep.push(a,b,c); } }   // başa dokunan tüm üçgenler gizlenir (sınırda ince şerit kalmasın)
+  g.setIndex(keep);
   const tl=new THREE.TextureLoader(), tex={}; for(const k in FACE.tex){ const t=tl.load(FACE.tex[k]); t.colorSpace=THREE.SRGBColorSpace; t.anisotropy=4; tex[k]=t; }
   const mk=(pt,P,Nn,U,I,mat)=>{ const gg=new THREE.BufferGeometry(); const n=P.length/3; gg.setAttribute('position',new THREE.Float32BufferAttribute(P,3)); gg.setAttribute('normal',new THREE.Float32BufferAttribute(Nn,3)); if(U) gg.setAttribute('uv',new THREE.Float32BufferAttribute(U,2));
     const si=new Uint16Array(n*4), sw=new Float32Array(n*4); for(let v=0;v<n;v++){ si[v*4]=hi; sw[v*4]=1; } gg.setAttribute('skinIndex',new THREE.Uint16BufferAttribute(si,4)); gg.setAttribute('skinWeight',new THREE.Float32BufferAttribute(sw,4)); gg.setIndex(I);
     const m=new THREE.SkinnedMesh(gg,mat); m.frustumCulled=false; m.castShadow=true; root.add(m); m.bind(sk,new THREE.Matrix4()); return m; };
   let headPart=null;
   for(const pt of FACE.parts){ const m=mk(pt,pt.pos,pt.nrm,pt.uv,pt.idx,new THREE.MeshStandardMaterial({map:tex[pt.tex],roughness:pt.n==='Eyes'?.25:.6,metalness:0})); m.name='face:'+pt.n; (root.userData.faceParts=root.userData.faceParts||[]).push(m); if(pt.hair) headPart=pt; }
-  if(headPart){ const hp2=[],hn=[],hc=[],hi2=[],map=new Map(), rnd=a=>{ const x=Math.sin(a*127.1)*43758.5453; return x-Math.floor(x); }, P=headPart.pos, N=headPart.nrm, I=headPart.idx;
-    for(const t of headPart.hair) for(let k=0;k<3;k++){ const v=I[t*3+k]; if(!map.has(v)){ map.set(v,hp2.length/3); const o=1.1+rnd(v)*.5; hp2.push(P[v*3]+N[v*3]*o,P[v*3+1]+N[v*3+1]*o,P[v*3+2]+N[v*3+2]*o); hn.push(N[v*3],N[v*3+1],N[v*3+2]);
-        const sh=.75+rnd(v*3.1)*.5; tmp.setRGB(((HAIR_COL>>16)&255)/255,((HAIR_COL>>8)&255)/255,(HAIR_COL&255)/255,THREE.SRGBColorSpace).multiplyScalar(sh); hc.push(tmp.r,tmp.g,tmp.b); } hi2.push(map.get(v)); }
-    const m=mk(null,hp2,hn,null,hi2,new THREE.MeshStandardMaterial({color:0xffffff,vertexColors:true,roughness:.85,metalness:0})); m.geometry.setAttribute('color',new THREE.Float32BufferAttribute(hc,3)); m.name='hair'; root.userData.hair=m; }
+  if(headPart&&headPart.hair){ const H=headPart.hair, n=H.f.length, hp2=new Array(n*3), hc=new Array(n*3), ss=(a,b,x)=>{ const t=Math.min(1,Math.max(0,(x-a)/(b-a))); return t*t*(3-2*t); };
+    const hr=new THREE.Color().setRGB(((HAIR_COL>>16)&255)/255,((HAIR_COL>>8)&255)/255,(HAIR_COL&255)/255,THREE.SRGBColorSpace);
+    for(let v=0;v<n;v++){ const x=H.pos[v*3],y=H.pos[v*3+1],z=H.pos[v*3+2], o=.12+(1.05+.3*Math.sin(x*3.1+z*2.3)*Math.sin(y*2.7))*ss(0,2.4,H.f[v]);   // kenarda kafa derisine karışır
+      hp2[v*3]=x+H.nrm[v*3]*o; hp2[v*3+1]=y+H.nrm[v*3+1]*o; hp2[v*3+2]=z+H.nrm[v*3+2]*o;
+      const sh=.78+.32*(.5+.5*Math.sin(x*5.3+y*4.1+z*6.7))+.12*Math.sin(x*17+z*13); tmp.copy(hr).multiplyScalar(sh*(.85+.15*ss(0,3,H.f[v]))); hc[v*3]=tmp.r; hc[v*3+1]=tmp.g; hc[v*3+2]=tmp.b; }
+    const m=mk(null,hp2,H.nrm,null,H.idx,new THREE.MeshStandardMaterial({color:0xffffff,vertexColors:true,roughness:.85,metalness:0})); m.geometry.setAttribute('color',new THREE.Float32BufferAttribute(hc,3)); m.name='hair'; root.userData.hair=m; }
   console.info('[Karakter] ikinci karakterin yüzü uygulandı');
 }
 function dressHero(root,FACE){
@@ -643,7 +647,7 @@ function dressHero(root,FACE){
   let hp=null; for(const m of parts){ let n=0; const g=m.geometry; for(let v=0;v<g.attributes.position.count;v++) if(dom(g,v)==='Head') n++; if(n>1000){ hp=m; break; } } if(!hp) return;
   const g=hp.geometry, idx=g.index.array, P=g.attributes.position, N=g.attributes.normal, SI=g.attributes.skinIndex, SW=g.attributes.skinWeight;
   const headTris=[]; for(let i=0;i<idx.length;i+=3){ if(dom(g,idx[i])==='Head'&&dom(g,idx[i+1])==='Head'&&dom(g,idx[i+2])==='Head') headTris.push(i); }
-  if(FACE){ dressFace(root,sk,hi,g,idx,headTris,FACE,tmp); return; }
+  if(FACE){ dressFace(root,sk,hi,g,idx,headTris,FACE,tmp,dom); return; }
   // saç: tepe ve ense/yanlar (yüz bölgesi hariç)
   const hairTris=headTris.filter(i=>{ let cy=0,cz=0,cx=0; for(let k=0;k<3;k++){ cx+=P.getX(idx[i+k]); cy+=P.getY(idx[i+k]); cz+=P.getZ(idx[i+k]); } cx/=3; cy/=3; cz/=3;
     return (cy>181.5&&cz<15)||(cy>171&&cz<-1.5)||(cy>176&&Math.abs(cx)>8.2&&cz<8); });
