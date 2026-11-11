@@ -1819,11 +1819,12 @@ function armorBody(){ let hide=new Set(); for(const k in ARMOR.on){ const p=ARMO
     g.setIndex(out); }); }
 /* zırh köşelerini kaynak (klasik) bind pozundan hedef karakterin bind pozuna kemik kemik taşır: v' = Σ w·(Hedef_i · Kaynak_i⁻¹)·v
    Kaynak ve hedef iskeletin eklem konumları aynıysa (klasik karakter) matrisler birim olur ve geometri değişmez. */
-function retargetArmorGeo(g, srcSk, dstSk, map){
+function retargetArmorGeo(g, srcSk, dstSk, map, has){
   if(HERO_PICK!=='cc') return false;   // klasik karakter: eski, çalışan davranış aynen korunur
   const n=srcSk.bones.length, M=[]; let same=true; const _m=new THREE.Matrix4();
   for(let i=0;i<n;i++){ const d=map[i]; if(d==null||d<0){ M.push(null); continue; }
-    const m=dstSk.boneInverses[d].clone().invert().multiply(srcSk.boneInverses[i]); M.push(m);
+    let si0=i; if(has&&!has.has(srcSk.bones[i].name)){ for(let x=srcSk.bones[i].parent;x;x=x.parent){ if(has.has(x.name)){ const q=srcSk.bones.indexOf(x); if(q>=0) si0=q; break; } } }   // karşılığı olmayan kemik: eşleşen atasının bind'i kullanılır
+    const m=dstSk.boneInverses[d].clone().invert().multiply(srcSk.boneInverses[si0]); M.push(m);
     for(let e=0;e<16;e++){ if(Math.abs(m.elements[e]-(e%5===0?1:0))>1e-4){ same=false; break; } } }
   if(same) return false;
   const pa=g.attributes.position, na=g.attributes.normal, si=g.attributes.skinIndex, sw=g.attributes.skinWeight, v=new THREE.Vector3(), nv=new THREE.Vector3(), ro=new THREE.Vector3(), rn=new THREE.Vector3();
@@ -1839,14 +1840,14 @@ function attachArmor(k){ let hs=null; model.traverse(o=>{ if(!hs&&o.isSkinnedMes
   const bi=b=>{ for(let x=b;x;x=x.parent){ if(idx.has(x.name)) return idx.get(x.name); } return 0; };   // eşleşmeyen kemik → en yakın eşleşen ata kemik
   ARMOR.glb[k].scene.traverse(o=>{ if(!o.isSkinnedMesh) return;
     const set=k.split('/')[0], own=ARMOR_SETS[set]&&ARMOR_SETS[set].ownBind;
-    if(own){ const mp=o.skeleton.bones.map(bi), bones=mp.map(x=>sk.bones[x]), og=o.geometry.clone(); retargetArmorGeo(og,o.skeleton,sk,mp);
+    if(own){ const mp=o.skeleton.bones.map(bi), bones=mp.map(x=>sk.bones[x]), og=o.geometry.clone(); retargetArmorGeo(og,o.skeleton,sk,mp,idx);
       const mats=(Array.isArray(o.material)?o.material:[o.material]).map(mt=>armorMat(mt,set));
       const m=new THREE.SkinnedMesh(og,mats.length>1?mats:mats[0]); m.name='armor:'+k; m.userData.armor=k; m.frustumCulled=false; m.castShadow=true;
       hs.parent.add(m); m.bind(new THREE.Skeleton(bones,HERO_PICK==='cc'?mp.map(x=>sk.boneInverses[x].clone()):o.skeleton.boneInverses.map(x=>x.clone())),hs.bindMatrix.clone()); list.push(m);   // kendi duruşunda bağlı: tek karışım
       const cg=o.userData&&o.userData.cloth; if(ARMOR_SETS[set].cloth&&cg){ m.userData.clothGrid=cg; m.userData.hipsIdx=bones.findIndex(b=>/Hips$/.test(b.name)); clothMaterial(mats[0],ARMOR_SETS[set].glow||0xffb040,cg); CLOTH.p=null; }
       return; }
     const g=o.geometry.clone(), si=g.attributes.skinIndex, map=o.skeleton.bones.map(bi);
-    retargetArmorGeo(g,o.skeleton,sk,map);
+    retargetArmorGeo(g,o.skeleton,sk,map,idx);
     const arr=new Uint16Array(si.count*4); for(let i=0;i<si.count;i++) for(let c=0;c<4;c++) arr[i*4+c]=Math.max(0,map[si.getComponent(i,c)]);
     g.setAttribute('skinIndex',new THREE.Uint16BufferAttribute(arr,4));
     const mats=(Array.isArray(o.material)?o.material:[o.material]).map(mt=>armorMat(mt,set));
