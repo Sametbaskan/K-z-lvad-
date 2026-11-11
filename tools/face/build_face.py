@@ -1,7 +1,8 @@
 """2. karakterin (CC/Unity) kafa + göz parçalarını klasik karakterin bind uzayına taşıyıp www/models/hero_face.json üretir.
-Kullanım: python3 tools/face/build_face.py [ölçek]   (varsayılan 1.1)"""
+Kullanım: python3 tools/face/build_face.py [ölçek]   [boyun kesme y] (varsayılan 1.1 157.5)"""
 import json,sys,numpy as np
 S=float(sys.argv[1]) if len(sys.argv)>1 else 1.1
+NECK_CUT=float(sys.argv[2]) if len(sys.argv)>2 else 157.5
 J=json.load(open('www/models/hero.json')); C=json.load(open('www/models/cc/hero_cc.json'))
 hn=lambda D:{b['n'].replace('mixamorig:','').replace('mixamorig',''):i for i,b in enumerate(D['bones'])}
 def rest(D,name):  # bone bind world pozisyonu = inverse(inv matrix) çevirisi
@@ -49,7 +50,9 @@ out={'scale':S,'parts':[]}
 for p in C['parts']:
     if p['n'] not in ('Body/Std_Skin_Head','Eyes'): continue
     pos=np.array(p['pos']).reshape(-1,3); q=kH+S*(pos-cH)
-    d={'n':p['n'],'pos':[round(float(v),3) for v in q.reshape(-1)],'nrm':[round(float(v),3) for v in p['nrm']],'uv':[round(float(v),4) for v in p['uv']],'idx':list(map(int,p['idx'])),'tex':p['tex']}
+    ii=np.array(p['idx']).reshape(-1,3)
+    if p['n']=='Body/Std_Skin_Head': ii=np.array([t for t in ii if pos[t][:,1].mean()>=NECK_CUT])   # boyun tabanındaki omuza açılan yaka kesilir (klasik gövdenin boynu görünsün)
+    d={'n':p['n'],'pos':[round(float(v),3) for v in q.reshape(-1)],'nrm':[round(float(v),3) for v in p['nrm']],'uv':[round(float(v),4) for v in p['uv']],'idx':[int(v) for v in ii.reshape(-1)],'tex':p['tex']}
     if p['n']=='Body/Std_Skin_Head':
         d['hair']=make_hair(pos,np.array(p['nrm']).reshape(-1,3),np.array(p['idx']).reshape(-1,3),kH,cH,S)
     out['parts'].append(d)
