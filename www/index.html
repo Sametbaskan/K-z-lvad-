@@ -734,6 +734,7 @@ const FK=HALF/105, DK=DHALF/148;   // eski boyuta göre ölçek (≈1,41)
 const sk2=(L,k,n=2)=>L.map(c=>c.map((v,i)=>i<n?Math.round(v*k):v));   // listede ilk n sayıyı (konum) ölçekle
 const halfOf=id=>id==='forest'?HALF:DHALF;
 const VILL_R = 15;             // köy yarıçapı (güvenli bölge)
+const RUN_STEP_K = 1.07;
 let RUN_CLIP_SPEED = 1.98;   // jogging klibinin gömülü hızı (m/sn)
 const RUN_SPEED = 3.3;
 const HERO_CC_ENABLED=false;   // 2. karakter (Unity/CC) rafa kaldırıldı: dosyalar ve kod duruyor, seçilemiyor (true yapınca geri gelir)
@@ -1650,6 +1651,7 @@ function styleMesh(mesh){
     if(n.map){ n.map.colorSpace=THREE.SRGBColorSpace; n.map.anisotropy=4; } return n; });
   mesh.material=Array.isArray(mesh.material)?out:out[0]; mesh.castShadow=true; mesh.frustumCulled=false;
 }
+function parseClipU(j){ const c=THREE.AnimationClip.parse(j); if(!c.uuid) c.uuid=THREE.MathUtils.generateUUID(); return c; }   // uuid'siz klipler (KinemIQ) mixer önbelleğinde birbirinin eylemini ezmesin
 function lockRootXZ(clip){   // root motion'ı at: Hips X/Z ilk kareye sabitlenir (konumu oyun hareket sistemi yönetir), Y (çömelme/düşme) kalır
   for(const tr of clip.tracks) if(/Hips\.position$/.test(tr.name)){ const v=tr.values; for(let i=0;i<tr.times.length;i++){ v[i*3]=v[0]; v[i*3+2]=v[2]; } }
 }
@@ -2019,20 +2021,20 @@ function setupPlayer(fbxA, cj){
   model.traverse(o=>{ if(o.isSkinnedMesh){ if(!Object.keys(bones).length) o.skeleton.bones.forEach(b=>{ bones[b.name.replace(/^mixamorig:?/,'')]=b; }); styleMesh(o); } });
   for(const k in bones) REST[k]=bones[k].quaternion.clone();   // bağlama (T) duruşu: binicilik bacak pozu bunun üstüne mutlak kurulur
   mixer=new THREE.AnimationMixer(model);
-  const idleC=THREE.AnimationClip.parse(cj.clip); idleC.name='idle'; lockRootXZ(idleC);
+  const idleC=parseClipU(cj.clip); idleC.name='idle'; lockRootXZ(idleC);
   const miss=idleC.tracks.filter(tr=>!bones[tr.name.split('.')[0].replace(/^mixamorig:?/,'')]).map(tr=>tr.name);
   if(miss.length) console.warn('[Anim] bekleme: eşleşmeyen kanal '+miss.length+': '+miss.slice(0,6).join(', ')); else console.info('[Anim] bekleme: '+idleC.tracks.length+' kanalın tamamı eşleşti, süre '+idleC.duration.toFixed(2)+' sn');
   let walkC=idleC.clone(); walkC.name='jog';   // koşu klibi yoksa: hareket ederken geçici olarak bekleme klibi oynar
   let runSpd=RUN_SPEED;
-  if(cj.run){ try{ const rc=THREE.AnimationClip.parse(cj.run); rc.name='jog'; const ht=rc.tracks.find(t=>/Hips\.position$/.test(t.name)); const n=ht.times.length; runSpd=Math.abs(ht.values[(n-1)*3+2]-ht.values[2])*MSCALE/rc.duration||RUN_SPEED; stripRootMotion(rc,true); walkC=rc; console.info('[Anim] koşu: '+rc.tracks.length+' kanal, süre '+rc.duration.toFixed(2)+' sn, gömülü hız '+runSpd.toFixed(2)+' m/sn'); }catch(e){ console.error('[Anim] koşu klibi işlenemedi:',e); } }
+  if(cj.run){ try{ const rc=parseClipU(cj.run); rc.name='jog'; const ht=rc.tracks.find(t=>/Hips\.position$/.test(t.name)); const n=ht.times.length; runSpd=Math.abs(ht.values[(n-1)*3+2]-ht.values[2])*MSCALE/rc.duration||RUN_SPEED; stripRootMotion(rc,true); walkC=rc; console.info('[Anim] koşu: '+rc.tracks.length+' kanal, süre '+rc.duration.toFixed(2)+' sn, gömülü hız '+runSpd.toFixed(2)+' m/sn'); }catch(e){ console.error('[Anim] koşu klibi işlenemedi:',e); } }
   actions.idle=mixer.clipAction(idleC); actions.jog=mixer.clipAction(walkC);
   for(const k of ['idle','jog']) actions[k].setLoop(THREE.LoopRepeat,Infinity);
-  let comboC=null; if(cj.combo){ try{ comboC=THREE.AnimationClip.parse(cj.combo); comboC.name='combo'; lockRootXZ(comboC); const a=mixer.clipAction(comboC); a.setLoop(THREE.LoopOnce,1); a.clampWhenFinished=true; actions.combo=a; }catch(e){ comboC=null; console.error('[Anim] vuruş kombosu işlenemedi:',e); } }
-  if(cj.cut){ try{ const cc2=THREE.AnimationClip.parse(cj.cut); cc2.name='cut'; lockRootXZ(cc2); const a=mixer.clipAction(cc2); a.setLoop(THREE.LoopOnce,1); a.clampWhenFinished=true; actions.cut=a; }catch(e){ console.error('[Anim] Güçlü Vuruş klibi işlenemedi:',e); } }
-  if(cj.powerup){ try{ const pc2=THREE.AnimationClip.parse(cj.powerup); pc2.name='powerup'; const a=mixer.clipAction(pc2); a.setLoop(THREE.LoopOnce,1); a.clampWhenFinished=true; actions.powerup=a; console.info('[Anim] güç artırma: '+pc2.tracks.length+' kanal, süre '+pc2.duration.toFixed(2)+' sn'); }catch(e){ console.error('[Anim] güç artırma klibi işlenemedi:',e); } }
-  if(cj.heal){ try{ const hc=THREE.AnimationClip.parse(cj.heal); hc.name='heal'; lockRootXZ(hc); const a=mixer.clipAction(hc); a.setLoop(THREE.LoopOnce,1); a.clampWhenFinished=true; actions.heal=a; console.info('[Anim] iyileştirme (Strong_Gesture): '+hc.tracks.length+' kanal, süre '+hc.duration.toFixed(2)+' sn'); }catch(e){ console.error('[Anim] iyileştirme klibi işlenemedi:',e); } }
-  if(cj.death){ try{ const dc=THREE.AnimationClip.parse(cj.death); dc.name='death'; const a=mixer.clipAction(dc); a.setLoop(THREE.LoopOnce,1); a.clampWhenFinished=true; actions.death=a; console.info('[Anim] ölüm: '+dc.tracks.length+' kanal, süre '+dc.duration.toFixed(2)+' sn'); }catch(e){ console.error('[Anim] ölüm klibi işlenemedi:',e); } }
-  HAS3=false; REALIDLE=true; RUN_CLIP_SPEED=runSpd; tIdle=0;
+  let comboC=null; if(cj.combo){ try{ comboC=parseClipU(cj.combo); comboC.name='combo'; lockRootXZ(comboC); const a=mixer.clipAction(comboC); a.setLoop(THREE.LoopOnce,1); a.clampWhenFinished=true; actions.combo=a; }catch(e){ comboC=null; console.error('[Anim] vuruş kombosu işlenemedi:',e); } }
+  if(cj.cut){ try{ const cc2=parseClipU(cj.cut); cc2.name='cut'; lockRootXZ(cc2); const a=mixer.clipAction(cc2); a.setLoop(THREE.LoopOnce,1); a.clampWhenFinished=true; actions.cut=a; }catch(e){ console.error('[Anim] Güçlü Vuruş klibi işlenemedi:',e); } }
+  if(cj.powerup){ try{ const pc2=parseClipU(cj.powerup); pc2.name='powerup'; const a=mixer.clipAction(pc2); a.setLoop(THREE.LoopOnce,1); a.clampWhenFinished=true; actions.powerup=a; console.info('[Anim] güç artırma: '+pc2.tracks.length+' kanal, süre '+pc2.duration.toFixed(2)+' sn'); }catch(e){ console.error('[Anim] güç artırma klibi işlenemedi:',e); } }
+  if(cj.heal){ try{ const hc=parseClipU(cj.heal); hc.name='heal'; lockRootXZ(hc); const a=mixer.clipAction(hc); a.setLoop(THREE.LoopOnce,1); a.clampWhenFinished=true; actions.heal=a; console.info('[Anim] iyileştirme (Strong_Gesture): '+hc.tracks.length+' kanal, süre '+hc.duration.toFixed(2)+' sn'); }catch(e){ console.error('[Anim] iyileştirme klibi işlenemedi:',e); } }
+  if(cj.death){ try{ const dc=parseClipU(cj.death); dc.name='death'; const a=mixer.clipAction(dc); a.setLoop(THREE.LoopOnce,1); a.clampWhenFinished=true; actions.death=a; console.info('[Anim] ölüm: '+dc.tracks.length+' kanal, süre '+dc.duration.toFixed(2)+' sn'); }catch(e){ console.error('[Anim] ölüm klibi işlenemedi:',e); } }
+  HAS3=false; REALIDLE=true; RUN_CLIP_SPEED=runSpd*RUN_STEP_K; tIdle=0;   // basan ayağın gerçek geri kayış hızı hip ilerlemesinden ~%7 yüksek (ölçüldü) → kayma sıfırlanır
   actions.idle.play(); actions.idle.time=0; actions.idle.timeScale=1; actions.idle.weight=1;
   holder.position.y=HBASE=0; mixer.update(0); model.updateMatrixWorld(true);
   // klip başına zemin ofseti: bot tabanının en alçak noktası zemine değsin
