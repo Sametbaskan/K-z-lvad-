@@ -3678,11 +3678,88 @@ function buildCastleWall(){
     const tw=castleMesh([{k:'tower_round_base_01',x:cx,y:y0,z:cz,ry},{k:'tower_round_door_01',x:cx,y:y0+2.4,z:cz,ry},{k:'tower_round_top_01',x:cx,y:y0+7.2,z:cz,ry},{k:'tower_round_roof_01',x:cx,y:y0+9.2,z:cz,ry}],false); tw.castShadow=!coarse; G.add(tw);
     addObstacle(cx-Math.cos(ta)*.9,cz-Math.sin(ta)*.9,2.2); VLIST.push({name:'sur kulesi',x:cx,z:cz,w:4.2,d:4.2,ry,kind:'bld'}); }
   scene.add(G); world.castle=G; return nW; }
+/* ---- Taş sur (prosedürel): ~10 m kalın taş duvar, yürüyüş yolu, mazgal, okçu yarıkları, yuvarlak kuleler, kemerli kapı ---- */
+let STONEWALL=true;
+function stoneTex(){   // koyu, eskimiş kesme taş (4x4 m döşeme, dikişsiz)
+  const S=512, c=document.createElement('canvas'); c.width=c.height=S; const g=c.getContext('2d'), r=rng(7741);
+  g.fillStyle='#3a3b40'; g.fillRect(0,0,S,S);
+  const rows=8, rh=S/rows;
+  for(let j=0;j<rows;j++){ let x=-r()*120; const y=j*rh;
+    while(x<S){ const w=Math.round(72+r()*110), hue=r()<.5?232:30, sat=r()*5;
+      const L=Math.round(40+r()*28); g.fillStyle=`hsl(${hue},${sat+2}%,${L*.8}%)`;
+      for(const ox of [0,-S,S]) g.fillRect(x+ox+3,y+3,w-6,rh-6);
+      // yüz aydınlığı / gölge (üst-sol ışık)
+      for(const ox of [0,-S,S]){ g.fillStyle='rgba(255,255,255,.10)'; g.fillRect(x+ox+3,y+3,w-6,3); g.fillRect(x+ox+3,y+3,3,rh-6); g.fillStyle='rgba(0,0,0,.28)'; g.fillRect(x+ox+3,y+rh-8,w-6,5); g.fillRect(x+ox+w-8,y+3,5,rh-6); }
+      x+=w; } }
+  // kum tanesi / leke
+  const id=g.getImageData(0,0,S,S), d=id.data; for(let i=0;i<d.length;i+=4){ const n=(r()-.5)*26; d[i]+=n; d[i+1]+=n; d[i+2]+=n*1.05; } g.putImageData(id,0,0);
+  for(let k=0;k<70;k++){ const x=r()*S, y=r()*S, w=3+r()*9, h=30+r()*110, gr=g.createLinearGradient(0,y,0,y+h); gr.addColorStop(0,'rgba(8,8,10,.34)'); gr.addColorStop(1,'rgba(8,8,10,0)'); g.fillStyle=gr; for(const ox of [0,-S,S]) g.fillRect(x+ox,y,w,h); }   // yağmur izi
+  for(let k=0;k<26;k++){ const x=r()*S, y=r()*S, rad=14+r()*34; const gr=g.createRadialGradient(x,y,0,x,y,rad); gr.addColorStop(0,'rgba(52,66,44,.22)'); gr.addColorStop(1,'rgba(52,66,44,0)'); g.fillStyle=gr; g.fillRect(x-rad,y-rad,rad*2,rad*2); }   // soluk yosun
+  const t=new THREE.CanvasTexture(c); t.wrapS=t.wrapT=THREE.RepeatWrapping; t.colorSpace=THREE.SRGBColorSpace; t.anisotropy=coarse?2:4; return t; }
+function buildStoneWall(){
+  const TS=4, rc=VR+.6, NB=118, step=Math.PI*2/NB, Lstep=rc*step, L=Lstep*1.06;
+  const HT=1.5, TOP=7.8, PAR=8.9, MER=10.0, BOT=-2.6;          // yarı kalınlık, yürüyüş yolu, siperlik, mazgal üstü, etek
+  const stoneMat=new THREE.MeshLambertMaterial({map:stoneTex(),vertexColors:true,side:THREE.DoubleSide}); stoneMat.color.setScalar(4.6);
+  const woodMat=new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.DoubleSide});
+  const _m=new THREE.Matrix4(), _q=new THREE.Quaternion(), _e=new THREE.Euler(), _v=new THREE.Vector3(), _s=new THREE.Vector3(1,1,1);
+  const col=(g,c,j)=>{ const n=g.attributes.position.count, a=new Float32Array(n*3), C=new THREE.Color(c); if(j) C.multiplyScalar(1+j); for(let i=0;i<n;i++){ a[i*3]=C.r; a[i*3+1]=C.g; a[i*3+2]=C.b; } g.setAttribute('color',new THREE.BufferAttribute(a,3)); return g; };
+  // dünya ölçeğinde UV (metre/TS): u,v = kutu boyutları
+  function uvScale(g,A,B,uo){ const U=g.attributes.uv; for(let i=0;i<U.count;i++) U.setXY(i,U.getX(i)*A/TS+(uo||0),U.getY(i)*B/TS); }
+  function box(w,h,d,x,y,z,c,o){ o=o||{}; const g=new THREE.BoxGeometry(w,h,d).toNonIndexed(), U=g.attributes.uv; // yüz başına 6 köşe: +x,-x,+y,-y,+z,-z
+    const ext=[[d,h],[d,h],[w,d],[w,d],[w,h],[w,h]]; for(let f=0;f<6;f++) for(let k=0;k<6;k++){ const i=f*6+k; U.setXY(i,U.getX(i)*ext[f][0]/TS+(o.uo||0)+(f<2?o.zo||0:0),U.getY(i)*ext[f][1]/TS+(o.vo||0)); }
+    g.translate(x,y,z); return col(g,c,o.j); }
+  function cyl(rt,rb,h,y,seg,open,c,vscale){ const g=new THREE.CylinderGeometry(rt,rb,h,seg,1,open).toNonIndexed(); uvScale(g,Math.PI*2*(rt+rb)/2,h); g.translate(0,y,0); return col(g,c); }
+  // yerel çerçeve: +x teğet, +y yukarı, +z dışa (merkez=rc yarıçapında)
+  function place(list,ang,rad,y){ const th=Math.PI/2-ang, cx=Math.cos(ang)*rad, cz=Math.sin(ang)*rad; _e.set(0,th,0); _q.setFromEuler(_e); _m.compose(_v.set(cx,y,cz),_q,_s); for(const g of list) g.applyMatrix4(_m); }
+  const SECT=8, stone=[...Array(SECT)].map(()=>[]), wood=[...Array(SECT)].map(()=>[]), sec=a=>Math.floor(((a%(Math.PI*2)+Math.PI*2)%(Math.PI*2))/(Math.PI*2)*SECT)%SECT;
+  const gates=[Math.PI/2,3*Math.PI/2], arcOf=(a,b)=>Math.abs(wrap(a-b))*rc, GW=4.6;
+  const TW=[Math.PI/4,3*Math.PI/4,5*Math.PI/4,7*Math.PI/4]; for(const g of gates) TW.push(g+8.3/rc,g-8.3/rc);
+  const r=rng(9013); let nW=0, nTri=0;
+  // yürüyüş yolu, siperlik, mazgallar, saçak, yarıklar: genişlik w (yerel), arc: halka boyunca konum (UV sürekliliği)
+  function crown(list,w,uo,n,jit){ const mer=1.0;
+    list.push(box(w,.9,HT*2+.7,0,TOP-.45,0,0x5a5a60,{uo,j:jit}));                                   // yol kaplaması / saçak gövdesi
+    list.push(box(w,1.0,.4,0,TOP-.55,HT+.35,0x6c6c72,{uo,vo:.3,j:jit}), box(w,1.0,.4,0,TOP-.55,-HT-.35,0x6c6c72,{uo,vo:.3,j:jit}));   // dış/iç sütunlu saçak
+    list.push(box(w,PAR-TOP+.05,.62,0,(TOP+PAR)/2,HT-.45,0x62626a,{uo,vo:.5,j:jit}));                 // dış siperlik
+    list.push(box(w,.75,.36,0,TOP+.37,-HT+.2,0x5e5e66,{uo,vo:.7,j:jit}));                             // iç korkuluk
+    const p=w/n; for(let k=0;k<n;k++) list.push(box(mer,MER-PAR,.7,-w/2+p*(k+.5),(PAR+MER)/2,HT-.45,0x686870,{uo:uo+k*.13,vo:.25,j:jit})); }   // mazgal dişleri
+  function slit(list,x,y,z,ry){ const g=new THREE.BoxGeometry(.22,1.3,.12).toNonIndexed(); if(ry){ g.rotateY(ry); } g.translate(x,y,z); list.push(col(g,0x040405)); }
+  for(let i=0;i<NB;i++){
+    const a=(i+.5)*step; if(gates.some(g=>arcOf(a,g)<GW+.05)) continue;
+    const cx=Math.cos(a)*rc, cz=Math.sin(a)*rc, y0=Math.min(hAt(cx,cz),hAt(Math.cos(a)*(rc+1.6),Math.sin(a)*(rc+1.6)),hAt(Math.cos(a)*(rc-1.6),Math.sin(a)*(rc-1.6))), j=(r()-.5)*.16, uo=i*Lstep/TS, S=[];
+    S.push(box(L,TOP-BOT-.9,HT*2,0,(TOP+BOT-.9)/2,0,0x66666c,{uo,vo:(BOT)/TS,j}));                    // ana gövde
+    S.push(box(L,3.8,HT*2+.7,0,BOT+1.9,0,0x55555b,{uo,vo:.2,j}));                                     // geniş etek (alt kütle)
+    crown(S,L,uo,2,j);
+    slit(S,0,4.6,HT+.0,0); slit(S,0,1.9,HT,0);                                                          // okçu yarıkları (iki sıra)
+    if(i%5===2) S.push(box(.95,TOP-BOT-1.2,.95,0,(TOP+BOT-1.2)/2,-HT-.45,0x5c5c62,{uo:uo+.3,j}));       // iç payanda
+    place(S,a,rc,y0); stone[sec(a)].push(...S); nW++;
+    addObstacle(cx,cz,1.8); if(i%11===5) vTorch(Math.cos(a)*(VR-2.3),Math.sin(a)*(VR-2.3),2.2); }
+  // kemerli kapı
+  for(const ga of gates){ const cx=Math.cos(ga)*rc, cz=Math.sin(ga)*rc, y0=hAt(cx,cz), sh=new THREE.Shape(), W=GW, R=3.2, SP=3.4;
+    sh.moveTo(-W,BOT); sh.lineTo(-R,BOT); sh.lineTo(-R,SP); sh.absarc(0,SP,R,Math.PI,0,true); sh.lineTo(R,BOT); sh.lineTo(W,BOT); sh.lineTo(W,TOP); sh.lineTo(-W,TOP); sh.closePath();
+    const eg=new THREE.ExtrudeGeometry(sh,{depth:HT*2,bevelEnabled:false,curveSegments:18}).toNonIndexed(); eg.translate(0,0,-HT); const ub=eg.attributes.uv; for(let q=0;q<ub.count;q++) ub.setXY(q,ub.getX(q)/TS,ub.getY(q)/TS);
+    const S=[col(eg,0x666a70,0)]; crown(S,W*2,.4,5,0); for(const s of [-1,1]){ S.push(box(1.0,.9,HT*2+.9,s*(R+.5),SP+R*.0+.2,0,0x70707a,{uo:.2})); }
+    place(S,ga,rc,y0); stone[sec(ga)].push(...S);
+    for(const s of [-1,1]) for(const dz of [-.9,.9]){ const tx=Math.sin(ga), tz=-Math.cos(ga), ox=Math.cos(ga), oz=Math.sin(ga); addObstacle(cx+tx*s*(R+.7)+ox*dz,cz+tz*s*(R+.7)+oz*dz,1.35); }
+    vLabel('VALKOR',cx,y0+8.35,cz+Math.sign(Math.sin(ga))*(HT+.85),4.2); }
+  // yuvarlak gözetleme kuleleri
+  for(const ta of TW){ const cx=Math.cos(ta)*rc, cz=Math.sin(ta)*rc, y0=Math.min(hAt(cx,cz),hAt(Math.cos(ta)*(rc+4),Math.sin(ta)*(rc+4)),hAt(Math.cos(ta)*(rc-4),Math.sin(ta)*(rc-4))), S=[], Wd=[];
+    const SH=10.2, RT=4.0, RB=4.5; S.push(cyl(RT,RB,SH-BOT,(SH+BOT)/2,26,false,0x62626a));              // gövde
+    S.push(cyl(4.75,4.05,.9,SH+.45,26,false,0x6e6e76));                                                // saçak (korbel) + zemin
+    const tube=cyl(4.7,4.7,1.1,SH+1.45,26,true,0x626268); S.push(tube);                                // siperlik
+    for(let k=0;k<14;k++){ const an=(k+.5)/14*Math.PI*2, m=box(1.2,1.1,.75,0,0,0,0x686870,{uo:k*.17}); m.translate(0,SH+2.5,0); const mm=new THREE.Matrix4().makeRotationY(an), tr=new THREE.Matrix4().makeTranslation(Math.sin(an)*4.45,0,Math.cos(an)*4.45); m.applyMatrix4(new THREE.Matrix4().multiplyMatrices(tr,mm)); S.push(m); }
+    for(const [yy,off] of [[6.2,0],[3.0,.5],[9.0,.5]]) for(let k=0;k<6;k++){ const an=(k+off)/6*Math.PI*2, rr=RB-(RB-RT)*(yy-BOT)/(SH-BOT), g=new THREE.BoxGeometry(.22,1.3,.14).toNonIndexed(); g.rotateY(an); g.translate(Math.sin(an)*rr,yy,Math.cos(an)*rr); S.push(col(g,0x040405)); }   // yarıklar
+    for(let k=0;k<6;k++){ const an=k/6*Math.PI*2, g=new THREE.BoxGeometry(.32,2.9,.32).toNonIndexed(); g.translate(Math.sin(an)*3.2,SH+1.9+.9,Math.cos(an)*3.2); Wd.push(col(g,0x4a3626)); }   // çatı direkleri
+    { const cg=new THREE.ConeGeometry(4.4,3.4,14).toNonIndexed(); cg.translate(0,SH+3.35+1.7,0); Wd.push(col(cg,0x40262a)); const f=new THREE.CylinderGeometry(.06,.06,1.6,5).toNonIndexed(); f.translate(0,SH+3.35+3.4+.8,0); Wd.push(col(f,0x2a2a2a)); }
+    place(S,ta,rc,y0); place(Wd,ta,rc,y0); stone[sec(ta)].push(...S); wood[sec(ta)].push(...Wd);
+    addObstacle(cx,cz,4.3); VLIST.push({name:'sur kulesi',x:cx,z:cz,w:8.6,d:8.6,ry:Math.PI/2-ta,kind:'bld'}); }
+  const G=new THREE.Group();
+  for(let k=0;k<SECT;k++){ for(const [arr,mat] of [[stone[k],stoneMat],[wood[k],woodMat]]){ if(!arr.length) continue; const g=mergeGeometries(arr,false); arr.forEach(a=>a.dispose()); const m=new THREE.Mesh(g,mat); m.castShadow=!coarse; m.receiveShadow=!coarse; G.add(m); nTri+=g.attributes.position.count/3; } }
+  scene.add(G); world.castle=G; console.log('[Sur] taş sur:',nW,'bölme,',nTri|0,'üçgen'); return nW; }
 function buildVillage(){
   world.torches=[]; VLIST.length=0; VLT={t:[],l:[]}; VLAMP=[]; vBegin();
   // --- surlar ---
   const TA=[Math.PI/4,3*Math.PI/4,5*Math.PI/4,7*Math.PI/4]; let nW=0;
-  if(CASTLE){ nW=buildCastleWall(); } else {
+  if(STONEWALL){ nW=buildStoneWall(); } else if(CASTLE){ nW=buildCastleWall(); } else {
   const nSeg=Math.round(2*Math.PI*VR/3.5);
   for(let i=0;i<nSeg;i++){ const a=i/nSeg*Math.PI*2, x=Math.cos(a)*VR, z=Math.sin(a)*VR;
     if(Math.abs(x)<13.6&&Math.abs(z)>VR-16) continue; if(TA.some(t=>Math.abs(wrap(a-t))*VR<2.1)) continue;
