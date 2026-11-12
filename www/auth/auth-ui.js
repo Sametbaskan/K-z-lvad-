@@ -60,7 +60,8 @@ export async function mountAuth({ root, onEnter, preview = () => {}, info = () =
   root.innerHTML = `<div class="abg"><i class="aimg"></i><i class="avig"></i></div>
   <div class="ascroll"><div class="awrap"><div class="abanner"><div class="alogo"><div class="alogo-c"><svg class="aemb" viewBox="0 0 120 64" aria-hidden="true"><defs><linearGradient id="aeg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#cfc9bb"/><stop offset="1" stop-color="#5f5a50"/></linearGradient></defs><path fill="url(#aeg)" d="M60 0l3.2 9v27h-6.4V9zM44 34h32l-3 5H47zM58 39h4v18l-2 6-2-6z"/><path fill="url(#aeg)" opacity=".85" d="M56 30C44 30 30 24 18 10c4 16 18 28 38 28zM64 30c12 0 26-6 38-20-4 16-18 28-38 28z"/></svg><h1>VALKOR</h1><p>Efsane seni bekliyor</p></div></div><form class="acard" id="a_card" novalidate></form><div class="afoot" id="a_foot"></div></div></div></div>
   <div class="csel" id="c_sel"><div class="cbrand">VALKOR</div>
-    <div class="ccls"><h3 id="c_cls"></h3><p id="c_sub"></p><div class="cnav"><button class="carr" id="c_l" type="button" aria-label="Önceki sınıf"><svg viewBox="0 0 10 16"><path d="M9 1 2 8l7 7" /></svg></button><div class="cdots" id="c_dots"></div><button class="carr" id="c_r" type="button" aria-label="Sonraki sınıf"><svg viewBox="0 0 10 16"><path d="M1 1l7 7-7 7" /></svg></button></div></div>
+    <div class="ccls"><h3 id="c_cls"></h3><p id="c_sub"></p></div>
+    <div class="cnav"><button class="carr" id="c_l" type="button" aria-label="Önceki karakter"><svg viewBox="0 0 10 16"><path d="M9 1 2 8l7 7" /></svg></button><div class="cdots" id="c_dots"></div><button class="carr" id="c_r" type="button" aria-label="Sonraki karakter"><svg viewBox="0 0 10 16"><path d="M1 1l7 7-7 7" /></svg></button></div>
     <div class="cpanel"><div class="ckr"><div class="cflag" id="c_flag"></div><div class="cstk"><div class="cbox" id="c_king"></div><div class="cbox" id="c_guild"></div></div></div>
       <div class="crow"><label>İsim</label><div class="cbox" id="c_name"></div></div><div class="crow"><label>Seviye</label><div class="cbox" id="c_lvl"></div></div><div class="crow"><label>Oyun Süresi (dak.)</label><div class="cbox" id="c_pt"></div></div>
       <div class="cstat"><label>HP</label><div class="ctr"><i class="hp" id="c_hp_b"></i></div><div class="cbox" id="c_hp"></div></div><div class="cstat"><label>SP</label><div class="ctr"><i class="sp" id="c_sp_b"></i></div><div class="cbox" id="c_sp"></div></div><div class="cstat"><label>STR</label><div class="ctr"><i class="st" id="c_st_b"></i></div><div class="cbox" id="c_st"></div></div><div class="cstat"><label>DEX</label><div class="ctr"><i class="dx" id="c_dx_b"></i></div><div class="cbox" id="c_dx"></div></div>
@@ -95,36 +96,39 @@ export async function mountAuth({ root, onEnter, preview = () => {}, info = () =
     else if (view === 'pass') { await A.changePassword(v('a_old'), v('a_pw'), v('a_pw2')); msg('Şifren başarıyla değiştirildi.', true); ['a_old', 'a_pw', 'a_pw2'].forEach(i => $('#' + i).value = ''); }
     else if (view === 'create') {
       const c = await A.createCharacter(state.user.uid, { name: v('a_cn'), king: (card.querySelector('input[name=a_king]:checked') || {}).value });
-      state.chars.push(c); state.notice = 'Karakter oluşturuldu. Şimdi “Seç” ile oyuna girebilirsin.'; await showChars();
+      state.chars.push(c); state.keep = state.chars.length - 1; state.notice = 'Karakter oluşturuldu. “Başla” ile oyuna girebilirsin.'; await showChars();
     }
   }
   function enter(c) { root.classList.add('gone'); onEnter({ uid: state.user.uid, username: state.name, character: c }); }
 
   const sel = root.querySelector('#c_sel'), S$ = id => sel.querySelector('#' + id);
   function setSel(on) { root.classList.toggle('sel', on); if (!on) preview(false, false); }
-  const chOf = cls => cls.ready ? (state.chars.find(c => (c.cls || 'warrior') === cls.id) || null) : null;
+  const MAX = A.MAX_CHARS || 4;
+  const slots = () => state.chars.slice(0, MAX).concat(state.chars.length < MAX ? [null] : []);   // hesap başına en fazla 4 karakter + (yer varsa) “yeni karakter” yuvası
+  const curCh = () => slots()[state.ci] || null;
   const FLAG = i => { const c = KINGS[i][1]; return `<svg viewBox="0 0 80 34" preserveAspectRatio="none"><rect width="80" height="34" fill="#0b1018"/><path d="M0 34 22 6l14 14 12-12 32 26z" fill="${c}" opacity=".35"/><path d="M40 5l8 8-8 16-8-16z" fill="${c}"/><path d="M40 9l4 4-4 9-4-9z" fill="#fff" opacity=".55"/></svg>`; };
   function renderSel() {
-    const cls = CLASSES[state.ci], ch = chOf(cls), inf = ch ? info(ch, state.user.uid) : null, K = ch ? KINGS[ch.king | 0] : null;
+    const ch = curCh(), cls = CLASSES[0], inf = ch ? info(ch, state.user.uid) : null, K = ch ? KINGS[ch.king | 0] : null;
     preview(true, cls.ready, ch, state.user.uid);
-    S$('c_cls').textContent = cls.name; S$('c_sub').textContent = !cls.ready ? 'Yakında' : ch ? '' : 'Karakter oluşturulmadı';
+    S$('c_cls').textContent = ch ? ch.name : 'Yeni Karakter'; S$('c_sub').textContent = ch ? cls.name + ' · ' + (KINGS[ch.king | 0] || KINGS[0])[0] + ' Krallığı' : 'Boş yuva — yeni bir kahraman yarat';
     S$('c_flag').innerHTML = ch ? FLAG(ch.king | 0) : ''; S$('c_king').textContent = ch ? K[0] + ' Krallığı' : '—'; S$('c_guild').textContent = ch ? (inf.guild || 'Lonca yok') : '—';
     S$('c_name').textContent = ch ? ch.name : '—'; S$('c_lvl').textContent = inf ? inf.lvl : '—'; S$('c_pt').textContent = inf ? inf.min : '—';
     [['hp', 'vit'], ['sp', 'int'], ['st', 'st'], ['dx', 'dex']].forEach(([id, k]) => { const v = inf ? inf[k] : 0; S$('c_' + id).textContent = inf ? v : '—'; S$('c_' + id + '_b').style.width = inf ? Math.max(4, Math.min(100, v / inf.cap * 100)) + '%' : '0'; });
-    const ok = S$('c_ok'), del = S$('c_del'); ok.textContent = ch ? 'Başla' : 'Oluştur'; ok.disabled = !cls.ready; del.disabled = !ch;
-    S$('c_dots').innerHTML = CLASSES.map((c, i) => `<i class="${i === state.ci ? 'on' : ''}${c.ready ? '' : ' lk'}"></i>`).join('');
+    const ok = S$('c_ok'), del = S$('c_del'); ok.textContent = ch ? 'Başla' : 'Oluştur'; ok.disabled = false; del.disabled = !ch;
+    S$('c_dots').innerHTML = Array.from({ length: MAX }, (_, i) => { const c = state.chars[i], inf2 = c ? info(c, state.user.uid) : null; return `<button type="button" class="cslot${i === state.ci ? ' on' : ''}${c ? '' : (i === state.chars.length ? ' add' : ' lk')}" data-i="${i}" ${c || i === state.chars.length ? '' : 'disabled'}><b>${c ? esc(c.name) : (i === state.chars.length ? '+ Yeni' : 'Boş')}</b><u>${c ? 'Sv. ' + inf2.lvl : (i + 1)}</u></button>`; }).join('');
+    S$('c_dots').querySelectorAll('.cslot').forEach(b => b.onclick = () => { if (b.disabled) return; state.ci = +b.dataset.i; renderSel(); });
     S$('c_acct').textContent = 'Hesap: ' + state.name; S$('c_msg').textContent = ''; S$('c_msg').className = 'amsg';
     if (state.notice) { const m = S$('c_msg'); m.textContent = state.notice; m.className = 'amsg ok'; state.notice = ''; }
   }
-  const cyc = d => { state.ci = (state.ci + d + CLASSES.length) % CLASSES.length; renderSel(); };
+  const cyc = d => { const n = slots().length; state.ci = (state.ci + d + n) % n; renderSel(); };
   S$('c_l').onclick = () => cyc(-1); S$('c_r').onclick = () => cyc(1);
-  S$('c_ok').onclick = () => { const cls = CLASSES[state.ci]; if (!cls.ready) return; const ch = chOf(cls); if (ch) enter(ch); else { show('create'); const b = card.querySelector('#a_back'); if (b) b.innerHTML = '<a href="#" data-v="chars">← Geri</a>'; wire(); } };
+  S$('c_ok').onclick = () => { const ch = curCh(); if (ch) enter(ch); else { show('create'); const b = card.querySelector('#a_back'); if (b) b.innerHTML = '<a href="#" data-v="chars">← Geri</a>'; wire(); } };
   S$('c_x').onclick = () => out();
   S$('c_pw').onclick = e => { e.preventDefault(); show('pass'); };
   const modal = S$('c_modal');
-  S$('c_del').onclick = () => { const ch = chOf(CLASSES[state.ci]); if (!ch) return; S$('c_mt').innerHTML = `Silmek için karakter adını yaz: <b>${esc(ch.name)}</b>. Bu işlem geri alınamaz.`; S$('c_mi').value = ''; S$('c_mm').textContent = ''; modal.classList.add('on'); };
+  S$('c_del').onclick = () => { const ch = curCh(); if (!ch) return; S$('c_mt').innerHTML = `Silmek için karakter adını yaz: <b>${esc(ch.name)}</b>. Bu işlem geri alınamaz.`; S$('c_mi').value = ''; S$('c_mm').textContent = ''; modal.classList.add('on'); };
   S$('c_mc').onclick = () => modal.classList.remove('on');
-  S$('c_md').onclick = async () => { const ch = chOf(CLASSES[state.ci]); if (!ch) return; if (S$('c_mi').value.trim().toLowerCase() !== ch.name.toLowerCase()) { S$('c_mm').textContent = 'Karakter adı eşleşmiyor.'; return; } S$('c_md').disabled = true; try { await A.deleteCharacter(state.user.uid, ch); purge(ch, state.user.uid); state.chars = state.chars.filter(c => c.id !== ch.id); modal.classList.remove('on'); renderSel(); const m = S$('c_msg'); m.textContent = 'Karakter silindi.'; m.className = 'amsg ok'; } catch (err) { S$('c_mm').textContent = A.explain(err); } S$('c_md').disabled = false; };
+  S$('c_md').onclick = async () => { const ch = curCh(); if (!ch) return; if (S$('c_mi').value.trim().toLowerCase() !== ch.name.toLowerCase()) { S$('c_mm').textContent = 'Karakter adı eşleşmiyor.'; return; } S$('c_md').disabled = true; try { await A.deleteCharacter(state.user.uid, ch); purge(ch, state.user.uid); state.chars = state.chars.filter(c => c.id !== ch.id); modal.classList.remove('on'); state.ci = Math.min(state.ci, slots().length - 1); renderSel(); const m = S$('c_msg'); m.textContent = 'Karakter silindi.'; m.className = 'amsg ok'; } catch (err) { S$('c_mm').textContent = A.explain(err); } S$('c_md').disabled = false; };
 
   async function showChars() {
     setSel(false); view = 'chars'; card.className = 'acard v-chars'; card.innerHTML = '<div class="aload">Hesap yükleniyor…</div>';
@@ -133,7 +137,7 @@ export async function mountAuth({ root, onEnter, preview = () => {}, info = () =
       state.name = (p && p.username) || state.pending || state.user.email; state.chars = chars;
     } catch (err) { card.innerHTML = `<div class="abody"><div class="amsg" style="display:block">${esc(A.explain(err))}</div><button class="abtn" type="button" id="a_retry"><i>Tekrar Dene</i></button></div><div class="alinks"><a href="#" id="a_out">Çıkış Yap</a></div>`; card.querySelector('#a_retry').onclick = showChars; card.querySelector('#a_out').onclick = e => { e.preventDefault(); out(); }; return; }
     if (!state.chars.length) { show('create'); const b = card.querySelector('#a_back'); if (b) b.innerHTML = '<a href="#" id="a_out">Çıkış Yap</a>'; card.querySelector('#a_out').onclick = e => { e.preventDefault(); out(); }; if (state.notice) { msg(state.notice, true); state.notice = ''; } return; }
-    state.ci = 0; setSel(true); renderSel();
+    state.ci = Math.max(0, Math.min(state.keep == null ? 0 : state.keep, slots().length - 1)); state.keep = null; setSel(true); renderSel();
   }
   async function out() { try { await A.logout(); } catch (_) {} location.reload(); }
   window.ValkorAuth = { logout: out };
