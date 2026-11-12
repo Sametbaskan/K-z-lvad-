@@ -3,6 +3,7 @@
 import * as A from './auth-service.js';
 
 const CLASSES = [{ id: 'warrior', name: 'Savaşçı', ready: true }, { id: 'ninja', name: 'Ninja' }, { id: 'shaman', name: 'Şaman' }, { id: 'sura', name: 'Sura' }];
+const HM = () => window.__heroModels || null;
 const KINGS = [['Kızıl', '#d33'], ['Altın', '#e3b52b'], ['Mavi', '#3a7be0']];
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const EYE = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M1.5 12S5.5 5 12 5s10.5 7 10.5 7-4 7-10.5 7S1.5 12 1.5 12z"/><circle cx="12" cy="12" r="3"/></svg>';
@@ -49,6 +50,7 @@ const VIEWS = {
   create: () => `<h2><span>Karakter Oluştur</span></h2>` + B(`
     ${fld('a_cn', 'sword', 'Karakter adı', { max: 14, cap: 'words' })}
     <div class="kings2">${KINGS.map((k, i) => `<label><input type="radio" name="a_king" value="${i}"${i ? '' : ' checked'}><b style="background:${k[1]}"></b>${k[0]}</label>`).join('')}</div>
+    ${HM() ? `<div class="mlab">Karakter modeli</div><div class="models">${HM().list.map(m => `<label><input type="radio" name="a_model" value="${m[0]}"${m[0] === HM().cur() ? ' checked' : ''}>${m[1]}</label>`).join('')}</div>` : ''}
     <div class="amsg" id="a_msg" role="alert"></div>
     <button class="abtn" id="a_go" type="submit"><i>Karakteri Oluştur</i></button>`) +
     `<div class="alinks" id="a_back"><a href="#" data-v="chars">← Geri</a></div>`
@@ -96,10 +98,14 @@ export async function mountAuth({ root, onEnter, preview = () => {}, info = () =
     else if (view === 'pass') { await A.changePassword(v('a_old'), v('a_pw'), v('a_pw2')); msg('Şifren başarıyla değiştirildi.', true); ['a_old', 'a_pw', 'a_pw2'].forEach(i => $('#' + i).value = ''); }
     else if (view === 'create') {
       const c = await A.createCharacter(state.user.uid, { name: v('a_cn'), king: (card.querySelector('input[name=a_king]:checked') || {}).value });
-      state.chars.push(c); state.keep = state.chars.length - 1; state.notice = 'Karakter oluşturuldu. “Başla” ile oyuna girebilirsin.'; await showChars();
+      state.chars.push(c); state.keep = state.chars.length - 1; state.notice = 'Karakter oluşturuldu. “Başla” ile oyuna girebilirsin.';
+      const h = HM(), pick = (card.querySelector('input[name=a_model]:checked') || {}).value;
+      if (h && pick) { h.set(c.id, pick); if (pick !== h.cur()) { h.apply(pick); h.flag('keepch', c.id); location.reload(); return; } }   // model oyun açılırken yüklenir: yenile, yeni karakter seçili gelsin
+      await showChars();
     }
   }
-  function enter(c) { root.classList.add('gone'); onEnter({ uid: state.user.uid, username: state.name, character: c }); }
+  function enter(c) { const h = HM(), m = h && h.of(c.id); if (m && m !== h.cur()) { h.apply(m); h.flag('autoch', c.id); location.reload(); return; }   // karakterin modeli farklı: modeli yükleyip otomatik gir
+    root.classList.add('gone'); onEnter({ uid: state.user.uid, username: state.name, character: c }); }
 
   const sel = root.querySelector('#c_sel'), S$ = id => sel.querySelector('#' + id);
   function setSel(on) { root.classList.toggle('sel', on); if (!on) preview(false, false); }
@@ -110,7 +116,7 @@ export async function mountAuth({ root, onEnter, preview = () => {}, info = () =
   function renderSel() {
     const ch = curCh(), cls = CLASSES[0], inf = ch ? info(ch, state.user.uid) : null, K = ch ? KINGS[ch.king | 0] : null;
     preview(true, cls.ready, ch, state.user.uid);
-    S$('c_cls').textContent = ch ? ch.name : 'Yeni Karakter'; S$('c_sub').textContent = ch ? cls.name + ' · ' + (KINGS[ch.king | 0] || KINGS[0])[0] + ' Krallığı' : 'Boş yuva — yeni bir kahraman yarat';
+    S$('c_cls').textContent = ch ? ch.name : 'Yeni Karakter'; S$('c_sub').textContent = ch ? (HM() ? (HM().label(HM().of(ch.id) || HM().cur()) + ' · ') : cls.name + ' · ') + (KINGS[ch.king | 0] || KINGS[0])[0] + ' Krallığı' : 'Boş yuva — yeni bir kahraman yarat';
     S$('c_flag').innerHTML = ch ? FLAG(ch.king | 0) : ''; S$('c_king').textContent = ch ? K[0] + ' Krallığı' : '—'; S$('c_guild').textContent = ch ? (inf.guild || 'Lonca yok') : '—';
     S$('c_name').textContent = ch ? ch.name : '—'; S$('c_lvl').textContent = inf ? inf.lvl : '—'; S$('c_pt').textContent = inf ? inf.min : '—';
     [['hp', 'vit'], ['sp', 'int'], ['st', 'st'], ['dx', 'dex']].forEach(([id, k]) => { const v = inf ? inf[k] : 0; S$('c_' + id).textContent = inf ? v : '—'; S$('c_' + id + '_b').style.width = inf ? Math.max(4, Math.min(100, v / inf.cap * 100)) + '%' : '0'; });
@@ -128,7 +134,7 @@ export async function mountAuth({ root, onEnter, preview = () => {}, info = () =
   const modal = S$('c_modal');
   S$('c_del').onclick = () => { const ch = curCh(); if (!ch) return; S$('c_mt').innerHTML = `Silmek için karakter adını yaz: <b>${esc(ch.name)}</b>. Bu işlem geri alınamaz.`; S$('c_mi').value = ''; S$('c_mm').textContent = ''; modal.classList.add('on'); };
   S$('c_mc').onclick = () => modal.classList.remove('on');
-  S$('c_md').onclick = async () => { const ch = curCh(); if (!ch) return; if (S$('c_mi').value.trim().toLowerCase() !== ch.name.toLowerCase()) { S$('c_mm').textContent = 'Karakter adı eşleşmiyor.'; return; } S$('c_md').disabled = true; try { await A.deleteCharacter(state.user.uid, ch); purge(ch, state.user.uid); state.chars = state.chars.filter(c => c.id !== ch.id); modal.classList.remove('on'); state.ci = Math.min(state.ci, slots().length - 1); renderSel(); const m = S$('c_msg'); m.textContent = 'Karakter silindi.'; m.className = 'amsg ok'; } catch (err) { S$('c_mm').textContent = A.explain(err); } S$('c_md').disabled = false; };
+  S$('c_md').onclick = async () => { const ch = curCh(); if (!ch) return; if (S$('c_mi').value.trim().toLowerCase() !== ch.name.toLowerCase()) { S$('c_mm').textContent = 'Karakter adı eşleşmiyor.'; return; } S$('c_md').disabled = true; try { await A.deleteCharacter(state.user.uid, ch); purge(ch, state.user.uid); if (HM()) HM().drop(ch.id); state.chars = state.chars.filter(c => c.id !== ch.id); modal.classList.remove('on'); state.ci = Math.min(state.ci, slots().length - 1); renderSel(); const m = S$('c_msg'); m.textContent = 'Karakter silindi.'; m.className = 'amsg ok'; } catch (err) { S$('c_mm').textContent = A.explain(err); } S$('c_md').disabled = false; };
 
   async function showChars() {
     setSel(false); view = 'chars'; card.className = 'acard v-chars'; card.innerHTML = '<div class="aload">Hesap yükleniyor…</div>';
@@ -137,6 +143,10 @@ export async function mountAuth({ root, onEnter, preview = () => {}, info = () =
       state.name = (p && p.username) || state.pending || state.user.email; state.chars = chars;
     } catch (err) { card.innerHTML = `<div class="abody"><div class="amsg" style="display:block">${esc(A.explain(err))}</div><button class="abtn" type="button" id="a_retry"><i>Tekrar Dene</i></button></div><div class="alinks"><a href="#" id="a_out">Çıkış Yap</a></div>`; card.querySelector('#a_retry').onclick = showChars; card.querySelector('#a_out').onclick = e => { e.preventDefault(); out(); }; return; }
     if (!state.chars.length) { show('create'); const b = card.querySelector('#a_back'); if (b) b.innerHTML = '<a href="#" id="a_out">Çıkış Yap</a>'; card.querySelector('#a_out').onclick = e => { e.preventDefault(); out(); }; if (state.notice) { msg(state.notice, true); state.notice = ''; } return; }
+    { const h = HM(), kc = h && h.flag('keepch'), ac = h && h.flag('autoch'); if (kc) h.flag('keepch', null); if (ac) h.flag('autoch', null);
+      const ki = kc ? state.chars.findIndex(c => c.id === kc) : -1, ai = ac ? state.chars.findIndex(c => c.id === ac) : -1;
+      if (ki >= 0) { state.keep = ki; state.notice = 'Karakter oluşturuldu. “Başla” ile oyuna girebilirsin.'; }
+      if (ai >= 0 && h.of(ac) === h.cur()) { enter(state.chars[ai]); return; } }
     state.ci = Math.max(0, Math.min(state.keep == null ? 0 : state.keep, slots().length - 1)); state.keep = null; setSel(true); renderSel();
   }
   async function out() { try { await A.logout(); } catch (_) {} location.reload(); }
