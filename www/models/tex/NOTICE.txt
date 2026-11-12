@@ -1,1 +1,2 @@
 GroundSand005 (kum dokusu): kullanıcı tarafından sağlandı; kaynak/lisans doğrulanmadı (ambientCG tarzı adlandırma, CC0 olabilir — doğrulayın).
+wall_*.webp: dark-slate-rock (ambientCG Rock058, CC0) + prosedürel harç çizgileri (tools/tex/build_wall.py). Lisans: WALL_LICENSE.txt

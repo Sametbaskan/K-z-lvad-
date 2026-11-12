@@ -3680,26 +3680,13 @@ function buildCastleWall(){
   scene.add(G); world.castle=G; return nW; }
 /* ---- Taş sur (prosedürel): ~10 m kalın taş duvar, yürüyüş yolu, mazgal, okçu yarıkları, yuvarlak kuleler, kemerli kapı ---- */
 let STONEWALL=true;
-function stoneTex(){   // koyu, eskimiş kesme taş (4x4 m döşeme, dikişsiz)
-  const S=512, c=document.createElement('canvas'); c.width=c.height=S; const g=c.getContext('2d'), r=rng(7741);
-  g.fillStyle='#3a3b40'; g.fillRect(0,0,S,S);
-  const rows=8, rh=S/rows;
-  for(let j=0;j<rows;j++){ let x=-r()*120; const y=j*rh;
-    while(x<S){ const w=Math.round(72+r()*110), hue=r()<.5?232:30, sat=r()*5;
-      const L=Math.round(40+r()*28); g.fillStyle=`hsl(${hue},${sat+2}%,${L*.8}%)`;
-      for(const ox of [0,-S,S]) g.fillRect(x+ox+3,y+3,w-6,rh-6);
-      // yüz aydınlığı / gölge (üst-sol ışık)
-      for(const ox of [0,-S,S]){ g.fillStyle='rgba(255,255,255,.10)'; g.fillRect(x+ox+3,y+3,w-6,3); g.fillRect(x+ox+3,y+3,3,rh-6); g.fillStyle='rgba(0,0,0,.28)'; g.fillRect(x+ox+3,y+rh-8,w-6,5); g.fillRect(x+ox+w-8,y+3,5,rh-6); }
-      x+=w; } }
-  // kum tanesi / leke
-  const id=g.getImageData(0,0,S,S), d=id.data; for(let i=0;i<d.length;i+=4){ const n=(r()-.5)*26; d[i]+=n; d[i+1]+=n; d[i+2]+=n*1.05; } g.putImageData(id,0,0);
-  for(let k=0;k<70;k++){ const x=r()*S, y=r()*S, w=3+r()*9, h=30+r()*110, gr=g.createLinearGradient(0,y,0,y+h); gr.addColorStop(0,'rgba(8,8,10,.34)'); gr.addColorStop(1,'rgba(8,8,10,0)'); g.fillStyle=gr; for(const ox of [0,-S,S]) g.fillRect(x+ox,y,w,h); }   // yağmur izi
-  for(let k=0;k<26;k++){ const x=r()*S, y=r()*S, rad=14+r()*34; const gr=g.createRadialGradient(x,y,0,x,y,rad); gr.addColorStop(0,'rgba(52,66,44,.22)'); gr.addColorStop(1,'rgba(52,66,44,0)'); g.fillStyle=gr; g.fillRect(x-rad,y-rad,rad*2,rad*2); }   // soluk yosun
-  const t=new THREE.CanvasTexture(c); t.wrapS=t.wrapT=THREE.RepeatWrapping; t.colorSpace=THREE.SRGBColorSpace; t.anisotropy=coarse?2:4; return t; }
+function stoneTex(){   // dark-slate-rock (CC0, ambientCG Rock058) + kesme taş harç çizgileri; 4x4 m döşeme
+  const L=new THREE.TextureLoader(), cfg=t=>{ t.wrapS=t.wrapT=THREE.RepeatWrapping; t.anisotropy=coarse?2:4; return t; };
+  const c=cfg(L.load('models/tex/wall_color.webp')); c.colorSpace=THREE.SRGBColorSpace; return {map:c,normalMap:cfg(L.load('models/tex/wall_nrm.webp'))}; }
 function buildStoneWall(){
   const TS=4, rc=VR+.6, NB=118, step=Math.PI*2/NB, Lstep=rc*step, L=Lstep*1.06;
   const HT=1.5, TOP=7.8, PAR=8.9, MER=10.0, BOT=-2.6;          // yarı kalınlık, yürüyüş yolu, siperlik, mazgal üstü, etek
-  const stoneMat=new THREE.MeshLambertMaterial({map:stoneTex(),vertexColors:true,side:THREE.DoubleSide}); stoneMat.color.setScalar(4.6);
+  const stoneMat=new THREE.MeshLambertMaterial(Object.assign(stoneTex(),{vertexColors:true,side:THREE.DoubleSide})); stoneMat.color.setScalar(4.3); stoneMat.normalScale.set(1.2,1.2);
   const woodMat=new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.DoubleSide});
   const _m=new THREE.Matrix4(), _q=new THREE.Quaternion(), _e=new THREE.Euler(), _v=new THREE.Vector3(), _s=new THREE.Vector3(1,1,1);
   const col=(g,c,j)=>{ const n=g.attributes.position.count, a=new Float32Array(n*3), C=new THREE.Color(c); if(j) C.multiplyScalar(1+j); for(let i=0;i<n;i++){ a[i*3]=C.r; a[i*3+1]=C.g; a[i*3+2]=C.b; } g.setAttribute('color',new THREE.BufferAttribute(a,3)); return g; };
@@ -3713,7 +3700,7 @@ function buildStoneWall(){
   function place(list,ang,rad,y){ const th=Math.PI/2-ang, cx=Math.cos(ang)*rad, cz=Math.sin(ang)*rad; _e.set(0,th,0); _q.setFromEuler(_e); _m.compose(_v.set(cx,y,cz),_q,_s); for(const g of list) g.applyMatrix4(_m); }
   const SECT=8, stone=[...Array(SECT)].map(()=>[]), wood=[...Array(SECT)].map(()=>[]), sec=a=>Math.floor(((a%(Math.PI*2)+Math.PI*2)%(Math.PI*2))/(Math.PI*2)*SECT)%SECT;
   const gates=[Math.PI/2,3*Math.PI/2], arcOf=(a,b)=>Math.abs(wrap(a-b))*rc, GW=4.6;
-  const TW=[Math.PI/4,3*Math.PI/4,5*Math.PI/4,7*Math.PI/4]; for(const g of gates) TW.push(g+8.3/rc,g-8.3/rc);
+  const TW=[Math.PI/4,3*Math.PI/4,5*Math.PI/4,7*Math.PI/4]; const GLS=1.5, FO=BLD.gl?10.7:8.3; for(const g of gates) TW.push(g+FO/rc,g-FO/rc);   // Granite Legion kulesi 1,5x: sur üstünden yükselsin
   const r=rng(9013); let nW=0, nTri=0;
   // yürüyüş yolu, siperlik, mazgallar, saçak, yarıklar: genişlik w (yerel), arc: halka boyunca konum (UV sürekliliği)
   function crown(list,w,uo,n,jit){ const mer=1.0;
@@ -3742,7 +3729,8 @@ function buildStoneWall(){
     for(const s of [-1,1]) for(const dz of [-.9,.9]){ const tx=Math.sin(ga), tz=-Math.cos(ga), ox=Math.cos(ga), oz=Math.sin(ga); addObstacle(cx+tx*s*(R+.7)+ox*dz,cz+tz*s*(R+.7)+oz*dz,1.35); }
     vLabel('VALKOR',cx,y0+8.35,cz+Math.sign(Math.sin(ga))*(HT+.85),4.2); }
   // yuvarlak gözetleme kuleleri
-  for(const ta of TW){ const cx=Math.cos(ta)*rc, cz=Math.sin(ta)*rc, y0=Math.min(hAt(cx,cz),hAt(Math.cos(ta)*(rc+4),Math.sin(ta)*(rc+4)),hAt(Math.cos(ta)*(rc-4),Math.sin(ta)*(rc-4))), S=[], Wd=[];
+  for(const ta of TW){ if(BLD.gl){ placeBld('gl','sur kulesi',Math.cos(ta)*(rc-.2),Math.sin(ta)*(rc-.2),Math.PI/2-ta,GLS,2,[0,0,7.4,6.4]); continue; }   // köy paketindeki Granite Legion gözetleme kulesi
+    const cx=Math.cos(ta)*rc, cz=Math.sin(ta)*rc, y0=Math.min(hAt(cx,cz),hAt(Math.cos(ta)*(rc+4),Math.sin(ta)*(rc+4)),hAt(Math.cos(ta)*(rc-4),Math.sin(ta)*(rc-4))), S=[], Wd=[];
     const SH=10.2, RT=4.0, RB=4.5; S.push(cyl(RT,RB,SH-BOT,(SH+BOT)/2,26,false,0x62626a));              // gövde
     S.push(cyl(4.75,4.05,.9,SH+.45,26,false,0x6e6e76));                                                // saçak (korbel) + zemin
     const tube=cyl(4.7,4.7,1.1,SH+1.45,26,true,0x626268); S.push(tube);                                // siperlik
@@ -3754,7 +3742,7 @@ function buildStoneWall(){
     addObstacle(cx,cz,4.3); VLIST.push({name:'sur kulesi',x:cx,z:cz,w:8.6,d:8.6,ry:Math.PI/2-ta,kind:'bld'}); }
   const G=new THREE.Group();
   for(let k=0;k<SECT;k++){ for(const [arr,mat] of [[stone[k],stoneMat],[wood[k],woodMat]]){ if(!arr.length) continue; const g=mergeGeometries(arr,false); arr.forEach(a=>a.dispose()); const m=new THREE.Mesh(g,mat); m.castShadow=!coarse; m.receiveShadow=!coarse; G.add(m); nTri+=g.attributes.position.count/3; } }
-  scene.add(G); world.castle=G; console.log('[Sur] taş sur:',nW,'bölme,',nTri|0,'üçgen'); return nW; }
+  scene.add(G); world.castle=G; console.log('[Sur] taş sur:',nW,'bölme,',nTri|0,'üçgen, gl kule:',!!BLD.gl,VLIST.filter(v=>v.name==='sur kulesi').length); return nW; }
 function buildVillage(){
   world.torches=[]; VLIST.length=0; VLT={t:[],l:[]}; VLAMP=[]; vBegin();
   // --- surlar ---
