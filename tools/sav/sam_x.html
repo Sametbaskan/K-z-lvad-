@@ -1,0 +1,94 @@
+<!doctype html><html><head><meta charset="utf-8">
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+</head><body><script type="module">
+import * as THREE from 'three';
+import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
+const V3=THREE.Vector3,Q=THREE.Quaternion,M4=THREE.Matrix4;
+const r3=v=>Math.round(v*1000)/1000;
+window.run=async function(){
+  const log=[];
+  /* ---- Mixamo (hero.json) dünya duruşu ---- */
+  const mj=await (await fetch('models/hero.json')).json(); const mb=mj.bones, mW=[];
+  mb.forEach((b,i)=>{ const lp=new V3().fromArray(b.pos), lq=new Q().fromArray(b.q);
+    if(b.p<0) mW[i]={p:lp,q:lq}; else { const P=mW[b.p]; mW[i]={p:P.p.clone().add(lp.applyQuaternion(P.q)),q:P.q.clone().multiply(lq)}; } });
+  const mIdx={}; mb.forEach((b,i)=>mIdx[b.n.replace(/^mixamorig:?/,'')]=i);
+  /* ---- Bip01 (Savaşçı) -> Mixamo eşleme tablosu ---- */
+  const cc2mix={Bip01_Pelvis:'Hips',Bip01_Spine:'Spine',Bip01_Spine1:'Spine1',Bip01_Spine2:'Spine2',Bip01_Neck:'Neck',Bip01_Head:'Head',Bip01_HeadNub:'HeadTop_End'};
+  for(const [S,SN] of [['L','Left'],['R','Right']]){
+    Object.assign(cc2mix,{['Bip01_'+S+'_Clavicle']:SN+'Shoulder',['Bip01_'+S+'_UpperArm']:SN+'Arm',['Bip01_'+S+'_Forearm']:SN+'ForeArm',['Bip01_'+S+'_Hand']:SN+'Hand',
+      ['Bip01_'+S+'_Thigh']:SN+'UpLeg',['Bip01_'+S+'_Calf']:SN+'Leg',['Bip01_'+S+'_Foot']:SN+'Foot',['Bip01_'+S+'_Toe0']:SN+'ToeBase',['Bip01_'+S+'_Toe0Nub']:SN+'Toe_End'});
+    const fm={Finger0:'Thumb',Finger1:'Index',Finger2:'Middle'};
+    for(const k in fm){ cc2mix['Bip01_'+S+'_'+k]=SN+'Hand'+fm[k]+'1'; cc2mix['Bip01_'+S+'_'+k+'1']=SN+'Hand'+fm[k]+'2'; cc2mix['Bip01_'+S+'_'+k+'Nub']=SN+'Hand'+fm[k]+'3'; }
+    cc2mix['Bip01_'+S+'_Finger01']=SN+'HandThumb2'; delete cc2mix['Bip01_'+S+'_Finger1']; cc2mix['Bip01_'+S+'_Finger1']=SN+'HandIndex1';
+  }
+  // Finger0 serisi: Finger0, Finger01, Finger0Nub (ikinci halka '01' adlandırması)
+  for(const S of ['L','R']){ const SN=S==='L'?'Left':'Right'; delete cc2mix['Bip01_'+S+'_Finger01']; cc2mix['Bip01_'+S+'_Finger01']=SN+'HandThumb2'; }
+  const missMix=Object.values(cc2mix).filter(m=>mIdx[m]===undefined); log.push('Mixamo’da olmayan eşleme: '+missMix.join(','));
+  /* ---- Savaşçı yükle ---- */
+  const buf=await (await fetch('ninjasrc/saman.fbx')).arrayBuffer(); const f=new FBXLoader().parse(buf,''); f.updateMatrixWorld(true);
+  const G=new Q().setFromAxisAngle(new V3(0,1,0),Math.PI), GM=new M4().makeRotationY(Math.PI);   // model -Z'ye bakıyor; Mixamo +Z
+  const E={}, order=[]; const pelvis=f.getObjectByName('Bip01_Pelvis');
+  const meshNames=['shaman_novice_red','shaman_novice_red001','shaman_face','hair_1_1']; const mesh={}; for(const n of meshNames) mesh[n]=f.getObjectByName(n);
+  const sk0=mesh.shaman_novice_red.skeleton; const skW={}; sk0.bones.forEach((b,i)=>{ skW[b.name]=sk0.boneInverses[i].clone().invert(); });
+  const walk=(o,parentName)=>{ let pn=parentName; if(o.isBone){ const nm=o.name; if(nm!==parentName){ if(!E[nm]){ const W=skW[nm]||o.matrixWorld; const p=new V3(),q=new Q(),s=new V3(); W.clone().premultiply(GM).decompose(p,q,s); E[nm]={name:nm,parent:parentName,Pw:p,Rw:q,sc:s.x}; order.push(nm); } pn=nm; } } for(const c of o.children) if(!c.isMesh) walk(c,pn); };
+  walk(pelvis,null);
+  log.push('benzersiz kemik: '+order.length+' ; ölçek sapması: '+Math.max(...order.map(n=>Math.abs(E[n].sc-1))).toFixed(4));
+  const used=new Set(); const body=mesh.shaman_novice_red;
+  for(const n of meshNames){ const m=mesh[n]; for(const b of m.skeleton.bones) used.add(b.name); }
+  /* iskelet kontrolü */
+  let maxd=0; log.push('iskelette olup E’de olmayan: '+sk0.bones.map(b=>b.name).filter(n=>!E[n]).join(','));
+  /* tutulacak kemikler: eşlenenler + deri kemikleri + ata zinciri */
+  const keep=new Set(); const addChain=n=>{ while(n&&!keep.has(n)){ keep.add(n); n=E[n]&&E[n].parent; } };
+  Object.keys(cc2mix).forEach(n=>{ if(E[n]) addChain(n); else log.push('CC’de yok: '+n); }); used.forEach(addChain);
+  const ord=order.filter(n=>keep.has(n)); const bIdx={}; ord.forEach((n,i)=>bIdx[n]=i);
+  log.push('tutulan kemik: '+ord.length);
+  /* ---- T-pozuna hizalama (yön bazlı) ---- */
+  const AIM={}; for(const S of ['L','R']){ const a=(x,y)=>AIM['Bip01_'+S+'_'+x]='Bip01_'+S+'_'+y; a('Clavicle','UpperArm');a('UpperArm','Forearm');a('Forearm','Hand');a('Hand','Finger2');a('Thigh','Calf');a('Calf','Foot');
+    for(const k of ['Finger0','Finger1','Finger2']){ a(k,k+'1'); a(k+'1',k+'Nub'); } }
+  const Rp={},Pp={}, tmp=new V3();
+  for(const n of ord){ const e=E[n], par=e.parent&&keep.has(e.parent)?E[e.parent]:null; let R0,P0;
+    if(!par){ R0=e.Rw.clone(); P0=e.Pw.clone(); }
+    else { const ri=par.Rw.clone().invert(); const lp=e.Pw.clone().sub(par.Pw).applyQuaternion(ri), lq=ri.clone().multiply(e.Rw);
+      R0=Rp[par.name].clone().multiply(lq); P0=Pp[par.name].clone().add(lp.applyQuaternion(Rp[par.name])); }
+    let R=R0; const cn=AIM[n];
+    if(cn&&E[cn]&&cc2mix[n]&&cc2mix[cn]&&mIdx[cc2mix[n]]!==undefined&&mIdx[cc2mix[cn]]!==undefined){ const lpc=E[cn].Pw.clone().sub(e.Pw).applyQuaternion(e.Rw.clone().invert()); const cur=lpc.applyQuaternion(R0).normalize();
+      const des=mW[mIdx[cc2mix[cn]]].p.clone().sub(mW[mIdx[cc2mix[n]]].p).normalize(); R=new Q().setFromUnitVectors(cur,des).multiply(R0); }
+    Rp[n]=R; Pp[n]=P0; }
+  /* ---- Nihai kemik çerçeveleri (Mixamo mutlak dönüşleri) ---- */
+  const Rf={}; for(const n of ord){ const e=E[n]; const mn=cc2mix[n]; if(mn&&mIdx[mn]!==undefined) Rf[n]=mW[mIdx[mn]].q.clone(); else Rf[n]=(e.parent&&Rf[e.parent])?Rf[e.parent].clone():new Q(); }
+  const bones=[], inv=[];
+  for(const n of ord){ const e=E[n]; const par=e.parent&&keep.has(e.parent)?e.parent:null; let pos,q;
+    if(!par){ pos=Pp[n].clone(); q=Rf[n].clone(); } else { const ri=Rf[par].clone().invert(); pos=Pp[n].clone().sub(Pp[par]).applyQuaternion(ri); q=ri.multiply(Rf[n]); }
+    const mn=cc2mix[n]; bones.push({n:'mixamorig'+(mn||n),p:par?bIdx[par]:-1,pos:pos.toArray().map(r3),q:q.toArray().map(v=>Math.round(v*1e6)/1e6),s:[1,1,1]});
+    inv.push(new M4().compose(Pp[n],Rf[n],new V3(1,1,1)).invert().toArray().map(v=>Math.round(v*1e5)/1e5)); }
+  /* ---- Mesh: T-pozunda pişir ---- */
+  const parts=[]; let ymin=1e9,ymax=-1e9; const S={};  // bone name -> skinning matrix
+  for(const n of ord){ const bind0=new M4().compose(E[n].Pw,E[n].Rw,new V3(1,1,1)); S[n]=new M4().compose(Pp[n],Rp[n],new V3(1,1,1)).multiply(bind0.invert()); }
+  const SR={}; for(const n of ord) SR[n]=new THREE.Matrix3().setFromMatrix4(S[n]);
+  const bake=(m,grpIdxSet,partName,matName,texName)=>{
+    const g=m.geometry, pos=g.attributes.position, nor=g.attributes.normal, uv=g.attributes.uv, si=g.attributes.skinIndex, sw=g.attributes.skinWeight, idx=g.index?g.index.array:Array.from({length:pos.count},(_,i)=>i);
+    const BM=new M4().multiplyMatrices(GM,m.bindMatrix); const skn=m.skeleton.bones.map(b=>b.name);
+    const tris=[]; for(const gr of g.groups.length?g.groups:[{start:0,count:idx.length,materialIndex:0}]) if(grpIdxSet.has(gr.materialIndex)) for(let i=gr.start;i<gr.start+gr.count;i++) tris.push(idx[i]);
+    const remap=new Map(), O={pos:[],nrm:[],uv:[],si:[],sw:[],idx:[]}; const v=new V3(), nv=new V3(), o=new V3(), no=new V3();
+    for(const t of tris){ let id=remap.get(t); if(id===undefined){ id=remap.size; remap.set(t,id);
+        v.fromBufferAttribute(pos,t).applyMatrix4(BM); nv.fromBufferAttribute(nor,t).transformDirection(BM);
+        o.set(0,0,0); no.set(0,0,0); let tw=0; const sIdx=[],sWt=[];
+        for(let k=0;k<4;k++){ const w=sw.getComponent(t,k); if(w<=0) continue; let bn=skn[si.getComponent(t,k)]; if(!S[bn]) bn='Bip01_Pelvis'; const mat=S[bn];
+          o.add(v.clone().applyMatrix4(mat).multiplyScalar(w)); no.add(nv.clone().applyMatrix3(SR[bn]).multiplyScalar(w)); sIdx.push(bIdx[bn]); sWt.push(w); tw+=w; }
+        no.normalize(); while(sIdx.length<4){ sIdx.push(0); sWt.push(0); }
+        const sum=sWt.reduce((a,b)=>a+b,0)||1;
+        O.pos.push(r3(o.x),r3(o.y),r3(o.z)); O.nrm.push(r3(no.x),r3(no.y),r3(no.z)); O.uv.push(Math.round(uv.getX(t)*1e4)/1e4,Math.round(uv.getY(t)*1e4)/1e4); O.si.push(...sIdx); O.sw.push(...sWt.map(w=>Math.round(w/sum*1e4)/1e4));
+        ymin=Math.min(ymin,o.y); ymax=Math.max(ymax,o.y); }
+      O.idx.push(id); }
+    parts.push({n:partName,mat:matName,tex:texName,alpha:false,col:0xcccccc,...O});
+  };
+  bake(mesh.shaman_novice_red,new Set([0,1,2,3]),'Body','body','body');
+  bake(mesh.shaman_novice_red001,new Set([0,1,2,3]),'Cloth','body','body');
+  bake(mesh.shaman_face,new Set([0,1,2,3]),'Face','face','face');
+  bake(mesh.hair_1_1,new Set([0,1,2,3]),'Hair','hair','hair'); parts[parts.length-1].alpha=true;
+  /* eski (T-pozlanmamış) boy ve yeni boy */
+  const h=ymax-ymin; log.push('boy (T-pozlu): '+h.toFixed(2)+' ymin '+ymin.toFixed(2));
+  const hips=bones[0];
+  return {bones,inv,parts,h,lo:0,meta:{k:h/mj.h,mixH:mj.h,mixHips:mb[0].pos,ccHips:hips.pos,ymin},log};
+};
+</script></body></html>
