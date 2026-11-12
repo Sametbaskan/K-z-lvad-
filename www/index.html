@@ -882,10 +882,11 @@ function resize(){ const w=innerWidth,h=innerHeight; renderer.setSize(w,h,false)
 addEventListener('resize',resize); resize();
 
 /* ---- arazi ---- */
-let DSAND=null;
+let DSAND=null, DSNOW=null;
 async function loadSand(){ const ld=u=>new Promise((ok,no)=>{ const i=new Image(); i.onload=()=>ok(i); i.onerror=no; i.src=u; });
   const low=GFX==='low'; const mk=(img,srgb)=>{ let src=img; if(low){ const c=document.createElement('canvas'); c.width=c.height=512; c.getContext('2d').drawImage(img,0,0,512,512); src=c; } const t=new THREE.Texture(src); t.wrapS=t.wrapT=THREE.RepeatWrapping; t.anisotropy=low?2:8; if(srgb) t.colorSpace=THREE.SRGBColorSpace; t.needsUpdate=true; return t; };
-  const [a,b]=await Promise.all([ld('models/tex/sand_detail.webp'),ld('models/tex/sand_nrm.webp')]); DSAND={map:mk(a,true),nrm:mk(b,false)}; }
+  const [a,b]=await Promise.all([ld('models/tex/sand_detail.webp'),ld('models/tex/sand_nrm.webp')]); DSAND={map:mk(a,true),nrm:mk(b,false)};
+  try{ const [c,d]=await Promise.all([ld('models/tex/snow_detail.webp'),ld('models/tex/snow_nrm.webp')]); DSNOW={map:mk(c,true),nrm:mk(d,false)}; }catch(e){ console.warn('[Zemin] kar dokusu yüklenemedi:',e); } }
 function makeTerrain(kind){
   const F=kind==='forest', D=kind==='desert', SN=kind==='snow', hf=SN?hSnow:D?hDesert:F?hForest:hVillage;
   const size = (D||SN)?DHALF*2+60:F?HALF*2+60:260, seg = (D||SN)?240:F?190:176;
@@ -933,8 +934,9 @@ function makeTerrain(kind){
   g.putImageData(im,0,0);
   let tex=new THREE.CanvasTexture(tc); tex.wrapS=tex.wrapT=THREE.RepeatWrapping; tex.repeat.set(90,90); tex.colorSpace=THREE.SRGBColorSpace; tex.anisotropy=4;
   const mat0=new THREE.MeshLambertMaterial({vertexColors:true, map:tex});
-  if(D&&DSAND){   // gerçek kum dokusu: tepe rengi ton verir, doku tanecik/dalga detayı; ikinci ölçekle tekrar kırılır
-    const rp=size/5.5; tex=DSAND.map; tex.repeat.set(rp,rp); mat0.map=tex; DSAND.nrm.repeat.set(rp,rp); mat0.normalMap=DSAND.nrm; mat0.normalScale.set(.8,.8);
+  const TX=D?DSAND:SN?DSNOW:null;
+  if(TX){   // gerçek kum/kar dokusu: tepe rengi ton verir, doku tanecik/dalga detayı; ikinci ölçekle tekrar kırılır
+    const rp=size/(D?5.5:4.5); tex=TX.map; tex.repeat.set(rp,rp); mat0.map=tex; TX.nrm.repeat.set(rp,rp); mat0.normalMap=TX.nrm; mat0.normalScale.set(D?.8:.7,D?.8:.7);
     mat0.onBeforeCompile=sh=>{ sh.fragmentShader=sh.fragmentShader.replace('#include <map_fragment>',
       '#ifdef USE_MAP\n vec3 sA=texture2D(map,vMapUv).rgb*1.65; vec3 sB=texture2D(map,vMapUv*.137+vec2(.31,.57)).rgb*1.65; diffuseColor.rgb*=sA*mix(vec3(1.),sB,.6);\n#endif'); };
   }
