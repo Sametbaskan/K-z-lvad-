@@ -882,11 +882,12 @@ function resize(){ const w=innerWidth,h=innerHeight; renderer.setSize(w,h,false)
 addEventListener('resize',resize); resize();
 
 /* ---- arazi ---- */
-let DSAND=null, DSNOW=null;
+let DSAND=null, DSNOW=null, DMOSS=null;
 async function loadSand(){ const ld=u=>new Promise((ok,no)=>{ const i=new Image(); i.onload=()=>ok(i); i.onerror=no; i.src=u; });
   const low=GFX==='low'; const mk=(img,srgb)=>{ let src=img; if(low){ const c=document.createElement('canvas'); c.width=c.height=512; c.getContext('2d').drawImage(img,0,0,512,512); src=c; } const t=new THREE.Texture(src); t.wrapS=t.wrapT=THREE.RepeatWrapping; t.anisotropy=low?2:8; if(srgb) t.colorSpace=THREE.SRGBColorSpace; t.needsUpdate=true; return t; };
   const [a,b]=await Promise.all([ld('models/tex/sand_detail.webp'),ld('models/tex/sand_nrm.webp')]); DSAND={map:mk(a,true),nrm:mk(b,false)};
-  try{ const [c,d]=await Promise.all([ld('models/tex/snow_detail.webp'),ld('models/tex/snow_nrm.webp')]); DSNOW={map:mk(c,true),nrm:mk(d,false)}; }catch(e){ console.warn('[Zemin] kar dokusu yüklenemedi:',e); } }
+  try{ const [c,d]=await Promise.all([ld('models/tex/snow_detail.webp'),ld('models/tex/snow_nrm.webp')]); DSNOW={map:mk(c,true),nrm:mk(d,false)}; }catch(e){ console.warn('[Zemin] kar dokusu yüklenemedi:',e); }
+  try{ const [c,d]=await Promise.all([ld('models/tex/moss_detail.webp'),ld('models/tex/moss_nrm.webp')]); DMOSS={map:mk(c,true),nrm:mk(d,false)}; }catch(e){ console.warn('[Zemin] orman dokusu yüklenemedi:',e); } }
 function makeTerrain(kind){
   const F=kind==='forest', D=kind==='desert', SN=kind==='snow', hf=SN?hSnow:D?hDesert:F?hForest:hVillage;
   const size = (D||SN)?DHALF*2+60:F?HALF*2+60:260, seg = (D||SN)?240:F?190:176;
@@ -934,11 +935,12 @@ function makeTerrain(kind){
   g.putImageData(im,0,0);
   let tex=new THREE.CanvasTexture(tc); tex.wrapS=tex.wrapT=THREE.RepeatWrapping; tex.repeat.set(90,90); tex.colorSpace=THREE.SRGBColorSpace; tex.anisotropy=4;
   const mat0=new THREE.MeshLambertMaterial({vertexColors:true, map:tex});
-  const TX=D?DSAND:SN?DSNOW:null;
+  const TX=D?DSAND:SN?DSNOW:DMOSS, MK=(D||SN)?1:F?.9:.5, KK=(D||SN)?'1.65':F?'2.3':'1.9';   // MK: doku etkisi (köyde yol/kaldırım temiz kalsın)
   if(TX){   // gerçek kum/kar dokusu: tepe rengi ton verir, doku tanecik/dalga detayı; ikinci ölçekle tekrar kırılır
-    const rp=size/(D?5.5:4.5); tex=TX.map; tex.repeat.set(rp,rp); mat0.map=tex; TX.nrm.repeat.set(rp,rp); mat0.normalMap=TX.nrm; mat0.normalScale.set(D?.8:.7,D?.8:.7);
+    const rp=size/(D?5.5:SN?4.5:F?7:6); tex=TX.map; tex.repeat.set(rp,rp); mat0.map=tex; TX.nrm.repeat.set(rp,rp); mat0.normalMap=TX.nrm; mat0.normalScale.set(D?.8:SN?.7:.6,D?.8:SN?.7:.6);
     mat0.onBeforeCompile=sh=>{ sh.fragmentShader=sh.fragmentShader.replace('#include <map_fragment>',
-      '#ifdef USE_MAP\n vec3 sA=texture2D(map,vMapUv).rgb*1.65; vec3 sB=texture2D(map,vMapUv*.137+vec2(.31,.57)).rgb*1.65; diffuseColor.rgb*=sA*mix(vec3(1.),sB,.6);\n#endif'); };
+      '#ifdef USE_MAP\n vec3 sA=texture2D(map,vMapUv).rgb*'+KK+'; vec3 sB=texture2D(map,vMapUv*.137+vec2(.31,.57)).rgb*'+KK+'; diffuseColor.rgb*=mix(vec3(1.),sA*mix(vec3(1.),sB,.6),'+MK.toFixed(2)+');\n#endif'); };
+    mat0.customProgramCacheKey=()=>'dt'+MK+KK;
   }
   const m = new THREE.Mesh(geo, mat0);
   m.receiveShadow = true; return m;
