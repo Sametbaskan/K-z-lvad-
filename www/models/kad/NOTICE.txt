@@ -1,0 +1,3 @@
+"Savaşçı Kadın" karakter modeli: kullanıcı tarafından sağlandı. Kaynak/lisans DOĞRULANMADI
+(Metin2 türevi görünüyor; ticari oyundan çıkarılmış olabilir). Herkese açık yayından önce
+lisans doğrulanmalı veya model değiştirilmeli. Oyunda isteğe bağlı seçenektir (varsayılan: klasik).
