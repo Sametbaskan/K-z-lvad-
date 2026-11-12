@@ -4,6 +4,7 @@ import sys, math
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 out = sys.argv[1]; HZ = float(sys.argv[2]) if len(sys.argv) > 2 else 0.50
+SKY = len(sys.argv) > 3 and sys.argv[3] == 'sky'   # 'sky': yalnızca gökyüzü (gerçek köy 3B sahnesi arkaya geçer)
 W, H = 2520, 1080; hz = int(H * HZ)
 rng = np.random.default_rng(7)
 
@@ -52,8 +53,13 @@ def ridge(base, amp, seed, col, haze):
     m = (ys >= prof[None, :]) & (ys < hz + 6)
     col = np.array(col, np.float32); tone = lerp(col, np.array([.55, .26, .20], np.float32), haze)
     return m, tone
-for base, amp, seed, col, haze in ((hz - 120, 210, 3, (.10, .07, .12), .45), (hz - 55, 140, 5, (.06, .04, .07), .22)):
+for base, amp, seed, col, haze in (((hz - 60, 90, 3, (.10, .07, .12), .55),) if SKY else ((hz - 120, 210, 3, (.10, .07, .12), .45), (hz - 55, 140, 5, (.06, .04, .07), .22))):
     m, tone = ridge(base, amp, seed, col, haze); S[m] = tone
+if SKY:   # yalnızca gökyüzü: ufkun altını sıcak sisle doldur, kaydet, çık
+    yy2 = np.clip((np.arange(H)[:, None] - hz) / max(1, H - hz), 0, 1)[..., None]
+    S[hz + 40:] = lerp(S[hz + 38:hz + 39], np.array([.30, .17, .15], np.float32), yy2[hz + 40:])
+    S = 1 - np.exp(-S * 1.25); S = np.clip(S + (rng.random((H, W, 1)).astype(np.float32) - .5) * .02, 0, 1)
+    Image.fromarray((S * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(.6)).save(out, quality=84, method=6); print('ok sky', out); sys.exit(0)
 # uzak surlar (orta) — kule ve mazgal siluetleri
 img = Image.fromarray((np.clip(S, 0, 1) * 255).astype(np.uint8)); d = ImageDraw.Draw(img)
 def tower(d, cx, base_y, w, h, roof, body, win, seedn):

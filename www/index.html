@@ -4215,39 +4215,34 @@ const PREV={on:false,t:0};
 function previewStep(dt){
   PREV.t+=dt; time+=dt;
   if(!playerGroup.userData.ready||!mixer) return;
-  P.pos.set(0,hAt(0,12),12); P.yaw=.42+Math.sin(PREV.t*.5)*.1; playerGroup.rotation.y=P.yaw;
+  const sp=window.__selSpot||PSTAGE.spot; P.pos.set(sp.x,hAt(sp.x,sp.z),sp.z); P.yaw=sp.yaw+Math.sin(PREV.t*.5)*.1; playerGroup.rotation.y=P.yaw;
   try{ setAnim('idle',.1); }catch(e){}
   mixer.update(dt); model.updateMatrixWorld(true); groundFix(); overlayPose(time); updateSwordFx(dt,time);
   world.windU.value=time; if(world.flag) world.flag.rotation.y=Math.sin(time*2)*.12;
   if(world.torchPts) world.torchPts.material.size=(LAMP?1.3:1.9)+Math.sin(time*11)*.16;
   if(world.torches) world.torches.forEach((t,i)=>{ t.scale.setScalar(1.4+Math.sin(time*13+i*3)*.15); });
   if(world.clouds) world.clouds.forEach(c=>{ c.position.x+=dt*.8; if(c.position.x>190) c.position.x=-190; });
-  cam.yaw=.1+Math.sin(PREV.t*.2)*.06; cam.pitch=.07; cam.dist=PREV.dist||4.9; cam.tx=P.pos.x; cam.ty=P.pos.y+.9; cam.tz=P.pos.z; updateCamera(1);
+  cam.yaw=sp.cy+Math.sin(PREV.t*.2)*.06; cam.pitch=.07; cam.dist=PREV.dist||4.9; cam.tx=P.pos.x; cam.ty=P.pos.y+.9; cam.tz=P.pos.z; updateCamera(1);
   const W=innerWidth,H=innerHeight; camera.setViewOffset(W,H,-W*.12,H*.075,W,H);   // karakteri ekranın sağ-ortasına al
   stageFit();
 }
 const PREV_HIDE=()=>[...guards.map(n=>n.g),...dwMix.map(n=>n.g||n)].filter(Boolean);
-/* karakter seçim sahnesi: dünya gizlenir; özgün arka plan + taş zemin görseli (img/bg/valkor_select.webp) sahne arkası olur, karakter üstüne gerçek zamanlı çizilir */
-const PSTAGE={tex:null,saved:null,shadow:null};
+/* karakter seçim sahnesi: gerçek köy sahnesi (binalar, sur, zemin) akşam ışığında; gökyüzü özgün akşam görseli (img/bg/valkor_select_sky.webp) */
+const PSTAGE={tex:null,saved:null,spot:{x:0,z:20,yaw:3.5,cy:3.2}};
 function stageEnter(){
   if(PSTAGE.saved) return;
-  if(!PSTAGE.tex){ const t=new THREE.TextureLoader().load(new URL('img/bg/valkor_select.webp',document.baseURI).href); t.colorSpace=THREE.SRGBColorSpace; t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping; PSTAGE.tex=t; }
-  if(!PSTAGE.shadow){ const c=document.createElement('canvas'); c.width=c.height=128; const g=c.getContext('2d'), gr=g.createRadialGradient(64,64,4,64,64,62); gr.addColorStop(0,'rgba(0,0,0,.62)'); gr.addColorStop(.55,'rgba(0,0,0,.32)'); gr.addColorStop(1,'rgba(0,0,0,0)'); g.fillStyle=gr; g.fillRect(0,0,128,128);
-    const m=new THREE.Mesh(new THREE.PlaneGeometry(2.2,2.2),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(c),transparent:true,depthWrite:false,fog:false})); m.rotation.x=-Math.PI/2; m.renderOrder=1; PSTAGE.shadow=m; scene.add(m); }
-  const vis=[]; for(const c of scene.children){ if(c===playerGroup||c.isLight||c===PSTAGE.shadow) continue; vis.push([c,c.visible]); c.visible=false; }
-  PSTAGE.saved={bg:scene.background,fog:scene.fog,vis,hc:hemi.color.getHex(),hg:hemi.groundColor.getHex(),hi:hemi.intensity,sc:sun.color.getHex(),si:sun.intensity,ex:renderer.toneMappingExposure};
-  scene.background=PSTAGE.tex; scene.fog=null; PSTAGE.shadow.visible=true;
-  hemi.color.set(0xffd2a0); hemi.groundColor.set(0x3a2622); hemi.intensity=.9; sun.color.set(0xffc58a); sun.intensity=2.2; renderer.toneMappingExposure=1.05;
+  if(!PSTAGE.tex){ const t=new THREE.TextureLoader().load(new URL('img/bg/valkor_select_sky.webp',document.baseURI).href); t.colorSpace=THREE.SRGBColorSpace; t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping; PSTAGE.tex=t; }
+  PSTAGE.saved={bg:scene.background,fog:scene.fog,hc:hemi.color.getHex(),hg:hemi.groundColor.getHex(),hi:hemi.intensity,sc:sun.color.getHex(),si:sun.intensity,ex:renderer.toneMappingExposure};
+  scene.background=PSTAGE.tex; scene.fog=new THREE.Fog(0x8a5a44,30,150);
+  hemi.color.set(0xffd2a8); hemi.groundColor.set(0x4a3a30); hemi.intensity=.8; sun.color.set(0xffb878); sun.intensity=2.3; renderer.toneMappingExposure=1.02;
 }
 function stageLeave(){
   const v=PSTAGE.saved; if(!v) return; PSTAGE.saved=null;
-  for(const [c,vis_] of v.vis) c.visible=vis_;
-  scene.background=v.bg; scene.fog=v.fog; if(PSTAGE.shadow) PSTAGE.shadow.visible=false;
+  scene.background=v.bg; scene.fog=v.fog;
   hemi.color.setHex(v.hc); hemi.groundColor.setHex(v.hg); hemi.intensity=v.hi; sun.color.setHex(v.sc); sun.intensity=v.si; renderer.toneMappingExposure=v.ex;
 }
-function stageFit(){   // görsel 21:9; ekran daha dar ise yanlardan kırp (zemin hizası bozulmaz), daha genişse yatay gerilir
+function stageFit(){   // gökyüzü görseli 21:9; ekran daha dar ise yanlardan kırp, daha genişse gerilir
   const t=PSTAGE.tex; if(!t) return; const ia=2520/1080, sa=innerWidth/innerHeight, rx=Math.min(1,sa/ia); t.repeat.set(rx,1); t.offset.set((1-rx)*.5,0);
-  if(PSTAGE.shadow){ PSTAGE.shadow.position.set(P.pos.x,P.pos.y+.03,P.pos.z); }
 }
 function charPreview(on,show,ch,uid){
   const was=PREV.on; PREV.on=!!on&&!started; playerGroup.visible=!!show||!on;
