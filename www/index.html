@@ -1150,7 +1150,7 @@ function fxImpact(pos,dx,dz,col=0xfff0cf,crit=false,big=false){
   const n=Math.round((crit?11:6)*FXN*sc)+1;
   for(let i=0;i<n;i++){ const sp=rr(2.5,6.5)*(crit?1.3:1); emit('glow',pos,dx*sp+(R()-.5)*3,rr(.5,3.2),dz*sp+(R()-.5)*3,{color:i%3?col:0xffffff,size:.2,size1:.04,life:rr(.22,.45),grav:9}); }
 }
-function fxImpactFor(m,col,crit,big){ const g=m.group.position; let dx=g.x-P.pos.x, dz=g.z-P.pos.z; const l=Math.hypot(dx,dz)||1; _tp.set(g.x,g.y+m.b.h*m.T.scale*.55,g.z); fxImpact(_tp,dx/l,dz/l,col,crit,big); }
+function fxImpactFor(m,col,crit,big){ if(typeof BV!=='undefined'&&BV.phys){ physImpact(m,BV.phys,crit); return; } const g=m.group.position; let dx=g.x-P.pos.x, dz=g.z-P.pos.z; const l=Math.hypot(dx,dz)||1; _tp.set(g.x,g.y+m.b.h*m.T.scale*.55,g.z); fxImpact(_tp,dx/l,dz/l,col,crit,big); }
 
 /* ---- kılıç dalgası (yay süpürme) ---- */
 function slashFx(pos,yaw,r,arc,tilt,c1,c2,dur=.3,dir=1,y=1.1){
@@ -1547,6 +1547,10 @@ function ironHitFx(src){ const b=bones&&(bones.Spine2||bones.Spine1); if(b) b.ge
   sparkBurst(_gw.x,_gw.y,_gw.z,7+skTier('body')*2,5.5,dx*.8,dz*.8,.5,.7,1); glint(_gw.clone(),.45,0); }
 
 /* ---- 7) sersemleme tepkisi: geri sendeleme + başta sallanma (yıldız / ışık yok) ---- */
+/* Beden becerilerinde isabet: parlayan halka yerine fiziksel tepki (kılıç: metal kıvılcım · darbe: toz) */
+function physImpact(m,kind,crit){ const g=m.group.position, h=m.b.h*m.T.scale, dx=g.x-P.pos.x, dz=g.z-P.pos.z, L=Math.hypot(dx,dz)||1;
+  if(kind==='blade') sparkBurst(g.x-dx/L*.3,g.y+h*.55,g.z-dz/L*.3,crit?9:5,5.5,dx/L*.8,dz/L*.8,.5,.6,1);
+  else if(kind==='blunt') dustPuff(g.x,g.z,crit?4:2,1.2,{up:.4,size:.45,size1:1.3,life:.7,a0:.4}); }
 function stunKick(m){ const dx=m.group.position.x-P.pos.x, dz=m.group.position.z-P.pos.z, L=Math.hypot(dx,dz)||1; m.stagger={t:0,dx:dx/L,dz:dz/L}; }
 
 /* ======== beceri başına efektler ======== */
@@ -2385,7 +2389,7 @@ function setupPlayer(fbxA, cj){
     for(let i=1;i<sp.length-1;i++) if(v[i]>.6*mx&&v[i]>=v[i-1]&&v[i]>=v[i+1]&&(!imps.length||sp[i][0]-imps[imps.length-1]>.45)) imps.push(+sp[i][0].toFixed(3));
     COMBO={dur:comboC.duration,imps:imps.length?imps:[comboC.duration*.45]}; console.info('[Anim] combo vuruş anları (sn): '+COMBO.imps.join(', '));
     try{ const im=COMBO.imps, F=30, mk=(n,t0,t1)=>{ const c=THREE.AnimationUtils.subclip(comboC,n,Math.max(0,Math.round(t0*F)),Math.min(Math.round(comboC.duration*F),Math.round(t1*F)),F); const a=mixer.clipAction(c); a.setLoop(THREE.LoopOnce,1); a.clampWhenFinished=true; actions[n]=a; return c; };
-      if(im.length>=3){ const o0=Math.max(im[1]+.25,im[2]-1.05); mk('ovh',o0,Math.min(comboC.duration,im[2]+.6)); BCLIP.ovh={ts:1.15,hit:im[2]-o0,end:1}; }
+      if(im.length>=2){ const L=im[im.length-1], o0=Math.max(im[im.length-2]+.3,L-1.05); mk('ovh',o0,Math.min(comboC.duration,L+.6)); BCLIP.ovh={ts:1.15,hit:L-o0,end:1}; }   // son vuruş: kılıç baş üstünden aşağı
       if(im.length>=1){ mk('hsw',0,Math.min(comboC.duration,im[0]+.5)); BCLIP.hsw={ts:1.5,hit:im[0],end:1}; } }catch(e){ console.warn('[Anim] beceri alt klipleri kurulamadı:',e); }
     actions.idle.reset(); actions.idle.timeScale=1; actions.idle.play(); actions.idle.setEffectiveWeight(1); mixer.update(0); model.updateMatrixWorld(true); }
   // kılıç: sağ ele takılı (kabza avuç içinde, ele göre sabit)
@@ -3435,7 +3439,7 @@ function useSlot(i){
   else if(sk.id==='cut') startCast('cut',actions.cut?'cut':'atkR','swing',.5);
   else if(sk.id==='spin'&&isWar()&&actions.hsw){ const B=BCLIP.hsw, t1=Math.max(.15,(B.hit-.1)/B.ts), t2=t1+.5, rest=(actions.hsw.getClip().duration-(B.hit-.1))/1.3, dur=t2+rest+.05;
     setAnim('hsw',.1); P.atk={t:0,dur,kind:'swing',hit:true,skill:'spin',clip:true,hitAt:1e9}; const tier=skTier('spin'), v=skv('spin'), done=new Set();
-    const hitR=()=>{ if(S.dead) return; FXL=skFx('spin'); for(const m of mobsIn(v.r)){ if(done.has(m)) continue; done.add(m); playerHit(m,v.tick,false,false,0xd8e0ea); bvContact(m,tier); } };   // aynı hedef tek kez
+    const hitR=()=>{ if(S.dead) return; FXL=skFx('spin'); BV.phys='none'; for(const m of mobsIn(v.r)){ if(done.has(m)) continue; done.add(m); playerHit(m,v.tick,false,false,0xd8e0ea); bvContact(m,tier); } BV.phys=null; };   // aynı hedef tek kez
     P.spin={war:1,t:0,t1,t2,dur,base:P.yaw,cb:ph=>{ SFX.swing(); if(ph===1){ hitR(); bvSpinDust(tier,1); SHAKE.v=Math.max(SHAKE.v,.1); } else { hitR(); bvSpinDust(tier,1); } }};
     startTrail(dur-.05,{life:.34+tier*.06,max:34,op:.62+tier*.08,w:.75});
     { const sp2=P.spin; later(t1,()=>{ if(P.spin===sp2) bvSpinDust(tier,1); }); } }
@@ -3485,11 +3489,12 @@ function meleeTargets(f){
 }
 const BODY_IDS=new Set(['cut','spin','body','roar','quake']);
 /* Beden Savaşçısı becerilerinin vuruş anı: mekanik eskisiyle aynı (hasar, sersemletme, yavaşlatma, süre), yalnızca görsel kimlik yeni */
-function bodyHit(id,v,f,a){ const tier=skTier(id), sr=1+(skFx(id)-1)*.5;
+function bodyHit(id,v,f,a){ BV.phys=id==='cut'?'blade':'blunt'; try{ bodyHit0(id,v,f,a); } finally{ BV.phys=null; } }
+function bodyHit0(id,v,f,a){ const tier=skTier(id), sr=1+(skFx(id)-1)*.5;
   if(id==='cut'){
     const hits=mobsIn(3.4*sr,f,2.3), pre=new Set(hits); hits.forEach(m=>playerHit(m,v.hit,false,false,0xfff2dc));
     bvStrike(f,tier);
-    later(.05,()=>{ if(S.dead) return; for(const m of mobsIn(5.6*sr,f,.9)){ if(pre.has(m)) continue; playerHit(m,v.wave,false,false,0xe8e4dc); if(!m.dead&&m.type!=='stone'&&!m.T.boss){ m.group.position.x+=Math.sin(f)*.6; m.group.position.z+=Math.cos(f)*.6; } } });   // hava basıncı: önündeki koniye ikincil hasar + itme
+    later(.05,()=>{ if(S.dead) return; BV.phys='blunt'; for(const m of mobsIn(5.6*sr,f,.9)){ if(pre.has(m)) continue; playerHit(m,v.wave,false,false,0xe8e4dc); if(!m.dead&&m.type!=='stone'&&!m.T.boss){ m.group.position.x+=Math.sin(f)*.6; m.group.position.z+=Math.cos(f)*.6; } } BV.phys=null; });   // hava basıncı: önündeki koniye ikincil hasar + itme
   } else if(id==='body'){
     S.buff=v.dur; S.buffAtk=v.atk; S.buffRed=v.red; say(`Demir İrade: alınan hasar -${pc(1-v.red)}, ${f1(v.dur)} sn.`,'c-sys');
     ironGlints(7+tier*3,.4+tier*.05); BV.steel.mats=null; SHAKE.v=Math.max(SHAKE.v,.06);
