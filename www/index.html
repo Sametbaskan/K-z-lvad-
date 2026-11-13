@@ -473,6 +473,7 @@ body{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-c
       <button data-g="mid"><b>Orta</b><small>Gölgeler açık, ağaç ve kaya biraz az</small></button>
       <button data-g="low"><b>Düşük (akıcı)</b><small>Gölge kapalı, ağaç ve kaya yarı yarıya az, çözünürlük sınırlı</small></button>
     </div>
+    <div class="gfxopts" style="margin-top:8px"><button id="wingBtn"><b>Kanatlar: Kapalı</b><small>Sırtında tüylü kanat (süs); koşarken çırpar, ata binince kaybolur</small></button></div>
     <p class="gfxnote" id="gfxNote">Gölge ve çözünürlük hemen değişir. Ağaç/kaya sayısı haritaya yeniden girince uygulanır.</p></div>
   <div id="shop" class="win panel fr hidden"><h2><span id="shopTitle" style="display:none">Tüccar Han</span> <span class="x" data-close="shop"><img data-ui="close" alt=""></span></h2><img class="banner" data-ui="banShop" alt="Dükkan">
     <div class="row"><span>Kırmızı İksir <small>can yeniler</small></span><button class="btn" data-buy="red">40 Yang</button></div>
@@ -1709,6 +1710,62 @@ function setSwGlow(L,f){ for(const m of swMats){ if(!m.userData.be) continue; m.
 function applySwordLook(n){ n=Math.max(0,Math.min(9,n|0)); const L=SWL[n]; swFxLv=n;
   setSwGlow(L,1);
   swHalo.forEach(s=>s.material.color.setHex(SWHC[n])); if(swAura) swAura.material.color.setHex(n>=9?0xff6a10:0xffffff); }
+/* ---- Kanatlar (isteğe bağlı süs): Spine2 kemiğine bağlı, kendi çizdiğimiz tüylü kanat; bekleme/koşu/binekte kendiliğinden davranır ---- */
+const WING={on:false,g:null,sides:[],amp:.08,fr:.9,ph:0,vis:1};
+try{ WING.on=localStorage.getItem('valkor.wings')==='1'; }catch(e){}
+function wingFeatherTex(){
+  const c=document.createElement('canvas'); c.width=64; c.height=256; const x=c.getContext('2d');   // doku uzunluğu: V ekseni = tüyün boyu (kökten uca)
+  x.clearRect(0,0,64,256);
+  const path=()=>{ x.beginPath(); x.moveTo(32,254); x.bezierCurveTo(60,200,64,80,38,4); x.lineTo(32,0); x.lineTo(26,4); x.bezierCurveTo(0,80,4,200,32,254); x.closePath(); };
+  path(); const g=x.createLinearGradient(0,256,0,0); g.addColorStop(0,'#17101a'); g.addColorStop(.45,'#2c1a22'); g.addColorStop(.8,'#5a2a1c'); g.addColorStop(1,'#d9561e'); x.fillStyle=g; x.fill();
+  x.save(); path(); x.clip(); x.lineWidth=1;
+  for(let i=0;i<70;i++){ const y=250-i*3.5, a=.18+.2*Math.random(); x.strokeStyle='rgba(255,170,110,'+a*(i/70)+')'; x.beginPath(); x.moveTo(32,y); x.lineTo(2,y-26); x.stroke(); x.beginPath(); x.moveTo(32,y); x.lineTo(62,y-26); x.stroke(); x.strokeStyle='rgba(0,0,0,'+(.25+.2*Math.random())+')'; x.beginPath(); x.moveTo(32,y-1); x.lineTo(3,y-27); x.stroke(); x.beginPath(); x.moveTo(32,y-1); x.lineTo(61,y-27); x.stroke(); }
+  x.restore(); x.strokeStyle='rgba(235,200,160,.55)'; x.lineWidth=2; x.beginPath(); x.moveTo(32,254); x.lineTo(32,6); x.stroke();   // ana omurga
+  const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; t.anisotropy=4; return t;
+}
+function buildWings(){
+  const tex=wingFeatherTex();
+  const mat=new THREE.MeshLambertMaterial({map:tex,alphaTest:.4,side:THREE.DoubleSide,emissive:0x3a1206,emissiveMap:tex});
+  const mkF=(len,wid)=>{ const g=new THREE.PlaneGeometry(len,wid,6,1), p=g.attributes.position, uv=g.attributes.uv;   // x: kök→uç; hafif aşağı kıvrım
+    for(let i=0;i<p.count;i++){ const u=(p.getX(i)+len/2)/len; p.setX(i,u*len); uv.setXY(i,uv.getY(i),u); p.setY(i,p.getY(i)-.16*len*u*u); }
+    g.computeVertexNormals(); return g; };
+  const G=new THREE.Group(); WING.sides=[];
+  for(const sd of [1,-1]){
+    const root=new THREE.Group(), side=new THREE.Group(); side.scale.x=sd; side.add(root); G.add(side);
+    const arm=new THREE.Group(), fore=new THREE.Group(), hand=new THREE.Group(); fore.position.x=30; hand.position.x=40; root.add(arm); arm.add(fore); fore.add(hand);
+    const bone=(par,len,r)=>{ const m=new THREE.Mesh(new THREE.CylinderGeometry(r*.7,r,len,6),new THREE.MeshLambertMaterial({color:0x1b1215})); m.rotation.z=-Math.PI/2; m.position.x=len/2; par.add(m); };
+    bone(arm,30,2.2); bone(fore,40,1.8); bone(hand,32,1.3);
+    const fs=[];   // {m,a0,k}: a0 = kök açı (rad, aşağı doğru negatif), k = yelpaze gecikmesi
+    const add=(par,x,len,wid,a0,k)=>{ const m=new THREE.Mesh(mkF(len,wid),mat); m.position.set(x,0,(Math.random()-.5)*.6); m.rotation.z=a0; par.add(m); fs.push({m,a0,k}); };
+    for(let i=0;i<9;i++) add(hand,i*3.6,78-i*3.2,13,-.04-i*.115,i/9);                 // birincil (uç) tüyler
+    for(let i=0;i<8;i++) add(fore,4+i*4.7,62-i*2.5,13.5,-1.12-i*.04,.3+i*.03);          // ikincil (ön kol) tüyler
+    for(let i=0;i<6;i++) add(arm,3+i*4.6,46-i*1.8,13,-1.28-i*.05,.2);                   // üçüncül (üst kol) tüyler
+    for(let i=0;i<8;i++) add(hand,i*3.8,42-i*2,10,-.1-i*.11,i/9);                       // örtü tüyleri (ikinci sıra)
+    for(let i=0;i<8;i++) add(fore,3+i*4.8,34-i*1.5,10,-1.0-i*.04,.35);
+    for(let i=0;i<6;i++) add(arm,3+i*4.6,28-i,10,-1.2-i*.04,.2);
+    WING.sides.push({side,root,arm,fore,hand,fs,sd});
+  }
+  G.position.set(0,7,-11);   // Spine2 yerel eksenleri (cm): sırt arkası
+  G.traverse(o=>{ if(o.isMesh){ o.castShadow=false; o.frustumCulled=false; } });
+  return G;
+}
+function wingsSet(on){ WING.on=!!on; try{ localStorage.setItem('valkor.wings',on?'1':'0'); }catch(e){} const b=$('wingBtn'); if(b) b.querySelector('b').textContent='Kanatlar: '+(on?'Açık':'Kapalı'); }
+function updateWings(dt,time){
+  const hb=bones&&bones.Spine2; if(!hb) return;
+  if(WING.on&&!WING.g){ try{ WING.g=buildWings(); }catch(e){ console.warn('[Kanat] kurulamadı:',e); WING.on=false; return; } }
+  if(!WING.g) return;
+  const mounted=MOUNT.ready&&MOUNT.blend>.25, want=WING.on&&!S.dead&&!mounted&&playerGroup.visible;
+  if(want&&WING.g.parent!==hb) hb.add(WING.g);
+  WING.vis+=((want?1:0)-WING.vis)*Math.min(1,dt*7); WING.g.visible=WING.vis>.02; if(!WING.g.visible) return;
+  const mov=P.moving||P.dash, ta=mov?.2:.07, tf=mov?2.1:.85; WING.amp+=(ta-WING.amp)*Math.min(1,dt*3); WING.fr+=(tf-WING.fr)*Math.min(1,dt*3); WING.ph+=dt*WING.fr*Math.PI*2;
+  const sp=WING.vis, a=WING.amp, ph=WING.ph, base=.95+(1-sp)*-.9;   // yokken kanatlar sırta kapanır
+  for(const w of WING.sides){
+    w.root.rotation.z=base+a*Math.sin(ph); w.root.rotation.y=.35+.06*Math.sin(ph*.5)*sd0(w); w.fore.rotation.z=-.5-.9*(1-sp)+a*.55*Math.sin(ph-.7); w.hand.rotation.z=-.15+a*.6*Math.sin(ph-1.4);
+    for(const f of w.fs){ f.m.rotation.z=f.a0*(.55+.45*sp)+a*.35*f.k*Math.sin(ph-1+f.k); }
+  }
+  WING.g.scale.setScalar(.35+.65*sp);
+}
+const sd0=w=>w.sd;
 function updateSwordFx(dt,time){ syncArmor(); updateArmorCloth(dt); updateArmorFx(dt,time); const want=handWant(); if(want!==SWKEY) swapHandWeapon(want); if(!sword) return;
   if(SWKEY!=='base'){ updateLegendFx(dt,time); return; } sword.visible=true;
   const n=Math.max(0,Math.min(9,S.weap|0)); if(n!==swFxLv) applySwordLook(n);
@@ -3221,6 +3278,7 @@ function gfxApply(){ const p=gfxP();
 function gfxMark(){ document.querySelectorAll('#gfxOpts button').forEach(b=>b.classList.toggle('on',b.dataset.g===GFX)); }
 $('gfxBtn').addEventListener('click',e=>{ e.stopPropagation(); const w=$('gfxw'); if(w.classList.contains('hidden')){ closeWins(); gfxMark(); w.classList.remove('hidden'); } else w.classList.add('hidden'); });
 $('gfxBtn').addEventListener('pointerdown',e=>e.stopPropagation());
+$('wingBtn').addEventListener('click',()=>wingsSet(!WING.on)); wingsSet(WING.on);
 $('gfxOpts').addEventListener('click',e=>{ const b=e.target.closest('button[data-g]'); if(!b) return; GFX=b.dataset.g; try{ localStorage.setItem('valkor_gfx',GFX); }catch(_){} gfxApply(); gfxMark(); say('Grafik: '+b.querySelector('b').textContent+(MAP.id!=='village'&&GFX!=='auto'?' — ağaç/kaya sayısı haritaya yeniden girince değişir.':'.'),'c-sys'); });
 $('gfxw').addEventListener('pointerdown',e=>e.stopPropagation());
 $('mountBtn').addEventListener('click',e=>{ e.stopPropagation(); if(started) toggleMount(); });
@@ -4282,7 +4340,7 @@ function previewStep(dt){
   if(!playerGroup.userData.ready||!mixer) return;
   const sp=window.__selSpot||PSTAGE.spot; P.pos.set(sp.x,hAt(sp.x,sp.z),sp.z); P.yaw=sp.yaw+Math.sin(PREV.t*.5)*.1; playerGroup.rotation.y=P.yaw;
   try{ setAnim('idle',.1); }catch(e){}
-  mixer.update(dt); model.updateMatrixWorld(true); groundFix(); overlayPose(time); updateSwordFx(dt,time);
+  mixer.update(dt); model.updateMatrixWorld(true); groundFix(); overlayPose(time); updateSwordFx(dt,time); updateWings(dt,time);
   world.windU.value=time; if(world.flag) world.flag.rotation.y=Math.sin(time*2)*.12;
   if(world.torchPts) world.torchPts.material.size=(LAMP?1.3:1.9)+Math.sin(time*11)*.16;
   if(world.torches) world.torches.forEach((t,i)=>{ t.scale.setScalar(1.4+Math.sin(time*13+i*3)*.15); });
@@ -4344,7 +4402,7 @@ function frame(now){
     for(let i=0;i<cds.length;i++) if(cds[i]>0) cds[i]=Math.max(0,cds[i]-dt);
     if(!TRAVEL.busy){
     updatePlayer(dt); updateMount(dt,time); if(PF) pf('player'); updatePlants(dt); if(PF) pf('plants'); updateLake(dt); updateSnow(dt); if(PF) pf('lake+snow');
-    if(mixer){ mixer.update(dt); model.updateMatrixWorld(true); groundFix(); overlayPose(time); updateSwordFx(dt,time); }
+    if(mixer){ mixer.update(dt); model.updateMatrixWorld(true); groundFix(); overlayPose(time); updateSwordFx(dt,time); updateWings(dt,time); }
     if(PF) pf('playerAnim');
     if(dwMix.length) updateSmith(dt);
     if(guards.length) updateGuards(dt);
