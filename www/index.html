@@ -1538,8 +1538,8 @@ function steelMats(){ if(BV.steel.mats) return BV.steel.mats; const L=[]; player
 /* her karede: Demir İrade sürerken gövdeye çok hafif çelik tonu, arada bir eklem yansıması */
 function updateIronWill(dt){ const want=S.buff>0&&!S.dead&&isWar()?1:0, st=BV.steel; const prev=st.on; st.on+=(want-st.on)*Math.min(1,dt*4); if(st.on<.003&&prev<.003) return;
   if(st.on<.003){ for(const x of steelMats()){ x.m.emissive.copy(x.e); x.m.emissiveIntensity=x.i; } st.mats=null; return; }
-  const pul=.5+.5*Math.sin(time*2.2), tr=skTier('body'), k=st.on*(.1+.04*tr)*(.75+.25*pul);
-  for(const x of steelMats()){ x.m.emissive.copy(x.e).lerp(_sc.setRGB(.55,.62,.72),Math.min(1,k*3)); x.m.emissiveIntensity=Math.max(x.i,k); }
+  const pul=.5+.5*Math.sin(time*2.2), tr=skTier('body'), k=st.on*(.045+.015*tr)*(.7+.3*pul);   // çok hafif çelik tonu
+  for(const x of steelMats()){ if(x.m.emissiveMap){ x.m.emissive.copy(x.e); x.m.emissiveIntensity=x.i; continue; } x.m.emissive.copy(x.e).add(_sc.setRGB(.5,.56,.66).multiplyScalar(k)); x.m.emissiveIntensity=Math.max(1,x.i); }
   if(want&&R()<dt*(1.2+tr*.6)*FXN) ironGlints(1,.28+tr*.04); }
 /* Demir İrade sürerken alınan darbe: göğüste kısa metal kıvılcım */
 function ironHitFx(src){ const b=bones&&(bones.Spine2||bones.Spine1); if(b) b.getWorldPosition(_gw); else _gw.set(P.pos.x,P.pos.y+1.2,P.pos.z);
