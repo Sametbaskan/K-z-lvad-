@@ -1,3 +1,4 @@
 "Savaşçı Erkek" karakter modeli: kullanıcı tarafından sağlandı. Kaynak/lisans DOĞRULANMADI
 (Metin2 türevi görünüyor; ticari oyundan çıkarılmış olabilir). Herkese açık yayından önce
 lisans doğrulanmalı veya model değiştirilmeli. Oyunda isteğe bağlı seçenektir (varsayılan: klasik).
+Beden Savaşçısı ek klipleri (www/models/sav|kad/block,land,crouch.json): KinemIQ Free Animations (CC0, Quaternius) -> Mixamo iskeletine yeniden hedeflendi (tools/skills/kq_rt2.py + sk_clips.py). slam.json: hero_cut.json (Mixamo "Standing Melee Run Jump Attack", kullanıcı yükledi, Mixamo koşulları).
