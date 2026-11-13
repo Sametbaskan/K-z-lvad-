@@ -1,3 +1,4 @@
 "Savaşçı Kadın" karakter modeli: kullanıcı tarafından sağlandı. Kaynak/lisans DOĞRULANMADI
 (Metin2 türevi görünüyor; ticari oyundan çıkarılmış olabilir). Herkese açık yayından önce
 lisans doğrulanmalı veya model değiştirilmeli. Oyunda isteğe bağlı seçenektir (varsayılan: klasik).
+Beden Savaşçısı beceri klipleri (block, slam, gcut, gspin .json): Mixamo "Great Sword Pack" (kullanıcı yükledi, Mixamo koşulları; ham FBX repoda yok). block=great sword blocking, slam=great sword jump attack, gcut=great sword slash (3), gspin=great sword high spin attack. Kalça yüksekliği Ch45 -> oyun iskeletine ölçeklendi (tools/skills/gs_clips.py).
