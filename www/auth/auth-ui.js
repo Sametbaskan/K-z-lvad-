@@ -50,7 +50,7 @@ const VIEWS = {
   create: () => `<h2><span>Karakter Oluştur</span></h2>` + B(`
     ${fld('a_cn', 'sword', 'Karakter adı', { max: 14, cap: 'words' })}
     <div class="kings2">${KINGS.map((k, i) => `<label><input type="radio" name="a_king" value="${i}"${i ? '' : ' checked'}><b style="background:${k[1]}"></b>${k[0]}</label>`).join('')}</div>
-    ${HM() ? `<div class="mlab">Karakter modeli</div><div class="models">${HM().list.map(m => `<label><input type="radio" name="a_model" value="${m[0]}"${m[0] === HM().cur() ? ' checked' : ''}>${m[1]}</label>`).join('')}</div>` : ''}
+    ${HM() ? `<div class="mlab">Karakter modeli</div><div class="models">${HM().list.map(m => `<label${m[2] ? ' class="soon"' : ''}><input type="radio" name="a_model" value="${m[0]}"${m[2] ? ' disabled' : m[0] === HM().cur() ? ' checked' : ''}>${m[1]}${m[2] ? '<small>yakında</small>' : ''}</label>`).join('')}</div>` : ''}
     <div class="amsg" id="a_msg" role="alert"></div>
     <button class="abtn" id="a_go" type="submit"><i>Karakteri Oluştur</i></button>`) +
     `<div class="alinks" id="a_back"><a href="#" data-v="chars">← Geri</a></div>`

@@ -499,7 +499,6 @@ document.getElementById('splImg').src=VBG.url(VBG.a);
 </script>
 <link rel="stylesheet" href="auth/auth.css">
 <div id="auth" class="pre"></div><div id="credits">Çöl binaları: ondrasaur (OndyRen) · CC BY 4.0 · sketchfab.com/saurondra</div>
-<button id="heroPick" type="button" aria-label="Karakter modelini değiştir"></button>
 <button id="authOut" class="hidden" type="button" aria-label="Çıkış yap">⎋ Çıkış</button>
 <div id="death" class="hidden"><div class="dvig"></div><div class="dbox"><h1>ÖLDÜNÜZ</h1><div class="dline"></div><div class="dbtns"><button class="dbtn" id="reHere" type="button">Burada Yeniden Başla</button><button class="dbtn" id="reCity" type="button">Şehirde Yeniden Başla</button></div></div></div>
 
@@ -739,7 +738,7 @@ const RUN_STEP_K = 1.07;
 let RUN_CLIP_SPEED = 1.98;   // jogging klibinin gömülü hızı (m/sn)
 const RUN_SPEED = 3.3;
 const HERO_CC_ENABLED=false;   // 2. karakter (Unity/CC) rafa kaldırıldı: dosyalar ve kod duruyor, seçilemiyor (true yapınca geri gelir)
-let HERO_PICK='classic'; try{ const hv=localStorage.getItem('valkor.hero'); if(hv==='sav'||hv==='kad'||hv==='nin'||hv==='nink'||hv==='sam') HERO_PICK=hv; else if(hv==='cc'&&HERO_CC_ENABLED) HERO_PICK='cc'; }catch(e){}   // karakter modeli: 'classic' (Mixamo Ch44) | 'cc' (Unity.zip / Character Creator gövdesi) — ana ekrandaki düğmeyle değişir
+let HERO_PICK='sav'; try{ const hv=localStorage.getItem('valkor.hero'); if(hv==='sav'||hv==='kad'||hv==='nin'||hv==='nink'||hv==='sam') HERO_PICK=hv; else if(hv==='cc'&&HERO_CC_ENABLED) HERO_PICK='cc'; }catch(e){}   // karakter modeli: 'classic' (Mixamo Ch44) | 'cc' (Unity.zip / Character Creator gövdesi) — ana ekrandaki düğmeyle değişir
 const RUN_KQ=true, CUT_KQ=true;   // KinemIQ (CC0) koşu ve Güçlü Vuruş: false yapılınca eski klipler (hero_run3 / hero_cut) döner — dosyalar silinmedi
 const ANIM_SET='yeni';   // bekleme+koşu animasyon seti: 'yeni' (Standing_Idle__1 + Unarmed_Run_Forward) | 'eski' (önceki Standing_Idle + Run_With_Sword) — eski dosyalar silinmedi
 
@@ -4901,14 +4900,13 @@ function devBoost(){ S.lvl=99; S.exp=0; S.qd=3; S.yang=10000000; S.pts=Math.max(
 window.__devBoost=devBoost;
 window.__gear={useSlot,P,SLOT_DEF,fitZone,S,stoneCount,upgradeGear,moveItem,EQS,GEAR,ITEMS,maxHP,defPow,atkPow,initInv,saveGame,get key(){return SAVEKEY}};
 (function(){ const n=$('meName'); let c=0,t=0; n.style.pointerEvents='auto'; n.addEventListener('click',()=>{ c++; clearTimeout(t); t=setTimeout(()=>c=0,1500); if(c>=7){ c=0; devBoost(); } }); })();
-(function(){ const b=$('heroPick'); const lab=()=>{ b.textContent='Karakter modeli: '+(HERO_PICK==='sav'?'Savaşçı':HERO_PICK==='kad'?'Savaşçı Kadın':HERO_PICK==='nin'?'Ninja':HERO_PICK==='nink'?'Ninja Kadın':HERO_PICK==='sam'?'Şaman':HERO_PICK==='cc'?'Yeni (Unity)':'Klasik')+'  (değiştir)'; }; lab();
-  b.addEventListener('click',()=>{ try{ localStorage.setItem('valkor.hero',({classic:'sav',sav:'kad',kad:'nin',nin:'nink',nink:'sam',sam:'classic'})[HERO_PICK]||'classic'); }catch(e){} b.textContent='Yükleniyor…'; setTimeout(()=>location.reload(),60); }); })();
+
 (function(){ const b=$('authOut'); let t=0; b.addEventListener('click',()=>{ if(!b.classList.contains('arm')){ b.classList.add('arm'); b.textContent='Emin misin? Çıkış'; saveGame(); t=setTimeout(()=>{ b.classList.remove('arm'); b.textContent='⎋ Çıkış'; },3500); } else { clearTimeout(t); saveGame(); window.ValkorAuth&&window.ValkorAuth.logout(); } }); b.addEventListener('pointerdown',e=>e.stopPropagation()); })();
 /* karakter başına model: seçim yalnızca bu cihazda saklanır (kayıt yoksa mevcut genel seçim geçerli). Model oyun açılırken yüklendiği için değişince sayfa yenilenir. */
-window.__heroModels=(function(){ const LIST=[['classic','Klasik'],['sav','Savaşçı'],['kad','Savaşçı Kadın'],['nin','Ninja'],['nink','Ninja Kadın'],['sam','Şaman']], KEY='valkor.charModel.';
+window.__heroModels=(function(){ const LIST=[['sav','Savaşçı Erkek'],['kad','Savaşçı Kadın'],['nin','Ninja Erkek'],['nink','Ninja Kadın'],['sam','Şaman Erkek'],['saman_k','Şaman Kadın',1],['sura_e','Sura Erkek',1],['sura_k','Sura Kadın',1]], KEY='valkor.charModel.';
   const rd=k=>{ try{ return localStorage.getItem(k); }catch(e){ return null; } }, wr=(k,v)=>{ try{ if(v==null) localStorage.removeItem(k); else localStorage.setItem(k,v); }catch(e){} };
   return { list:LIST, cur:()=>HERO_PICK, label:id=>(LIST.find(x=>x[0]===id)||LIST[0])[1],
-    of:cid=>{ const v=rd(KEY+cid); return LIST.some(x=>x[0]===v)?v:null; }, set:(cid,m)=>wr(KEY+cid,m), drop:cid=>wr(KEY+cid,null),
+    of:cid=>{ const v=rd(KEY+cid); return LIST.some(x=>x[0]===v&&!x[2])?v:null; }, set:(cid,m)=>wr(KEY+cid,m), drop:cid=>wr(KEY+cid,null),
     apply:m=>{ wr('valkor.hero',m); },   // sonraki açılışta yüklenecek model
     flag:(k,v)=>{ if(v===undefined) return rd('valkor.'+k); wr('valkor.'+k,v); } }; })();
 async function mountAuthUI(){
