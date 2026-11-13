@@ -396,9 +396,9 @@ body{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-c
 .m4c{position:absolute;display:grid;place-items:center;cursor:pointer;pointer-events:auto}
 .m4c::before{content:"";position:absolute;inset:4%;background:rgba(0,0,0,.5);clip-path:polygon(16% 0,84% 0,100% 16%,100% 84%,84% 100%,16% 100%,0 84%,0 16%)}
 .m4c.lrn::before{background:radial-gradient(#b8661c,#5a2a0a)}.m4c.perf::before{background:radial-gradient(#e0b83a,#7a5a10)}
-.m4c img{position:relative;width:78%;height:78%;object-fit:contain;pointer-events:none}.m4c:not(.lrn) img{opacity:.55;filter:grayscale(.6)}
+.m4c img{position:relative;width:100%;height:100%;object-fit:fill;pointer-events:none}.m4c:not(.lrn) img{opacity:.55;filter:grayscale(.6)}
 .m4c b{position:absolute;right:10%;bottom:6%;font:700 3.2cqw var(--body);color:#fff;text-shadow:0 1px 2px #000,0 0 3px #000}
-.m4c.sel{outline:2px solid #ffe08a;outline-offset:-3px;filter:drop-shadow(0 0 4px #ffe08a)}
+.m4c.sel{outline:2px solid #ffe08a;outline-offset:-2px;filter:drop-shadow(0 0 4px #ffe08a)}
 .m4c.ms::before{background:radial-gradient(#8d9db6,#27303e)}.m4c.gm::before{background:radial-gradient(#b23a2a,#3c100b)}.m4c.dis{opacity:.38}.m4c.ms b,.m4c.gm b,.m4c.perf b{color:#ffe9a8}
 .m4it{position:absolute;display:grid;place-items:center;pointer-events:auto}.m4it img{width:66%;height:66%;object-fit:contain}.m4it.no img{opacity:.35;filter:grayscale(.8)}.m4it b{position:absolute;right:10%;bottom:6%;font:700 3.2cqw var(--body);color:#fff;text-shadow:0 1px 2px #000,0 0 3px #000}
 .m4rs{pointer-events:auto;cursor:pointer;font:700 2.7cqw var(--body);color:#e8cfa0;background:linear-gradient(#3a2a20,#1a120d);border:1px solid #7a5f2e;border-radius:3px;padding:0}
@@ -3623,7 +3623,7 @@ let zoneTxt='';
 function fitZone(){ const z=$('zone'), t=z.textContent; if(t===zoneTxt) return; zoneTxt=t; z.classList.remove('long'); z.style.fontSize=''; const mw=z.parentElement.clientWidth; if(!mw) { zoneTxt=''; return; }
   if(z.scrollWidth<=mw) return; z.classList.add('long'); let fs=parseFloat(getComputedStyle(z).fontSize), lim=z.clientWidth; while(z.scrollWidth>lim && fs>7){ fs-=.5; z.style.fontSize=fs+'px'; } }
 let skSig='', SKSEL='cut', SKCONF=null;
-const SKCX=[35,105,174,245,315,384], SKRY=[113,183,250,318];
+const SKCX=[34,103,173,244,315,383], SKRY=[104,177,244,312];   // panel görselindeki yuvaların gerçek sol-üst köşeleri (57x57)
 /* beceri hücreleri: savaşçıda sol üçlü sütun = Beden, sağ üçlü sütun = Zihin; diğer sınıflarda eski 8 beceri */
 function skCells(){ if(isWar()){ const out=[]; [['beden',0],['zihin',3]].forEach(([b,c0])=>BRANCH[b].ids.forEach((id,i)=>out.push({id,c:c0+i%3,r:Math.floor(i/3),br:b}))); return out; }
   return LEGACY_SK.map((id,i)=>({id,c:i%3,r:Math.floor(i/3),br:null})); }
@@ -3640,13 +3640,13 @@ function renderSkillWin(force){
   const pts=skPoints(), locked=S.lvl<SKUNLOCK, W=475, H=661;
   let h=`<button class="m3x" data-close="mw" aria-label="Kapat"></button><div class="m4h">${war?(S.br?BRANCH[S.br].name:'Dalını seç'):'Beceriler'}</div><div class="m4pt">${pts}</div>`;
   for(const c of cells){ const id=c.id, n=skN(id), tr=skTier(id), off=war&&S.br&&c.br!==S.br;
-    h+=`<div class="m4c${id===SKSEL?' sel':''}${n>0?' lrn':''}${tr===1?' ms':tr===2?' gm':tr===3?' perf':''}${off?' dis':''}" data-sksel="${id}" style="${gbox(SKCX[c.c],SKRY[c.r],58,57,W,H)}"><img src="data:image/webp;base64,${SKICON[SKD[id].icon]}" alt="${SKD[id].name}"><b>${skLab(id)}</b></div>`; }
+    h+=`<div class="m4c${id===SKSEL?' sel':''}${n>0?' lrn':''}${tr===1?' ms':tr===2?' gm':tr===3?' perf':''}${off?' dis':''}" data-sksel="${id}" style="${gbox(SKCX[c.c],SKRY[c.r],57,57,W,H)}"><img src="data:image/webp;base64,${SKICON[SKD[id].icon]}" alt="${SKD[id].name}"><b>${skLab(id)}</b></div>`; }
   /* gelişim eşyaları + sıfırlama */
   { const pos=war?[[0,2],[1,2],[2,2],[3,2]]:[[3,0],[4,0],[5,0],[3,1]], rs=war?[4,2]:[4,1];
-    SKITEMS.forEach((k,i)=>{ const n=itemCount(k); h+=`<div class="m4it${n?'':' no'}" title="${ITEMS[k].name}" style="${gbox(SKCX[pos[i][0]],SKRY[pos[i][1]],58,57,W,H)}"><img src="${UIIMG[k]}" alt="${ITEMS[k].name}"><b>${n}</b></div>`; });
-    h+=`<button class="m4rs" data-skact="reset" style="${gbox(SKCX[rs[0]],SKRY[rs[1]]+10,128,37,W,H)}">Becerileri sıfırla</button>`; }
-  if(war) for(const [b,x] of [['beden',35],['zihin',245]]){ const B=BRANCH[b], on=S.br===b, lk=S.br&&!on;
-    h+=`<button class="m4tab${on?' on':''}${lk?' lk':''}${cells.find(c=>c.id===SKSEL).br===b?' cur':''}" data-skact="tab" data-arg="${b}" style="${gbox(x,SKRY[3],198,57,W,H)}"><b>${B.name}</b><small>${on?'Seçili dal':lk?'Kilitli (diğer dal seçildi)':B.info}</small></button>`; }
+    SKITEMS.forEach((k,i)=>{ const n=itemCount(k); h+=`<div class="m4it${n?'':' no'}" title="${ITEMS[k].name}" style="${gbox(SKCX[pos[i][0]],SKRY[pos[i][1]],57,57,W,H)}"><img src="${UIIMG[k]}" alt="${ITEMS[k].name}"><b>${n}</b></div>`; });
+    h+=`<button class="m4rs" data-skact="reset" style="${gbox(SKCX[rs[0]],SKRY[rs[1]]+10,125,37,W,H)}">Becerileri sıfırla</button>`; }
+  if(war) for(const [b,x] of [['beden',34],['zihin',244]]){ const B=BRANCH[b], on=S.br===b, lk=S.br&&!on;
+    h+=`<button class="m4tab${on?' on':''}${lk?' lk':''}${cells.find(c=>c.id===SKSEL).br===b?' cur':''}" data-skact="tab" data-arg="${b}" style="${gbox(x,SKRY[3],196,57,W,H)}"><b>${B.name}</b><small>${on?'Seçili dal':lk?'Kilitli (diğer dal seçildi)':B.info}</small></button>`; }
   const cell=cells.find(c=>c.id===SKSEL), sk=SKD[SKSEL], L=skL(SKSEL), tr=skTier(SKSEL), nx=skNext(SKSEL), cur=skStats(SKSEL,L), nxs=nx.k==='max'?null:skStats(SKSEL,L+1), nlab=nx.k==='max'?'':(L+1<20?String(L+1):L+1<30?'M'+(L+1-19):L+1<40?'G'+(L+1-29):'P');
   const stg=skN(SKSEL)<=0?'Öğrenilmemiş':tr===0?`${skN(SKSEL)} / ${SKMAX}`:tr===3?'PERFECT MASTER':`${skStage(SKSEL)} ${skLab(SKSEL)}`;
   let ft;
